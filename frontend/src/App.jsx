@@ -214,8 +214,9 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const loadWorkspaces = async () => {
     try {
       const response = await workspaceAPI.getWorkspaces();
-      setWorkspaces(response.data);
+      setWorkspaces(response.data.workspaces || []);
     } catch (error) {
+      console.error('Load workspaces error:', error);
       toast.error('Failed to load workspaces');
     } finally {
       setLoading(false);

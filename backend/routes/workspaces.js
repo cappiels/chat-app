@@ -516,6 +516,15 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
 // Create workspace_invitations table if it doesn't exist
 const createInvitationsTable = async () => {
   try {
+    // First, add missing columns to workspaces table
+    await pool.query(`
+      ALTER TABLE workspaces 
+      ADD COLUMN IF NOT EXISTS description TEXT,
+      ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;
+    `);
+
+    // Create invitations table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS workspace_invitations (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
