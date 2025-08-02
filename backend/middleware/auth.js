@@ -145,9 +145,10 @@ const upsertUser = async (userData) => {
   try {
     await client.query('BEGIN');
 
-    // First, add phone_number column to users table if it doesn't exist
+    // First, add missing columns to users table if they don't exist
     await client.query(`
       ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS profile_picture_url TEXT,
       ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20),
       ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) DEFAULT 'email',
       ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
