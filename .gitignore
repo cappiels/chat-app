@@ -19,3 +19,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 /backend/serviceAccountKey.json
+
+# Screenshots and images that shouldn't be in repo
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.webp
+Screenshot*
