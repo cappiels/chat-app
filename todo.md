@@ -141,15 +141,38 @@
 
 ## 🚧 Phase 6: Production Deployment & Safety
 
-### Deployment Strategy
-- [ ] Create staging environment (develop branch)
-- [ ] Set up staging database
-- [ ] Create migration runner scripts
-- [ ] Database backup procedures
-- [ ] Rollback procedures documentation
+### Critical Production Issues - URGENT!
+- [x] Fixed Firebase serviceAccountKey.json issue for production
+- [ ] Fix database schema - missing columns in production
+- [ ] Set up Firebase Admin SDK environment variables in Digital Ocean
+- [ ] Force rebuild and deploy on Digital Ocean
+- [ ] Test production deployment end-to-end
+
+### Database Schema Fixes Required
+- [ ] Add missing columns to users table:
+  - profile_picture_url (VARCHAR)
+  - phone_number (VARCHAR)
+  - auth_provider (VARCHAR)
+  - last_login (TIMESTAMP)
+  - is_active (BOOLEAN)
+
+### Environment Variables Setup
+- [ ] Digital Ocean Backend Environment Variables:
+  - NODE_ENV=production
+  - FIREBASE_PROJECT_ID=<from Firebase console>
+  - FIREBASE_CLIENT_EMAIL=<from service account JSON>
+  - FIREBASE_PRIVATE_KEY=<from service account JSON>
+  - DATABASE_URL=<already set>
+  - FRONTEND_URL=<frontend domain>
+
+### Frontend Deployment
+- [ ] Deploy frontend to Vercel/Netlify
+- [ ] Set up frontend environment variables
+- [ ] Update API URLs for production
+- [ ] Configure CORS for production domains
 
 ### Testing & QA
-- [ ] End-to-end testing
+- [ ] End-to-end testing in production
 - [ ] Load testing for multi-tenant architecture
 - [ ] Security testing (workspace isolation)
 - [ ] Performance optimization
