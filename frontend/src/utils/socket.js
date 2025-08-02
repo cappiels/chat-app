@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client';
 import { auth } from '../firebase';
 
-const SOCKET_URL = 'http://localhost:8080';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8080';
 
 class SocketManager {
   constructor() {

@@ -81,47 +81,50 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   const channels = threads.filter(t => t.type === 'channel');
   const directMessages = threads.filter(t => t.type === 'dm');
 
-  // Slack-style Home View
+  // Slack-style Home View - Responsive Design
   const HomeView = () => (
-    <div className="flex-1 bg-white overflow-y-auto">
-      {/* Header */}
-      <div className="bg-purple-600 text-white p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-              <MessageSquare className="w-5 h-5" />
+    <div className="flex-1 bg-white overflow-y-auto min-h-screen">
+      {/* Header - Full Width */}
+      <div className="bg-purple-600 text-white p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <MessageSquare className="w-7 h-7" />
+              </div>
+              <h1 className="text-2xl font-bold">{workspace.name}</h1>
             </div>
-            <h1 className="text-xl font-bold">{workspace.name}</h1>
+            <div className="flex items-center space-x-4">
+              <img
+                src={user.photoURL}
+                alt={user.displayName}
+                className="w-10 h-10 rounded-full border-2 border-white/30"
+              />
+              <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+            </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <img
-              src={user.photoURL}
-              alt={user.displayName}
-              className="w-8 h-8 rounded-full border-2 border-white/30"
-            />
-            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-          </div>
-        </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/60" />
-          <input
-            type="text"
-            placeholder="Jump to or search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/20 text-white placeholder-white/60 rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:bg-white/30"
-          />
-          <button className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <MoreHorizontal className="w-5 h-5 text-white/60" />
-          </button>
+          {/* Search Bar - Responsive Width */}
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/60" />
+            <input
+              type="text"
+              placeholder="Jump to or search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/20 text-white placeholder-white/60 rounded-lg pl-12 pr-12 py-4 text-lg focus:outline-none focus:bg-white/30 transition-all"
+            />
+            <button className="absolute right-4 top-1/2 transform -translate-y-1/2">
+              <MoreHorizontal className="w-5 h-5 text-white/60" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Navigation Cards */}
-      <div className="p-4">
-        <div className="grid grid-cols-2 gap-3 mb-6">
+      {/* Main Content - Responsive Container */}
+      <div className="max-w-6xl mx-auto p-6">
+        {/* Navigation Cards - Responsive Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <motion.div
             whileTap={{ scale: 0.98 }}
             className="bg-gray-50 rounded-xl p-4 flex flex-col items-center"
@@ -159,113 +162,130 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           </motion.div>
         </div>
 
-        {/* Channels Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-900">Channels</h2>
-            <ChevronDown className="w-5 h-5 text-gray-500" />
+        {/* Content Sections - Two Column Layout on Desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* Left Column */}
+          <div className="space-y-8">
+            {/* Channels Section */}
+            <div className="bg-gray-50 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Channels</h2>
+                <ChevronDown className="w-5 h-5 text-gray-500" />
+              </div>
+
+              <div className="space-y-3">
+                {channels.map((channel) => (
+                  <motion.div
+                    key={channel.id}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center space-x-4 py-3 px-3 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Hash className="w-5 h-5 text-gray-500" />
+                    <span className="text-gray-900 font-medium text-lg">{channel.name}</span>
+                  </motion.div>
+                ))}
+
+                {/* Add Channel */}
+                <motion.div
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowCreateChannel(true)}
+                  className="flex items-center space-x-4 py-3 px-3 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                >
+                  <Plus className="w-5 h-5 text-gray-500" />
+                  <span className="text-gray-600 text-lg">Add channel</span>
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Apps Section */}
+            <div className="bg-gray-50 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Apps</h2>
+                <ChevronDown className="w-5 h-5 text-gray-500" />
+              </div>
+
+              <div className="space-y-3">
+                <motion.div
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center space-x-4 py-3 px-3 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                >
+                  <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-gray-900 font-medium text-lg">Slackbot</span>
+                </motion.div>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            {channels.map((channel) => (
+          {/* Right Column */}
+          <div className="space-y-8">
+            {/* Direct Messages Section */}
+            <div className="bg-gray-50 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Direct Messages</h2>
+                <ChevronDown className="w-5 h-5 text-gray-500" />
+              </div>
+
+              <div className="space-y-3">
+                {/* Current User */}
+                <motion.div
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center space-x-4 py-3 px-3 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                >
+                  <div className="relative">
+                    <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                  <span className="text-gray-900 font-medium text-lg">{user.displayName} (you)</span>
+                </motion.div>
+
+                {/* Other DMs */}
+                {directMessages.map((dm) => (
+                  <motion.div
+                    key={dm.id}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center space-x-4 py-3 px-3 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                  >
+                    <img
+                      src={dm.other_user?.photo_url || `https://ui-avatars.com/api/?name=${dm.other_user?.display_name}`}
+                      alt={dm.other_user?.display_name}
+                      className="w-8 h-8 rounded-lg"
+                    />
+                    <span className="text-gray-900 font-medium text-lg">{dm.other_user?.display_name}</span>
+                  </motion.div>
+                ))}
+
+                {/* Start New Message */}
+                <motion.div
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center space-x-4 py-3 px-3 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                >
+                  <Plus className="w-5 h-5 text-gray-500" />
+                  <span className="text-gray-600 text-lg">Start a new message</span>
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Add Teammates Section */}
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-100">
               <motion.div
-                key={channel.id}
                 whileTap={{ scale: 0.98 }}
-                className="flex items-center space-x-3 py-2"
+                className="flex items-center space-x-4 cursor-pointer"
               >
-                <Hash className="w-5 h-5 text-gray-500" />
-                <span className="text-gray-900 font-medium">{channel.name}</span>
-              </motion.div>
-            ))}
-
-            {/* Add Channel */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setShowCreateChannel(true)}
-              className="flex items-center space-x-3 py-2 cursor-pointer"
-            >
-              <Plus className="w-5 h-5 text-gray-500" />
-              <span className="text-gray-600">Add channel</span>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* Direct Messages Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-900">Direct Messages</h2>
-            <ChevronDown className="w-5 h-5 text-gray-500" />
-          </div>
-
-          <div className="space-y-2">
-            {/* Current User */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center space-x-3 py-2"
-            >
-              <div className="relative">
-                <div className="w-6 h-6 bg-green-500 rounded flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
+                  <Plus className="w-6 h-6 text-white" />
                 </div>
-              </div>
-              <span className="text-gray-900 font-medium">{user.displayName} (you)</span>
-            </motion.div>
-
-            {/* Other DMs */}
-            {directMessages.map((dm) => (
-              <motion.div
-                key={dm.id}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center space-x-3 py-2"
-              >
-                <img
-                  src={dm.other_user?.photo_url || `https://ui-avatars.com/api/?name=${dm.other_user?.display_name}`}
-                  alt={dm.other_user?.display_name}
-                  className="w-6 h-6 rounded"
-                />
-                <span className="text-gray-900 font-medium">{dm.other_user?.display_name}</span>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Add teammates</h3>
+                  <p className="text-gray-600">Invite people to join your workspace</p>
+                </div>
               </motion.div>
-            ))}
-
-            {/* Start New Message */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center space-x-3 py-2 cursor-pointer"
-            >
-              <Plus className="w-5 h-5 text-gray-500" />
-              <span className="text-gray-600">Start a new message</span>
-            </motion.div>
+            </div>
           </div>
         </div>
-
-        {/* Apps Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-900">Apps</h2>
-            <ChevronDown className="w-5 h-5 text-gray-500" />
-          </div>
-
-          <div className="space-y-2">
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center space-x-3 py-2"
-            >
-              <div className="w-6 h-6 bg-purple-500 rounded flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-gray-900 font-medium">Slackbot</span>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* Add Teammates */}
-        <motion.div
-          whileTap={{ scale: 0.98 }}
-          className="flex items-center space-x-3 py-4 cursor-pointer"
-        >
-          <Plus className="w-5 h-5 text-gray-500" />
-          <span className="text-gray-900 font-medium">Add teammates</span>
-        </motion.div>
 
         {/* Floating Action Button */}
         <motion.button
