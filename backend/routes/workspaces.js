@@ -542,4 +542,8 @@ const createInvitationsTable = async () => {
 // Initialize invitations table
 createInvitationsTable();
 
+// Mount thread routes as sub-routes
+const threadRoutes = require('./threads');
+router.use('/:workspaceId/threads', threadRoutes);
+
 module.exports = router;

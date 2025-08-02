@@ -1,6 +1,7 @@
 // --- Imports ---
 require('dotenv').config(); // This loads the .env file
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -9,6 +10,10 @@ const { Pool } = require('pg'); // PostgreSQL client
 // Import route modules
 const userRoutes = require('./routes/users');
 const workspaceRoutes = require('./routes/workspaces');
+const threadRoutes = require('./routes/threads');
+
+// Import Socket.IO server
+const SocketServer = require('./socket/socketServer');
 
 // --- Initialization ---
 const app = express();
@@ -199,10 +204,41 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// --- Server Start ---
-app.listen(port, () => {
+// --- Server Start with Socket.IO ---
+// Create HTTP server
+const httpServer = http.createServer(app);
+
+// Initialize Socket.IO server
+const socketServer = new SocketServer(httpServer);
+
+// Make socket server available globally for API routes
+app.set('socketServer', socketServer);
+
+// Graceful shutdown for Socket.IO
+const originalSIGTERM = process.listeners('SIGTERM')[0];
+const originalSIGINT = process.listeners('SIGINT')[0];
+
+process.removeAllListeners('SIGTERM');
+process.removeAllListeners('SIGINT');
+
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  socketServer.io.close();
+  await pool.end();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  socketServer.io.close();
+  await pool.end();
+  process.exit(0);
+});
+
+httpServer.listen(port, () => {
   console.log(`🚀 Chat App API Server running on port ${port}`);
   console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⏰ Started at: ${new Date().toISOString()}`);
+  console.log(`🔌 Socket.IO server initialized and ready for real-time connections`);
 });
