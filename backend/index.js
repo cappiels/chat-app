@@ -1,7 +1,7 @@
 // Import the express library
 const express = require('express');
 
-// Create an instance of an express application
+// Create an instance of an express application (v2)
 const app = express();
 
 // Define the port the server will run on. 8080 is a common choice.
@@ -17,3 +17,4 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
+
