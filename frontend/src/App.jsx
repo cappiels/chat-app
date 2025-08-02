@@ -12,6 +12,8 @@ import {
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import toast, { Toaster } from 'react-hot-toast';
+import ChatInterface from './components/ChatInterface';
+import { workspaceAPI } from './utils/api';
 
 // Beautiful loading component
 const LoadingSpinner = () => (
@@ -197,41 +199,51 @@ const HeroSection = ({ onSignIn, isLoading }) => (
 );
 
 // Beautiful workspace selection screen
-const WorkspaceScreen = ({ user, onSignOut }) => {
+const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [newWorkspaceDescription, setNewWorkspaceDescription] = useState('');
 
   useEffect(() => {
-    // Simulate loading workspaces
-    setTimeout(() => {
-      setWorkspaces([
-        { 
-          id: '1', 
-          name: 'Acme Corp', 
-          description: 'Main company workspace',
-          memberCount: 127,
-          isOwner: true
-        },
-        { 
-          id: '2', 
-          name: 'Design Team', 
-          description: 'Creative collaboration space',
-          memberCount: 8,
-          isOwner: false
-        }
-      ]);
-      setLoading(false);
-    }, 1500);
+    loadWorkspaces();
   }, []);
 
-  const handleCreateWorkspace = () => {
+  const loadWorkspaces = async () => {
+    try {
+      const response = await workspaceAPI.getWorkspaces();
+      setWorkspaces(response.data);
+    } catch (error) {
+      toast.error('Failed to load workspaces');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateWorkspace = async () => {
+    if (!newWorkspaceName.trim()) {
+      toast.error('Please enter a workspace name');
+      return;
+    }
+
     setCreating(true);
-    // Simulate workspace creation
-    setTimeout(() => {
+    try {
+      const response = await workspaceAPI.createWorkspace({
+        name: newWorkspaceName,
+        description: newWorkspaceDescription,
+      });
       toast.success('Workspace created successfully!');
+      setWorkspaces([...workspaces, response.data]);
+      setShowCreateForm(false);
+      setNewWorkspaceName('');
+      setNewWorkspaceDescription('');
+    } catch (error) {
+      toast.error('Failed to create workspace');
+    } finally {
       setCreating(false);
-    }, 2000);
+    }
   };
 
   if (loading) {
@@ -333,6 +345,7 @@ const WorkspaceScreen = ({ user, onSignOut }) => {
               transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              onClick={() => onSelectWorkspace(workspace)}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -340,14 +353,14 @@ const WorkspaceScreen = ({ user, onSignOut }) => {
                     {workspace.name}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
-                    {workspace.description}
+                    {workspace.description || 'No description'}
                   </p>
                   <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                     <span className="flex items-center space-x-1">
                       <Users className="w-4 h-4" />
-                      <span>{workspace.memberCount} members</span>
+                      <span>{workspace.member_count || 0} members</span>
                     </span>
-                    {workspace.isOwner && (
+                    {workspace.user_role === 'owner' && (
                       <span className="bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 px-2 py-1 rounded-full text-xs font-medium">
                         Owner
                       </span>
@@ -367,11 +380,47 @@ const WorkspaceScreen = ({ user, onSignOut }) => {
             transition={{ duration: 0.6, delay: 0.6 }}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={handleCreateWorkspace}
+            onClick={() => setShowCreateForm(true)}
           >
             <div className="text-center py-8">
-              {creating ? (
-                <LoadingSpinner />
+              {showCreateForm ? (
+                <div className="text-left">
+                  <input
+                    type="text"
+                    placeholder="Workspace name"
+                    value={newWorkspaceName}
+                    onChange={(e) => setNewWorkspaceName(e.target.value)}
+                    className="input mb-3 text-sm"
+                    autoFocus
+                  />
+                  <input
+                    type="text"
+                    placeholder="Description (optional)"
+                    value={newWorkspaceDescription}
+                    onChange={(e) => setNewWorkspaceDescription(e.target.value)}
+                    className="input mb-3 text-sm"
+                  />
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        setShowCreateForm(false);
+                        setNewWorkspaceName('');
+                        setNewWorkspaceDescription('');
+                      }}
+                      className="btn-ghost btn-sm flex-1"
+                      disabled={creating}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateWorkspace}
+                      className="btn-primary btn-sm flex-1"
+                      disabled={creating || !newWorkspaceName.trim()}
+                    >
+                      {creating ? 'Creating...' : 'Create'}
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <>
                   <div className="flex-center mb-4">
@@ -391,31 +440,6 @@ const WorkspaceScreen = ({ user, onSignOut }) => {
           </motion.div>
         </motion.div>
 
-        {/* Coming soon features */}
-        <motion.div
-          className="glass rounded-2xl p-8 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-        >
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            🚀 Coming Soon: Full Chat Interface
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-2xl mx-auto">
-            We're putting the finishing touches on the most beautiful chat interface you've ever seen. 
-            Real-time messaging, file sharing, and team collaboration - all with stunning animations and premium UX.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            {['Real-time Messaging', 'File Sharing', 'Voice/Video Calls', 'Team Channels'].map((feature) => (
-              <span
-                key={feature}
-                className="bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 px-3 py-1 rounded-full text-sm font-medium"
-              >
-                {feature}
-              </span>
-            ))}
-          </div>
-        </motion.div>
       </div>
     </div>
   );
@@ -426,6 +450,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
+  const [selectedWorkspace, setSelectedWorkspace] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -487,6 +512,20 @@ function App() {
           >
             <HeroSection onSignIn={signInWithGoogle} isLoading={authLoading} />
           </motion.div>
+        ) : selectedWorkspace ? (
+          <motion.div
+            key="chat"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <ChatInterface 
+              user={user} 
+              workspace={selectedWorkspace} 
+              onSignOut={handleSignOut} 
+            />
+          </motion.div>
         ) : (
           <motion.div
             key="workspace"
@@ -495,7 +534,11 @@ function App() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <WorkspaceScreen user={user} onSignOut={handleSignOut} />
+            <WorkspaceScreen 
+              user={user} 
+              onSignOut={handleSignOut} 
+              onSelectWorkspace={setSelectedWorkspace}
+            />
           </motion.div>
         )}
       </AnimatePresence>
