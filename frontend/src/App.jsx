@@ -7,7 +7,14 @@ import {
   Zap, 
   Shield,
   ChevronRight,
-  Globe
+  Globe,
+  Search,
+  Plus,
+  Brain,
+  Database,
+  BookOpen,
+  Settings,
+  MessageSquare
 } from 'lucide-react';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
@@ -214,8 +221,10 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState('');
+  const [workspaceType, setWorkspaceType] = useState('knowledge');
 
   useEffect(() => {
     loadWorkspaces();
@@ -224,7 +233,16 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const loadWorkspaces = async () => {
     try {
       const response = await workspaceAPI.getWorkspaces();
-      setWorkspaces(response.data.workspaces || []);
+      // Enhanced workspace data with mock statistics for better UX
+      const enhancedWorkspaces = (response.data.workspaces || []).map(workspace => ({
+        ...workspace,
+        // Add mock data for demonstration - in real app this would come from API
+        conversations: Math.floor(Math.random() * 200) + 50,
+        knowledgeBase: Math.floor(Math.random() * 100) + 20,
+        lastActivity: getRandomLastActivity(),
+        color: getWorkspaceColor(workspace.name)
+      }));
+      setWorkspaces(enhancedWorkspaces);
     } catch (error) {
       console.error('Load workspaces error:', error);
       toast.error('Failed to load workspaces');
@@ -232,6 +250,21 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
       setLoading(false);
     }
   };
+
+  const getRandomLastActivity = () => {
+    const activities = ['2 hours ago', '1 day ago', '30 minutes ago', '3 hours ago', '1 week ago'];
+    return activities[Math.floor(Math.random() * activities.length)];
+  };
+
+  const getWorkspaceColor = (name) => {
+    const colors = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-red-500', 'bg-yellow-500', 'bg-indigo-500'];
+    return colors[name.length % colors.length];
+  };
+
+  const filteredWorkspaces = workspaces.filter(workspace =>
+    workspace.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (workspace.description && workspace.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const handleCreateWorkspace = async () => {
     if (!newWorkspaceName.trim()) {
@@ -244,12 +277,21 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
       const response = await workspaceAPI.createWorkspace({
         name: newWorkspaceName,
         description: newWorkspaceDescription,
+        type: workspaceType
       });
+      const newWorkspace = {
+        ...response.data,
+        conversations: 0,
+        knowledgeBase: 0,
+        lastActivity: 'Just created',
+        color: getWorkspaceColor(newWorkspaceName)
+      };
       toast.success('Workspace created successfully!');
-      setWorkspaces([...workspaces, response.data]);
+      setWorkspaces([...workspaces, newWorkspace]);
       setShowCreateForm(false);
       setNewWorkspaceName('');
       setNewWorkspaceDescription('');
+      setWorkspaceType('knowledge');
     } catch (error) {
       toast.error('Failed to create workspace');
     } finally {
@@ -335,9 +377,21 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
           <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
             Choose Your Workspace
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Select a workspace to start collaborating with your team
+          <p className="text-gray-600 dark:text-gray-400 text-lg mb-8">
+            Select a workspace to start collaborating with your team, access your knowledge base, and manage conversations
           </p>
+
+          {/* Search Bar */}
+          <div className="relative max-w-md mx-auto mb-8">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search workspaces..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+            />
+          </div>
         </motion.div>
 
         {/* Workspaces grid */}

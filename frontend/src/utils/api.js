@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { auth } from '../firebase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -61,6 +61,16 @@ export const userAPI = {
   getProfile: () => api.get('/users/profile'),
   updateProfile: (data) => api.put('/users/profile', data),
   searchUsers: (workspaceId, query) => api.get(`/users/search?workspace_id=${workspaceId}&q=${query}`),
+};
+
+export const knowledgeAPI = {
+  getKnowledgeItems: (workspaceId, params = {}) => api.get(`/knowledge/workspace/${workspaceId}`, { params }),
+  createKnowledgeItem: (workspaceId, data) => api.post(`/knowledge/workspace/${workspaceId}`, data),
+  updateKnowledgeItem: (id, data) => api.put(`/knowledge/${id}`, data),
+  deleteKnowledgeItem: (id) => api.delete(`/knowledge/${id}`),
+  recordView: (id, userId) => api.post(`/knowledge/${id}/view`, { userId }),
+  getCategories: (workspaceId) => api.get(`/knowledge/workspace/${workspaceId}/categories`),
+  getTags: (workspaceId) => api.get(`/knowledge/workspace/${workspaceId}/tags`),
 };
 
 export default api;

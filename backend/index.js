@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const workspaceRoutes = require('./routes/workspaces');
 const threadRoutes = require('./routes/threads');
+const knowledgeRoutes = require('./routes/knowledge-advanced');
 
 // Import Socket.IO server
 const SocketServer = require('./socket/socketServer');
@@ -151,6 +152,7 @@ app.get('/status', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/users', authLimiter, userRoutes);
 app.use('/workspaces', workspaceRoutes);
+app.use('/knowledge', knowledgeRoutes);
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {
