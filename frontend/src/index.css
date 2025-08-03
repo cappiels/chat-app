@@ -643,10 +643,13 @@ code {
   .lg\:block { display: block; }
   .lg\:flex { display: flex; }
   .lg\:static { position: static; }
+  .lg\:relative { position: relative; }
+  .lg\:z-0 { z-index: 0; }
   .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .lg\:w-72 { width: 18rem; }
   .lg\:w-80 { width: 20rem; }
+  .lg\:ml-80 { margin-left: 20rem; }
   .lg\:translate-x-0 { --tw-translate-x: 0px; }
   .lg\:px-12 { padding-left: 3rem; padding-right: 3rem; }
   .lg\:py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
