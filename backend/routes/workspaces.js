@@ -1,7 +1,8 @@
 const express = require('express');
 const { Pool } = require('pg');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const admin = require('firebase-admin');
+const { google } = require('googleapis');
 const { 
   authenticateUser, 
   requireWorkspaceMembership, 
@@ -17,15 +18,61 @@ const pool = new Pool({
   }
 });
 
-// Email transporter setup (Gmail)
-const createEmailTransporter = () => {
-  return nodemailer.createTransporter({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD, // Use App Password, not regular password
-    },
-  });
+// Gmail API setup using service account
+const createGmailService = () => {
+  if (!process.env.GMAIL_SERVICE_ACCOUNT_EMAIL || !process.env.GMAIL_PRIVATE_KEY) {
+    console.log('📧 Gmail service account credentials not configured - email invitations disabled');
+    return null;
+  }
+  
+  try {
+    const auth = new google.auth.JWT(
+      process.env.GMAIL_SERVICE_ACCOUNT_EMAIL,
+      null,
+      process.env.GMAIL_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      ['https://www.googleapis.com/auth/gmail.send'],
+      process.env.GMAIL_SERVICE_ACCOUNT_EMAIL // Impersonate this email
+    );
+
+    return google.gmail({ version: 'v1', auth });
+  } catch (error) {
+    console.error('📧 Failed to create Gmail service:', error);
+    return null;
+  }
+};
+
+// Send email using Gmail API
+const sendGmailInvitation = async (toEmail, subject, htmlContent) => {
+  const gmail = createGmailService();
+  if (!gmail) {
+    console.log('📧 Gmail service not available');
+    return false;
+  }
+
+  try {
+    const message = [
+      `To: ${toEmail}`,
+      `From: ${process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}`,
+      `Subject: ${subject}`,
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      htmlContent
+    ].join('\n');
+
+    const encodedMessage = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+    await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedMessage
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error('📧 Failed to send Gmail:', error);
+    return false;
+  }
 };
 
 /**
@@ -447,46 +494,46 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
 
     await client.query('COMMIT');
 
-    // Send invitation email
+    // Send invitation email using Gmail API
     try {
-      const transporter = createEmailTransporter();
       const workspace = workspaceInfo.rows[0];
       const inviteUrl = `${process.env.FRONTEND_URL}/invite/${inviteToken}`;
 
-      const mailOptions = {
-        from: process.env.GMAIL_USER,
-        to: email,
-        subject: `You're invited to join ${workspace.name}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>🎉 You're invited to join ${workspace.name}!</h2>
-            <p>Hi there!</p>
-            <p><strong>${req.user.display_name}</strong> has invited you to join <strong>${workspace.name}</strong> on our chat platform.</p>
-            ${workspace.description ? `<p><em>"${workspace.description}"</em></p>` : ''}
-            <div style="margin: 30px 0;">
-              <a href="${inviteUrl}" 
-                 style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                Accept Invitation
-              </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-              This invitation will expire in 7 days. If you're having trouble with the button above, 
-              copy and paste this link into your browser: <br>
-              <a href="${inviteUrl}">${inviteUrl}</a>
-            </p>
-            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-            <p style="color: #999; font-size: 12px;">
-              This invitation was sent to ${email}. If you weren't expecting this invitation, you can safely ignore this email.
-            </p>
+      const subject = `You're invited to join ${workspace.name}`;
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>🎉 You're invited to join ${workspace.name}!</h2>
+          <p>Hi there!</p>
+          <p><strong>${req.user.display_name}</strong> has invited you to join <strong>${workspace.name}</strong> on our chat platform.</p>
+          ${workspace.description ? `<p><em>"${workspace.description}"</em></p>` : ''}
+          <div style="margin: 30px 0;">
+            <a href="${inviteUrl}" 
+               style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Accept Invitation
+            </a>
           </div>
-        `
-      };
+          <p style="color: #666; font-size: 14px;">
+            This invitation will expire in 7 days. If you're having trouble with the button above, 
+            copy and paste this link into your browser: <br>
+            <a href="${inviteUrl}">${inviteUrl}</a>
+          </p>
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #999; font-size: 12px;">
+            This invitation was sent to ${email}. If you weren't expecting this invitation, you can safely ignore this email.
+          </p>
+        </div>
+      `;
 
-      await transporter.sendMail(mailOptions);
-      console.log(`📧 Invitation sent to ${email} for workspace ${workspace.name}`);
+      const emailSent = await sendGmailInvitation(email, subject, htmlContent);
+      
+      if (emailSent) {
+        console.log(`📧 Gmail invitation sent to ${email} for workspace ${workspace.name}`);
+      } else {
+        console.log(`📧 Gmail not configured - invitation saved but no email sent to ${email}`);
+      }
 
     } catch (emailError) {
-      console.error('Failed to send invitation email:', emailError);
+      console.error('Failed to send Gmail invitation:', emailError);
       // Don't fail the whole request if email fails
     }
 
