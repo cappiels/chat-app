@@ -2,7 +2,6 @@ const express = require('express');
 const { Pool } = require('pg');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
-const { google } = require('googleapis');
 const { 
   authenticateUser, 
   requireWorkspaceMembership, 
@@ -18,71 +17,12 @@ const pool = new Pool({
   }
 });
 
-// Gmail API setup using service account (lazy initialization)
-const createGmailService = () => {
-  // Check if Gmail credentials exist
-  if (!process.env.GMAIL_SERVICE_ACCOUNT_EMAIL || !process.env.GMAIL_PRIVATE_KEY) {
-    console.log('📧 Gmail service account credentials not configured - email invitations disabled');
-    return null;
-  }
-  
-  try {
-    // Safely parse the private key
-    let privateKey;
-    try {
-      privateKey = process.env.GMAIL_PRIVATE_KEY.replace(/\\n/g, '\n');
-    } catch (keyError) {
-      console.error('📧 Invalid Gmail private key format:', keyError.message);
-      return null;
-    }
-
-    const auth = new google.auth.JWT(
-      process.env.GMAIL_SERVICE_ACCOUNT_EMAIL,
-      null,
-      privateKey,
-      ['https://www.googleapis.com/auth/gmail.send'],
-      process.env.GMAIL_SERVICE_ACCOUNT_EMAIL
-    );
-
-    return google.gmail({ version: 'v1', auth });
-  } catch (error) {
-    console.error('📧 Failed to create Gmail service:', error.message);
-    return null;
-  }
-};
-
-// Send email using Gmail API
-const sendGmailInvitation = async (toEmail, subject, htmlContent) => {
-  const gmail = createGmailService();
-  if (!gmail) {
-    console.log('📧 Gmail service not available');
-    return false;
-  }
-
-  try {
-    const message = [
-      `To: ${toEmail}`,
-      `From: ${process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}`,
-      `Subject: ${subject}`,
-      'Content-Type: text/html; charset=utf-8',
-      '',
-      htmlContent
-    ].join('\n');
-
-    const encodedMessage = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-    await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedMessage
-      }
-    });
-
-    return true;
-  } catch (error) {
-    console.error('📧 Failed to send Gmail:', error);
-    return false;
-  }
+// Email functionality temporarily disabled to fix core workspaces
+const logInvitation = (email, workspace, inviteUrl, inviterName) => {
+  console.log(`📧 Invitation created for ${email} to join ${workspace.name}`);
+  console.log(`📧 Invitation URL: ${inviteUrl}`);
+  console.log(`📧 Invited by: ${inviterName}`);
+  console.log('📧 Email sending temporarily disabled - invitation saved to database');
 };
 
 /**
@@ -504,48 +444,11 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
 
     await client.query('COMMIT');
 
-    // Send invitation email using Gmail API
-    try {
-      const workspace = workspaceInfo.rows[0];
-      const inviteUrl = `${process.env.FRONTEND_URL}/invite/${inviteToken}`;
-
-      const subject = `You're invited to join ${workspace.name}`;
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>🎉 You're invited to join ${workspace.name}!</h2>
-          <p>Hi there!</p>
-          <p><strong>${req.user.display_name}</strong> has invited you to join <strong>${workspace.name}</strong> on our chat platform.</p>
-          ${workspace.description ? `<p><em>"${workspace.description}"</em></p>` : ''}
-          <div style="margin: 30px 0;">
-            <a href="${inviteUrl}" 
-               style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Accept Invitation
-            </a>
-          </div>
-          <p style="color: #666; font-size: 14px;">
-            This invitation will expire in 7 days. If you're having trouble with the button above, 
-            copy and paste this link into your browser: <br>
-            <a href="${inviteUrl}">${inviteUrl}</a>
-          </p>
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-          <p style="color: #999; font-size: 12px;">
-            This invitation was sent to ${email}. If you weren't expecting this invitation, you can safely ignore this email.
-          </p>
-        </div>
-      `;
-
-      const emailSent = await sendGmailInvitation(email, subject, htmlContent);
-      
-      if (emailSent) {
-        console.log(`📧 Gmail invitation sent to ${email} for workspace ${workspace.name}`);
-      } else {
-        console.log(`📧 Gmail not configured - invitation saved but no email sent to ${email}`);
-      }
-
-    } catch (emailError) {
-      console.error('Failed to send Gmail invitation:', emailError);
-      // Don't fail the whole request if email fails
-    }
+    // Log invitation (email sending temporarily disabled)
+    const workspace = workspaceInfo.rows[0];
+    const inviteUrl = `${process.env.FRONTEND_URL}/invite/${inviteToken}`;
+    
+    logInvitation(email, workspace, inviteUrl, req.user.display_name);
 
     res.status(201).json({
       message: 'Invitation sent successfully',

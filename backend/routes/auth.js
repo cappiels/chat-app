@@ -7,10 +7,10 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GMAIL_OAUTH_CLIENT_ID,
   process.env.GMAIL_OAUTH_CLIENT_SECRET,
   // This is the URI that Google will redirect to after consent
-  // In production, this will be the full Digital Ocean URL
+  // It MUST EXACTLY MATCH one of the URIs you configured in the Google Cloud Console
   process.env.NODE_ENV === 'production'
-    ? 'https://coral-app-rgki8.ondigitalocean.app/api/auth/google/callback'
-    : 'http://localhost:8080/api/auth/google/callback'
+    ? 'https://coral-app-rgki8.ondigitalocean.app/auth/google/callback'
+    : 'http://localhost:8080/auth/google/callback'
 );
 
 // Scopes required for sending email
