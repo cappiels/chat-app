@@ -229,7 +229,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   }
 
   return (
-    <div className="h-screen w-screen bg-slate-50 relative overflow-hidden">
+    <div className="h-screen w-screen bg-slate-50 flex overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
@@ -238,13 +238,13 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Simple Responsive Approach */}
       <motion.div
         className={`
-          fixed inset-y-0 left-0 z-50 w-80 bg-white border-r border-slate-200 shadow-lg lg:relative lg:z-0
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          transition-transform duration-300 ease-in-out
+          w-80 bg-white border-r border-slate-200 shadow-lg flex-shrink-0
+          ${sidebarOpen ? 'fixed inset-y-0 left-0 z-50' : 'hidden lg:flex'}
         `}
+        style={{ display: sidebarOpen ? 'flex' : undefined }}
       >
         {/* Workspace Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
@@ -372,7 +372,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
       </motion.div>
 
       {/* Main Chat Area */}
-      <div className="flex flex-col h-full lg:ml-80">
+      <div className="flex flex-col flex-1 h-full">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shadow-sm flex-shrink-0">
           <div className="flex items-center space-x-3">
