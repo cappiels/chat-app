@@ -25,6 +25,10 @@ const logInvitation = (email, workspace, inviteUrl, inviterName) => {
   console.log('📧 Email sending temporarily disabled - invitation saved to database');
 };
 
+// Mount thread routes as sub-routes FIRST
+const threadRoutes = require('./threads');
+router.use('/:workspaceId/threads', threadRoutes);
+
 /**
  * GET /api/workspaces
  * Get all workspaces for current user
@@ -510,9 +514,5 @@ const createInvitationsTable = async () => {
 
 // Initialize invitations table
 createInvitationsTable();
-
-// Mount thread routes as sub-routes
-const threadRoutes = require('./threads');
-router.use('/:workspaceId/threads', threadRoutes);
 
 module.exports = router;
