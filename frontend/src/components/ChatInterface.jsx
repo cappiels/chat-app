@@ -230,7 +230,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden" 
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden" 
           onClick={() => setSidebarOpen(false)} 
         />
       )}
@@ -238,11 +238,11 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
       {/* Sidebar */}
       <motion.div
         className={`
-          fixed lg:static inset-y-0 left-0 z-50 w-64 lg:w-72 bg-white border-r border-slate-200 transform transition-transform duration-200 ease-in-out
+          fixed lg:static inset-y-0 left-0 z-50 w-64 lg:w-72 bg-white border-r-2 border-slate-300 shadow-lg lg:shadow-none transform transition-transform duration-200 ease-in-out
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
-        initial={{ x: -256 }}
-        animate={{ x: 0 }}
+        initial={false}
+        animate={sidebarOpen ? { x: 0 } : { x: -256 }}
         transition={{ duration: 0.3 }}
       >
         {/* Workspace Header */}
@@ -372,31 +372,36 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Chat Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white">
+        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-slate-300 bg-white shadow-sm">
           <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-              <Menu className="w-5 h-5" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="lg:hidden bg-slate-100 hover:bg-slate-200 border border-slate-300" 
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="w-5 h-5 text-slate-700" />
             </Button>
-            <Hash className="w-5 h-5 text-slate-500" />
+            <Hash className="w-5 h-5 text-purple-600" />
             <h1 className="text-lg font-semibold text-slate-900">
               {currentChannel?.name || 'Select a channel'}
             </h1>
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 border border-purple-200">
               {workspace.member_count || 0} members
             </Badge>
           </div>
 
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-slate-100">
               <Search className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-slate-100">
               <Bell className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-slate-100">
               <Users className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="hover:bg-slate-100">
               <MoreVertical className="w-4 h-4" />
             </Button>
           </div>
