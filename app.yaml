@@ -1,0 +1,25 @@
+name: coral-app-rgki8
+services:
+- name: frontend
+  source_dir: /frontend
+  build_command: npm run build
+  run_command: npm run preview
+  environment_slug: node-js
+  http_port: 4173
+  routes:
+  - path: /
+- name: backend
+  source_dir: /backend  
+  build_command: npm install
+  run_command: npm start
+  environment_slug: node-js
+  http_port: 8080
+  routes:
+  - path: /api
+  envs:
+  - key: DATABASE_URL
+    value: ${DATABASE_URL}
+  - key: NODE_ENV
+    value: production
+  - key: FRONTEND_URL
+    value: https://coral-app-rgki8.ondigitalocean.app
