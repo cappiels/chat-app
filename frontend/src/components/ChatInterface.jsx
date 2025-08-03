@@ -484,31 +484,31 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           )}
         </div>
 
-        {/* Message Input - Fixed at Bottom */}
-        <div className="border-t border-slate-200 bg-white p-4 shadow-lg flex-shrink-0">
+        {/* Mobile Message Input - Clean Slack Style */}
+        <div className="border-t border-slate-200 bg-white p-3 shadow-lg flex-shrink-0 min-h-[72px]">
           <div className="flex items-center space-x-3">
             <Button 
               variant="ghost" 
               size="sm" 
-              className="p-2 hover:bg-slate-100 flex-shrink-0"
+              className="h-10 w-10 p-0 hover:bg-slate-100 rounded-lg flex-shrink-0"
             >
-              <Plus className="w-5 h-5 text-slate-600" />
+              <Plus className="w-6 h-6 text-slate-600" />
             </Button>
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <Input
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={`Message #${currentChannel?.name || 'channel'}`}
-                className="py-3 text-base border border-slate-300 focus:border-purple-400 rounded-lg bg-slate-50 focus:bg-white w-full"
+                className="py-3 px-4 text-base border border-slate-300 focus:border-purple-500 rounded-xl bg-white focus:bg-white w-full min-h-[44px]"
               />
             </div>
             {messageInput.trim() && (
               <Button
                 onClick={handleSendMessage}
-                className="bg-purple-600 hover:bg-purple-700 px-4 py-3 rounded-lg shadow-sm flex-shrink-0"
+                className="bg-purple-600 hover:bg-purple-700 h-10 w-10 p-0 rounded-lg shadow-sm flex-shrink-0"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-5 h-5" />
               </Button>
             )}
           </div>
