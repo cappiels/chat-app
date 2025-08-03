@@ -518,6 +518,23 @@ function App() {
   const [loading, setLoading] = useState(false); // Start with false - show UI immediately
   const [authLoading, setAuthLoading] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
+  
+  // TEMPORARY DEMO MODE - Remove this after fixing mobile issues
+  const DEMO_MODE = window.location.search.includes('demo=true');
+  
+  // Demo data for testing
+  const demoUser = {
+    displayName: 'Demo User',
+    photoURL: 'https://via.placeholder.com/40',
+    uid: 'demo-user-123'
+  };
+  
+  const demoWorkspace = {
+    id: 'demo-workspace',
+    name: 'Demo Workspace',
+    description: 'Testing mobile chat interface',
+    member_count: 5
+  };
 
   useEffect(() => {
     // Auth check happens in background, doesn't block UI
@@ -563,6 +580,31 @@ function App() {
         >
           <LoadingSpinner />
         </motion.div>
+      </div>
+    );
+  }
+
+  // DEMO MODE: Skip authentication and go straight to ChatInterface
+  if (DEMO_MODE) {
+    return (
+      <div className="min-h-screen">
+        <ChatInterface 
+          user={demoUser} 
+          workspace={demoWorkspace} 
+          onSignOut={() => window.location.href = '/'} 
+        />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            className: 'glass',
+            style: {
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+            }
+          }}
+        />
       </div>
     );
   }
