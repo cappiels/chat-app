@@ -354,15 +354,11 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
         </div>
       </ScrollArea>
 
-      {/* Sidebar Footer */}
-      <div className="border-t-2 border-slate-200 p-4 bg-slate-50">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" className="flex-1 justify-start hover:bg-slate-200">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Channel
-          </Button>
-          <Button variant="ghost" size="sm" className="hover:bg-slate-200">
-            <Rocket className="w-4 h-4" />
+      {/* Clean Sidebar Footer */}
+      <div className="border-t border-slate-200 p-4 bg-slate-50">
+        <div className="flex items-center justify-center">
+          <Button variant="ghost" size="sm" className="hover:bg-slate-200 rounded-lg p-3">
+            <Plus className="w-5 h-5 text-slate-600" />
           </Button>
         </div>
       </div>
@@ -417,47 +413,40 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   function MobileChatArea() {
     return (
       <>
-        {/* Mobile Header - Fixed Position */}
-        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-slate-300 bg-white shadow-md relative z-10">
-          <div className="flex items-center space-x-3">
+        {/* Clean Slack-Style Mobile Header */}
+        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shadow-sm">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
             <Button 
               variant="ghost" 
               size="sm" 
-              className="bg-purple-100 hover:bg-purple-200 border-2 border-purple-300 rounded-lg p-2 mr-1" 
+              className="p-2 hover:bg-slate-100" 
               onClick={() => setSidebarOpen(true)}
             >
-              <Menu className="w-6 h-6 text-purple-700" />
+              <Menu className="w-5 h-5 text-slate-700" />
             </Button>
-            <div className="flex items-center space-x-2">
-              <Hash className="w-5 h-5 text-purple-600" />
-              <h1 className="text-lg font-bold text-slate-900 truncate">
-                {currentChannel?.name || 'Select a channel'}
-              </h1>
-            </div>
+            <Hash className="w-5 h-5 text-slate-500 flex-shrink-0" />
+            <h1 className="text-lg font-semibold text-slate-900 truncate">
+              {currentChannel?.name || 'Select a channel'}
+            </h1>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="hover:bg-slate-100 p-2"
-              onClick={() => window.location.reload()} // Go back to workspace selection
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="sm" className="hover:bg-slate-100 p-2">
-              <MoreVertical className="w-5 h-5" />
-            </Button>
-          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="p-2 hover:bg-slate-100 flex-shrink-0"
+            onClick={() => window.location.reload()} 
+          >
+            <Settings className="w-5 h-5 text-slate-700" />
+          </Button>
         </div>
 
-        {/* Mobile Messages Area - Proper Height */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 bg-white" style={{ height: 'calc(100vh - 140px)' }}>
+        {/* Full-Width Messages Area - Slack Style */}
+        <div className="flex-1 overflow-y-auto bg-white" style={{ paddingBottom: '80px' }}>
           {loadingMessages ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Loading messages...</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="px-4 py-4">
               {messages.map((message, index) => {
                 const showDate =
                   index === 0 || formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
@@ -468,28 +457,29 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
+                    className="mb-4"
                   >
                     {showDate && (
-                      <div className="flex items-center justify-center my-4">
+                      <div className="flex items-center justify-center my-6">
                         <div className="bg-slate-200 px-3 py-1 rounded-full">
-                          <span className="text-xs font-bold text-slate-700">
+                          <span className="text-xs font-semibold text-slate-700">
                             {formatDate(message.timestamp)}
                           </span>
                         </div>
                       </div>
                     )}
-                    <div className="flex items-start space-x-3 p-2 rounded-lg hover:bg-slate-50">
-                      <Avatar className="w-10 h-10">
+                    <div className="flex items-start space-x-3 hover:bg-slate-50 -mx-4 px-4 py-2 rounded-lg">
+                      <Avatar className="w-10 h-10 flex-shrink-0">
                         <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white font-bold">
                           {message.user.initials}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className="font-bold text-slate-900">{message.user.name}</span>
+                          <span className="font-bold text-slate-900 text-base">{message.user.name}</span>
                           <span className="text-xs text-slate-500">{formatTime(message.timestamp)}</span>
                         </div>
-                        <p className="text-slate-800 leading-relaxed">{message.content}</p>
+                        <p className="text-slate-800 leading-relaxed text-base">{message.content}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -500,33 +490,33 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           )}
         </div>
 
-        {/* Mobile Message Input - Fixed at Bottom */}
-        <div className="fixed bottom-0 left-0 right-0 border-t-2 border-slate-300 bg-white p-4 shadow-xl z-10 lg:hidden">
+        {/* Clean Slack-Style Message Input */}
+        <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white p-4 shadow-lg z-10 lg:hidden">
           <div className="flex items-center space-x-3">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-2 hover:bg-slate-100 flex-shrink-0"
+            >
+              <Plus className="w-5 h-5 text-slate-600" />
+            </Button>
             <div className="flex-1 relative">
               <Input
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={`Message #${currentChannel?.name || 'channel'}`}
-                className="pr-16 py-3 text-base border-2 border-slate-300 focus:border-purple-500 rounded-xl"
+                className="py-3 text-base border border-slate-300 focus:border-purple-400 rounded-lg bg-slate-50 focus:bg-white"
               />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <Paperclip className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <Smile className="w-4 h-4" />
-                </Button>
-              </div>
             </div>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!messageInput.trim()}
-              className="bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 px-6 py-3 rounded-xl shadow-lg"
-            >
-              <Send className="w-5 h-5" />
-            </Button>
+            {messageInput.trim() && (
+              <Button
+                onClick={handleSendMessage}
+                className="bg-purple-600 hover:bg-purple-700 px-4 py-3 rounded-lg shadow-sm flex-shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
       </>
