@@ -18,25 +18,35 @@ const pool = new Pool({
   }
 });
 
-// Gmail API setup using service account
+// Gmail API setup using service account (lazy initialization)
 const createGmailService = () => {
+  // Check if Gmail credentials exist
   if (!process.env.GMAIL_SERVICE_ACCOUNT_EMAIL || !process.env.GMAIL_PRIVATE_KEY) {
     console.log('📧 Gmail service account credentials not configured - email invitations disabled');
     return null;
   }
   
   try {
+    // Safely parse the private key
+    let privateKey;
+    try {
+      privateKey = process.env.GMAIL_PRIVATE_KEY.replace(/\\n/g, '\n');
+    } catch (keyError) {
+      console.error('📧 Invalid Gmail private key format:', keyError.message);
+      return null;
+    }
+
     const auth = new google.auth.JWT(
       process.env.GMAIL_SERVICE_ACCOUNT_EMAIL,
       null,
-      process.env.GMAIL_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      privateKey,
       ['https://www.googleapis.com/auth/gmail.send'],
-      process.env.GMAIL_SERVICE_ACCOUNT_EMAIL // Impersonate this email
+      process.env.GMAIL_SERVICE_ACCOUNT_EMAIL
     );
 
     return google.gmail({ version: 'v1', auth });
   } catch (error) {
-    console.error('📧 Failed to create Gmail service:', error);
+    console.error('📧 Failed to create Gmail service:', error.message);
     return null;
   }
 };
