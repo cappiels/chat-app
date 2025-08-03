@@ -179,6 +179,11 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+      // Blur input on mobile to hide keyboard after sending
+      if (window.innerWidth < 1024) {
+        e.target.blur();
+        setTimeout(() => e.target.focus(), 100);
+      }
     }
   };
 
