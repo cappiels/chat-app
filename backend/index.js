@@ -62,7 +62,8 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/', limiter);
+// Apply to all requests, as the /api prefix is stripped by the platform
+app.use(limiter);
 
 // Special rate limit for authentication endpoints
 const authLimiter = rateLimit({
@@ -132,7 +133,7 @@ app.get('/', (req, res) => {
 });
 
 // API status endpoint
-app.get('/api/status', (req, res) => {
+app.get('/status', (req, res) => {
   res.json({
     status: 'operational',
     services: {
