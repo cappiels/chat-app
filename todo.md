@@ -245,6 +245,8 @@
 - [ ] Message pagination (load older messages on scroll)
 - [ ] Image optimization and lazy loading
 - [ ] Bundle size optimization
+- [ ] **CSS Optimization** - Use tools like **PurgeCSS** or **UnCSS** to automatically detect unused styles
+- [ ] **Performance Audits** - Run **Lighthouse audits** to measure actual performance impact
 - [ ] Service Worker for offline functionality
 - [ ] Push notifications setup
 
