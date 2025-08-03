@@ -1085,7 +1085,7 @@ code {
   color: var(--color-text-muted);
 }
 
-/* Channel List */
+/* Channel List - Professional Slack/Discord Style */
 .channel-list {
   grid-column: 2 / 3;
   background-color: var(--color-surface);
@@ -1096,47 +1096,53 @@ code {
 }
 
 .channel-list-header {
-  padding: var(--space-4);
+  padding: var(--space-5) var(--space-4);
   border-bottom: 1px solid var(--color-divider);
   background-color: var(--color-surface-elevated);
 }
 
 .workspace-name {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 700;
   color: var(--color-text-primary);
+  margin-bottom: 2px;
 }
 
 .channel-groups {
-  padding: var(--space-4);
+  padding: var(--space-3);
   flex-grow: 1;
 }
 
 .channel-group {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .channel-group-title {
-  font-size: var(--text-xs);
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--color-text-tertiary);
   margin-bottom: var(--space-2);
+  margin-left: var(--space-3);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
 }
 
 .channel-link {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
-  text-align: left;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-lg);
+  padding: 6px var(--space-3);
+  margin: 1px 0;
+  border-radius: var(--radius-md);
   background: none;
   border: none;
   color: var(--color-text-secondary);
-  font-size: var(--text-sm);
+  font-size: 15px;
+  font-weight: 400;
   cursor: pointer;
   transition: all var(--transition-fast);
+  text-align: start;
+  gap: var(--space-2);
 }
 
 .channel-link:hover {
@@ -1145,9 +1151,9 @@ code {
 }
 
 .channel-link.active {
-  background-color: rgba(139, 92, 246, 0.1);
+  background-color: rgba(139, 92, 246, 0.15);
   color: var(--brand-primary);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* Message Panel */
