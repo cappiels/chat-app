@@ -469,16 +469,16 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                         </div>
                       </div>
                     )}
-                    <div className="flex items-start space-x-3 py-1.5 active:bg-slate-50 -mx-4 px-4 rounded-lg touch-manipulation">
-                      <Avatar className="w-10 h-10 flex-shrink-0 mt-0.5">
+                    <div className="flex items-start space-x-3 py-2 active:bg-slate-50 -mx-4 px-4 rounded-lg touch-manipulation transition-colors duration-150">
+                      <Avatar className="w-10 h-10 flex-shrink-0 mt-1">
                         <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white font-bold text-sm">
                           {message.user.initials}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline space-x-2 mb-1">
-                          <span className="font-bold text-slate-900 text-base leading-tight">{message.user.name}</span>
-                          <span className="text-xs text-slate-500 flex-shrink-0">{formatTime(message.timestamp)}</span>
+                        <div className="flex items-baseline space-x-2 mb-1.5">
+                          <span className="font-bold text-slate-900 text-base leading-none">{message.user.name}</span>
+                          <span className="text-xs text-slate-500 flex-shrink-0 leading-none">{formatTime(message.timestamp)}</span>
                         </div>
                         <p className="text-slate-800 leading-relaxed text-base break-words select-text">{message.content}</p>
                       </div>
