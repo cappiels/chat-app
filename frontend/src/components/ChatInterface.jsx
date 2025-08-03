@@ -417,31 +417,41 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   function MobileChatArea() {
     return (
       <>
-        {/* Mobile Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b-2 border-slate-300 bg-white shadow-md">
+        {/* Mobile Header - Fixed Position */}
+        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-slate-300 bg-white shadow-md relative z-10">
           <div className="flex items-center space-x-3">
             <Button 
               variant="ghost" 
               size="sm" 
-              className="bg-purple-100 hover:bg-purple-200 border-2 border-purple-300 rounded-lg p-2" 
+              className="bg-purple-100 hover:bg-purple-200 border-2 border-purple-300 rounded-lg p-2 mr-1" 
               onClick={() => setSidebarOpen(true)}
             >
               <Menu className="w-6 h-6 text-purple-700" />
             </Button>
             <div className="flex items-center space-x-2">
               <Hash className="w-5 h-5 text-purple-600" />
-              <h1 className="text-lg font-bold text-slate-900">
+              <h1 className="text-lg font-bold text-slate-900 truncate">
                 {currentChannel?.name || 'Select a channel'}
               </h1>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="hover:bg-slate-100 p-2">
-            <MoreVertical className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="hover:bg-slate-100 p-2"
+              onClick={() => window.location.reload()} // Go back to workspace selection
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="hover:bg-slate-100 p-2">
+              <MoreVertical className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
-        {/* Mobile Messages Area */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 bg-white">
+        {/* Mobile Messages Area - Proper Height */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 bg-white" style={{ height: 'calc(100vh - 140px)' }}>
           {loadingMessages ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Loading messages...</p>
@@ -490,8 +500,8 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           )}
         </div>
 
-        {/* Mobile Message Input */}
-        <div className="border-t-2 border-slate-300 bg-white p-4 shadow-lg">
+        {/* Mobile Message Input - Fixed at Bottom */}
+        <div className="fixed bottom-0 left-0 right-0 border-t-2 border-slate-300 bg-white p-4 shadow-xl z-10 lg:hidden">
           <div className="flex items-center space-x-3">
             <div className="flex-1 relative">
               <Input
