@@ -15,10 +15,10 @@ import toast, { Toaster } from 'react-hot-toast';
 import ChatInterface from './components/ChatInterface';
 import { workspaceAPI } from './utils/api';
 
-// Beautiful loading component
-const LoadingSpinner = () => (
+// Beautiful loading component with progress indicator
+const LoadingSpinner = ({ message = "Loading...", showProgress = false }) => (
   <motion.div
-    className="flex-center space-x-2"
+    className="flex-center flex-col space-y-4"
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
@@ -28,9 +28,19 @@ const LoadingSpinner = () => (
       <div className="loading-dot bg-primary-600"></div>
       <div className="loading-dot bg-primary-700"></div>
     </div>
-    <span className="text-gray-600 dark:text-gray-400 font-medium ml-3">
-      Loading...
+    <span className="text-gray-600 dark:text-gray-400 font-medium">
+      {message}
     </span>
+    {showProgress && (
+      <div className="w-64 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+        <motion.div
+          className="bg-primary-600 h-1.5 rounded-full"
+          initial={{ width: "0%" }}
+          animate={{ width: "100%" }}
+          transition={{ duration: 3, ease: "easeInOut" }}
+        />
+      </div>
+    )}
   </motion.div>
 );
 
@@ -454,12 +464,22 @@ function App() {
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
 
   useEffect(() => {
+    // Set a maximum timeout for Firebase auth initialization
+    const authTimeout = setTimeout(() => {
+      console.warn('Firebase auth taking too long, proceeding without auth state');
+      setLoading(false);
+    }, 3000); // 3 seconds max
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      clearTimeout(authTimeout); // Clear timeout if auth completes normally
       setUser(user);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(authTimeout);
+      unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {

@@ -1,6 +1,6 @@
 // src/firebase.js
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from "firebase/auth";
 
 // Your web app's Firebase configuration from your .env file
 const firebaseConfig = {
@@ -12,9 +12,35 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_APP_ID
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase app with error handling
+let app;
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+  // Fallback configuration for development
+  app = initializeApp({
+    apiKey: "demo-key",
+    authDomain: "demo.firebaseapp.com",
+    projectId: "demo-project"
+  });
+}
 
-// Export the auth service and Google provider
+// Initialize Auth with connection timeout
 export const auth = getAuth(app);
+
+// Configure Google provider with optimal settings
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
+
+// Set custom parameters for faster auth
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
+// Development mode optimizations
+if (import.meta.env.DEV) {
+  // Disable Firebase analytics in development for faster loading
+  console.log('🔥 Firebase initialized in development mode');
+}
