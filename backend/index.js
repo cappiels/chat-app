@@ -258,4 +258,5 @@ httpServer.listen(port, () => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⏰ Started at: ${new Date().toISOString()}`);
   console.log(`🔌 Socket.IO server initialized and ready for real-time connections`);
+  console.log(`📧 Gmail service account configured: ${!!process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}`);
 });
