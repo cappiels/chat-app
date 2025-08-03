@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const { Pool } = require('pg'); // PostgreSQL client
 
 // Import route modules
+const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const workspaceRoutes = require('./routes/workspaces');
 const threadRoutes = require('./routes/threads');
@@ -147,6 +148,7 @@ app.get('/status', (req, res) => {
 });
 
 // Mount route modules
+app.use('/auth', authRoutes);
 app.use('/users', authLimiter, userRoutes);
 app.use('/workspaces', workspaceRoutes);
 
