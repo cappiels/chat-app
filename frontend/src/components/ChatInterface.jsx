@@ -413,26 +413,26 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   function MobileChatArea() {
     return (
       <div className="h-full flex flex-col">
-        {/* Mobile Header - Fixed at Top */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shadow-sm flex-shrink-0">
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
+        {/* Mobile Header - Properly Positioned */}
+        <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-200 shadow-sm flex-shrink-0 min-h-[60px]">
+          <div className="flex items-center space-x-2 flex-1 min-w-0">
             <Button 
               variant="ghost" 
               size="sm" 
-              className="p-2 hover:bg-slate-100" 
+              className="h-10 w-10 p-0 hover:bg-slate-100 rounded-lg flex-shrink-0" 
               onClick={() => setSidebarOpen(true)}
             >
-              <Menu className="w-5 h-5 text-slate-700" />
+              <Menu className="w-6 h-6 text-slate-700" />
             </Button>
             <Hash className="w-5 h-5 text-slate-500 flex-shrink-0" />
-            <h1 className="text-lg font-semibold text-slate-900 truncate">
+            <h1 className="text-lg font-semibold text-slate-900 truncate overflow-hidden">
               {currentChannel?.name || 'Select a channel'}
             </h1>
           </div>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="p-2 hover:bg-slate-100 flex-shrink-0"
+            className="h-10 w-10 p-0 hover:bg-slate-100 rounded-lg flex-shrink-0"
             onClick={() => window.location.reload()} 
           >
             <Settings className="w-5 h-5 text-slate-700" />
