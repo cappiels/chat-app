@@ -4,7 +4,7 @@
   "description": "Backend API for bleeding-edge chat application with real-time messaging and knowledge base",
   "main": "index.js",
   "scripts": {
-    "start": "node debug.js",
+    "start": "node index.js",
     "dev": "nodemon index.js",
     "migrate": "node migrations/run-migrations.js",
     "test-schema": "node test-schema.js",

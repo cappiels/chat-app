@@ -146,8 +146,8 @@ app.get('/api/status', (req, res) => {
 });
 
 // Mount route modules
-app.use('/api/users', authLimiter, userRoutes);
-app.use('/api/workspaces', workspaceRoutes);
+app.use('/users', authLimiter, userRoutes);
+app.use('/workspaces', workspaceRoutes);
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {
