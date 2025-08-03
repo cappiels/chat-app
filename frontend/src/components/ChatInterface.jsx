@@ -441,14 +441,14 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           </Button>
         </div>
 
-        {/* Messages Area - Optimized Mobile Layout */}
-        <div className="flex-1 overflow-y-auto bg-white min-h-0">
+        {/* Messages Area - Performance Optimized Mobile Layout */}
+        <div className="flex-1 overflow-y-auto bg-white min-h-0 overscroll-behavior-y-contain webkit-overflow-scrolling-touch">
           {loadingMessages ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Loading messages...</p>
             </div>
           ) : (
-            <div className="px-4 py-3 space-y-3">
+            <div className="px-4 py-3 space-y-2">
               {messages.map((message, index) => {
                 const showDate =
                   index === 0 || formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
@@ -456,7 +456,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                 return (
                   <div key={message.id}>
                     {showDate && (
-                      <div className="flex items-center justify-center my-4">
+                      <div className="flex items-center justify-center my-3">
                         <div className="bg-slate-200 px-3 py-1 rounded-full">
                           <span className="text-xs font-semibold text-slate-700">
                             {formatDate(message.timestamp)}
@@ -464,7 +464,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                         </div>
                       </div>
                     )}
-                    <div className="flex items-start space-x-3 py-2 hover:bg-slate-50 -mx-4 px-4 rounded-lg">
+                    <div className="flex items-start space-x-3 py-1.5 active:bg-slate-50 -mx-4 px-4 rounded-lg touch-manipulation">
                       <Avatar className="w-10 h-10 flex-shrink-0 mt-0.5">
                         <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white font-bold text-sm">
                           {message.user.initials}
@@ -475,13 +475,13 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                           <span className="font-bold text-slate-900 text-base leading-tight">{message.user.name}</span>
                           <span className="text-xs text-slate-500 flex-shrink-0">{formatTime(message.timestamp)}</span>
                         </div>
-                        <p className="text-slate-800 leading-relaxed text-base break-words">{message.content}</p>
+                        <p className="text-slate-800 leading-relaxed text-base break-words select-text">{message.content}</p>
                       </div>
                     </div>
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} className="h-4" />
+              <div ref={messagesEndRef} className="h-6" />
             </div>
           )}
         </div>
