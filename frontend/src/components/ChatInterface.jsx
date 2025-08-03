@@ -412,9 +412,9 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
 
   function MobileChatArea() {
     return (
-      <>
-        {/* Clean Slack-Style Mobile Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shadow-sm">
+      <div className="h-full flex flex-col">
+        {/* Mobile Header - Fixed at Top */}
+        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shadow-sm flex-shrink-0">
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             <Button 
               variant="ghost" 
@@ -439,26 +439,20 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           </Button>
         </div>
 
-        {/* Full-Width Messages Area - Slack Style */}
-        <div className="flex-1 overflow-y-auto bg-white" style={{ paddingBottom: '80px' }}>
+        {/* Messages Area - Scrollable Middle */}
+        <div className="flex-1 overflow-y-auto bg-white min-h-0">
           {loadingMessages ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Loading messages...</p>
             </div>
           ) : (
-            <div className="px-4 py-4">
+            <div className="p-4">
               {messages.map((message, index) => {
                 const showDate =
                   index === 0 || formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
 
                 return (
-                  <motion.div 
-                    key={message.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="mb-4"
-                  >
+                  <div key={message.id} className="mb-4">
                     {showDate && (
                       <div className="flex items-center justify-center my-6">
                         <div className="bg-slate-200 px-3 py-1 rounded-full">
@@ -468,7 +462,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                         </div>
                       </div>
                     )}
-                    <div className="flex items-start space-x-3 hover:bg-slate-50 -mx-4 px-4 py-2 rounded-lg">
+                    <div className="flex items-start space-x-3">
                       <Avatar className="w-10 h-10 flex-shrink-0">
                         <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white font-bold">
                           {message.user.initials}
@@ -482,7 +476,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                         <p className="text-slate-800 leading-relaxed text-base">{message.content}</p>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
               <div ref={messagesEndRef} />
@@ -490,8 +484,8 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           )}
         </div>
 
-        {/* Clean Slack-Style Message Input */}
-        <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white p-4 shadow-lg z-10 lg:hidden">
+        {/* Message Input - Fixed at Bottom */}
+        <div className="border-t border-slate-200 bg-white p-4 shadow-lg flex-shrink-0">
           <div className="flex items-center space-x-3">
             <Button 
               variant="ghost" 
@@ -500,13 +494,13 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
             >
               <Plus className="w-5 h-5 text-slate-600" />
             </Button>
-            <div className="flex-1 relative">
+            <div className="flex-1">
               <Input
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={`Message #${currentChannel?.name || 'channel'}`}
-                className="py-3 text-base border border-slate-300 focus:border-purple-400 rounded-lg bg-slate-50 focus:bg-white"
+                className="py-3 text-base border border-slate-300 focus:border-purple-400 rounded-lg bg-slate-50 focus:bg-white w-full"
               />
             </div>
             {messageInput.trim() && (
@@ -519,7 +513,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
             )}
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
