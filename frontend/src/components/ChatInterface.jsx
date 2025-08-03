@@ -119,49 +119,48 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
             {
               id: "1",
               user: {
-                name: "Ray S",
+                name: "Alex M",
                 avatar: '',
-                initials: "RS",
+                initials: "AM",
                 status: "online",
-                color: "bg-emerald-500"
+                color: "bg-blue-500"
               },
-              content: "Thanks friends! Miss you...",
+              content: "Hey everyone! How's the project going?",
               timestamp: new Date(Date.now() - 7200000),
               type: "message",
             },
             {
               id: "2",
               user: {
-                name: "Luke Virginia",
+                name: "Sarah K",
                 avatar: '',
-                initials: "LV",
+                initials: "SK",
                 status: "online",
-                color: "bg-amber-700"
+                color: "bg-green-500"
               },
-              content: "Had a visitor come through virginia beach yesterday!! @Audrey G Was so awesome to get the chance to connect ❤️",
+              content: "Just finished the mobile designs! Check them out 🎨",
               timestamp: new Date(Date.now() - 3600000),
               type: "message",
-              attachments: 2,
+              attachments: 1,
               reactions: [
-                { emoji: "❤️", count: 10 },
-                { emoji: "🚀", count: 2 },
-                { emoji: "👑", count: 1 }
+                { emoji: "🎉", count: 5 },
+                { emoji: "👏", count: 3 },
+                { emoji: "🔥", count: 2 }
               ],
-              replies: 4
+              replies: 2
             },
             {
               id: "3",
               user: {
-                name: "Joe S.",
-                avatar: '',
-                initials: "JS",
+                name: user.displayName || 'Demo User',
+                avatar: user.photoURL || '',
+                initials: (user.displayName || 'DU').split(' ').map(n => n[0]).join('').toUpperCase(),
                 status: "online",
-                color: "bg-slate-600"
+                color: "bg-purple-500"
               },
-              content: "Another 4thD connection!!!",
+              content: `Welcome to the chat! This is working perfectly now.`,
               timestamp: new Date(Date.now() - 1800000),
               type: "message",
-              attachments: 1
             }
           ]);
         } finally {
@@ -253,11 +252,130 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
     );
   }
 
-  // MOBILE-FIRST DESIGN - matches the provided screenshot exactly
-  return (
-    <div className="h-screen w-screen bg-gray-50 flex flex-col overflow-hidden">
-      {/* Mobile Header - matches screenshot */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+  // DESKTOP LAYOUT (lg and up)
+  const DesktopLayout = () => (
+    <div className="hidden lg:flex h-screen bg-gray-50">
+      {/* Desktop Sidebar */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
+              <span className="text-white font-bold text-lg">
+                {workspace.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <h2 className="font-semibold text-gray-900">{workspace.name}</h2>
+              <p className="text-sm text-gray-500">{workspace.member_count || 0} members</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="mb-6">
+            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Channels</h3>
+            {channels.map((channel) => (
+              <button
+                key={channel.id}
+                onClick={() => setCurrentChannel(channel)}
+                className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-left transition-colors mb-1 ${
+                  currentChannel?.id === channel.id
+                    ? "bg-purple-100 text-purple-900"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <Hash className="w-4 h-4" />
+                <span className="text-sm font-medium">{channel.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Main Chat */}
+      <div className="flex-1 flex flex-col">
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Hash className="w-5 h-5 text-purple-600" />
+              <h1 className="text-xl font-bold text-gray-900">
+                {currentChannel?.name || 'Select a channel'}
+              </h1>
+              <span className="text-sm text-gray-500">
+                {workspace.member_count || 0} members
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" size="sm">
+                <Search className="w-5 h-5" />
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Users className="w-5 h-5" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onSignOut}>
+                <Settings className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {messages.map((message, index) => (
+            <div key={message.id} className="flex items-start space-x-3 mb-4">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${message.user.color || 'bg-gray-500'}`}>
+                {message.user.initials}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-baseline space-x-2 mb-1">
+                  <span className="font-semibold text-gray-900">{message.user.name}</span>
+                  <span className="text-sm text-gray-500">{formatTime(message.timestamp)}</span>
+                </div>
+                <p className="text-gray-800 leading-relaxed">{message.content}</p>
+                {message.reactions && (
+                  <div className="flex items-center space-x-2 mt-2">
+                    {message.reactions.map((reaction, idx) => (
+                      <div key={idx} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
+                        <span className="text-sm">{reaction.emoji}</span>
+                        <span className="text-sm font-medium text-gray-700">{reaction.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="bg-white border-t border-gray-200 p-4">
+          <div className="flex items-center space-x-3">
+            <input
+              type="text"
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={`Message #${currentChannel?.name || 'channel'}`}
+              className="flex-1 py-3 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            {messageInput.trim() && (
+              <button
+                onClick={handleSendMessage}
+                className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // MOBILE LAYOUT (below lg)
+  const MobileLayout = () => (
+    <div className="lg:hidden h-screen bg-gray-50 flex flex-col">
+      {/* Mobile Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3">
           <button 
             onClick={() => window.location.reload()}
@@ -271,7 +389,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
               {currentChannel?.name || 'general_chat'}
             </h1>
             <p className="text-sm text-gray-500">
-              63 members • 3 tabs
+              {workspace.member_count || 63} members • 3 tabs
             </p>
           </div>
         </div>
@@ -280,100 +398,83 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
         </button>
       </div>
 
-      {/* Messages Area - matches screenshot styling */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50">
-        {loadingMessages ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500">Loading messages...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((message, index) => {
-              const showDate = index === 0 || 
-                formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {messages.map((message, index) => {
+          const showDate = index === 0 || 
+            formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
 
-              return (
-                <div key={message.id}>
-                  {showDate && (
-                    <div className="text-left mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {formatDate(message.timestamp)}
-                      </h3>
+          return (
+            <div key={message.id}>
+              {showDate && (
+                <div className="text-left mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {formatDate(message.timestamp)}
+                  </h3>
+                </div>
+              )}
+              
+              <div className="flex items-start space-x-3 mb-4">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${message.user.color || 'bg-gray-500'}`}>
+                  {message.user.initials}
+                </div>
+                
+                <div className="flex-1">
+                  <div className="flex items-baseline space-x-2 mb-1">
+                    <span className="font-semibold text-gray-900 text-base">
+                      {message.user.name}
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      {formatTime(message.timestamp)}
+                    </span>
+                  </div>
+                  
+                  <p className="text-gray-800 text-base leading-relaxed">
+                    {message.content}
+                  </p>
+                  
+                  {message.attachments && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      {message.attachments} attachments
+                    </p>
+                  )}
+                  
+                  {message.reactions && (
+                    <div className="flex items-center space-x-3 mt-3">
+                      {message.reactions.map((reaction, idx) => (
+                        <div key={idx} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
+                          <span className="text-sm">{reaction.emoji}</span>
+                          <span className="text-sm font-medium text-gray-700">{reaction.count}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                   
-                  <div className="flex items-start space-x-3 mb-4">
-                    {/* Avatar - matches screenshot style */}
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${message.user.color || 'bg-gray-500'}`}>
-                      {message.user.initials}
+                  {message.replies && (
+                    <div className="mt-2">
+                      <button className="text-sm text-blue-600 hover:underline">
+                        {message.replies} replies
+                      </button>
+                      <span className="text-sm text-gray-500 ml-2">
+                        Jul 4th at 8:...
+                      </span>
                     </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      {/* Message Header */}
-                      <div className="flex items-baseline space-x-2 mb-1">
-                        <span className="font-semibold text-gray-900 text-base">
-                          {message.user.name}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {formatTime(message.timestamp)}
-                        </span>
-                      </div>
-                      
-                      {/* Message Content */}
-                      <p className="text-gray-800 text-base leading-relaxed">
-                        {message.content}
-                      </p>
-                      
-                      {/* Attachments indicator */}
-                      {message.attachments && (
-                        <p className="text-sm text-gray-500 mt-2">
-                          {message.attachments} attachments
-                        </p>
-                      )}
-                      
-                      {/* Reactions */}
-                      {message.reactions && (
-                        <div className="flex items-center space-x-3 mt-3">
-                          {message.reactions.map((reaction, idx) => (
-                            <div key={idx} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
-                              <span className="text-sm">{reaction.emoji}</span>
-                              <span className="text-sm font-medium text-gray-700">{reaction.count}</span>
-                            </div>
-                          ))}
-                          <button className="p-1 hover:bg-gray-100 rounded-full">
-                            <Smile className="w-4 h-4 text-gray-500" />
-                          </button>
-                        </div>
-                      )}
-                      
-                      {/* Replies */}
-                      {message.replies && (
-                        <div className="mt-2">
-                          <button className="text-sm text-blue-600 hover:underline">
-                            {message.replies} replies
-                          </button>
-                          <span className="text-sm text-gray-500 ml-2">
-                            Jul 4th at 8:...
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  )}
                 </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input - matches screenshot */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3">
+      {/* Mobile Input */}
+      <div className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
         <div className="flex items-center space-x-3">
           <button className="p-2 hover:bg-gray-100 rounded-full">
             <Plus className="w-5 h-5 text-gray-600" />
           </button>
-          <div className="flex-1 relative">
+          <div className="flex-1">
             <input
               type="text"
               value={messageInput}
@@ -389,8 +490,8 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
         </div>
       </div>
 
-      {/* Bottom Navigation - matches screenshot */}
-      <div className="bg-white border-t border-gray-200 px-4 py-2">
+      {/* Mobile Bottom Nav */}
+      <div className="bg-white border-t border-gray-200 px-4 py-2 flex-shrink-0">
         <div className="flex items-center justify-around">
           <button className="flex flex-col items-center space-y-1 py-2 px-4">
             <Home className="w-6 h-6 text-gray-900" />
@@ -410,12 +511,14 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           </button>
         </div>
       </div>
-
-      {/* Desktop Sidebar (hidden on mobile) */}
-      <div className="hidden lg:block fixed inset-y-0 left-0 w-80 bg-white border-r border-gray-200 z-50">
-        {/* Desktop sidebar content here if needed */}
-      </div>
     </div>
+  );
+
+  return (
+    <>
+      <DesktopLayout />
+      <MobileLayout />
+    </>
   );
 };
 
