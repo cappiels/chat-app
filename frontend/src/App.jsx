@@ -459,27 +459,18 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
 // Main App component
 function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with false - show UI immediately
   const [authLoading, setAuthLoading] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
 
   useEffect(() => {
-    // Set a maximum timeout for Firebase auth initialization
-    const authTimeout = setTimeout(() => {
-      console.warn('Firebase auth taking too long, proceeding without auth state');
-      setLoading(false);
-    }, 3000); // 3 seconds max
-
+    // Auth check happens in background, doesn't block UI
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      clearTimeout(authTimeout); // Clear timeout if auth completes normally
       setUser(user);
-      setLoading(false);
+      // No loading state change - UI is already visible
     });
 
-    return () => {
-      clearTimeout(authTimeout);
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   const signInWithGoogle = async () => {
