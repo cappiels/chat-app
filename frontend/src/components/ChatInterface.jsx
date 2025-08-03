@@ -17,7 +17,8 @@ import {
   BookOpen,
   ChevronDown,
   Circle,
-  MessageCircle
+  MessageCircle,
+  X
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -74,6 +75,12 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           }
         } catch (err) {
           console.error('Load channels error:', err);
+          // Create demo channels if API fails
+          setChannels([
+            { id: '1', name: 'general', type: 'channel', unread: 0, isActive: true },
+            { id: '2', name: 'random', type: 'channel', unread: 2, isActive: false },
+          ]);
+          setCurrentChannel({ id: '1', name: 'general', type: 'channel' });
         } finally {
           setLoadingChannels(false);
         }
@@ -107,7 +114,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           setMessages(transformedMessages);
         } catch (err) {
           console.error('Load messages error:', err);
-          // Set some demo messages if API fails
+          // Set demo messages if API fails
           setMessages([
             {
               id: "1",
@@ -225,39 +232,30 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
     );
   }
 
-  return (
-    <div className="flex h-screen bg-slate-50">
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden" 
-          onClick={() => setSidebarOpen(false)} 
-        />
-      )}
-
-      {/* Sidebar */}
-      <motion.div
-        className={`
-          fixed lg:static inset-y-0 left-0 z-50 w-64 lg:w-72 bg-white border-r-2 border-slate-300 shadow-lg lg:shadow-none transform transition-transform duration-200 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-        `}
-        initial={false}
-        animate={sidebarOpen ? { x: 0 } : { x: -256 }}
-        transition={{ duration: 0.3 }}
-      >
-        {/* Workspace Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
-              <span className="text-white font-bold text-lg">
-                {workspace.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <div>
-              <h2 className="font-semibold text-slate-900">{workspace.name}</h2>
-              <p className="text-sm text-slate-500">{workspace.member_count || 0} members</p>
-            </div>
+  const SidebarContent = () => (
+    <>
+      {/* Workspace Header */}
+      <div className="flex items-center justify-between p-4 border-b-2 border-slate-200 bg-slate-50">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
+            <span className="text-white font-bold text-lg">
+              {workspace.name.charAt(0).toUpperCase()}
+            </span>
           </div>
+          <div>
+            <h2 className="font-semibold text-slate-900">{workspace.name}</h2>
+            <p className="text-sm text-slate-500">{workspace.member_count || 0} members</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="lg:hidden" 
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="w-5 h-5" />
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm">
@@ -285,130 +283,165 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
 
-        <ScrollArea className="flex-1 px-3 py-4">
-          {/* Channels Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-slate-600 uppercase tracking-wide">Channels</h3>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="space-y-1">
-              {channels.map((channel) => (
-                <button
-                  key={channel.id}
-                  onClick={() => handleChannelSelect(channel)}
-                  className={`
-                    w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors
-                    ${
-                      currentChannel?.id === channel.id
-                        ? "bg-purple-100 text-purple-900"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }
-                  `}
-                >
-                  <div className="flex items-center space-x-2">
-                    <Hash className="w-4 h-4" />
-                    <span className="text-sm font-medium">{channel.name}</span>
-                  </div>
-                  {channel.unread > 0 && (
-                    <Badge variant="secondary" className="bg-red-500 text-white text-xs px-2 py-0.5">
-                      {channel.unread}
-                    </Badge>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Direct Messages Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-slate-600 uppercase tracking-wide">Direct Messages</h3>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="space-y-1">
-              {directMessages.map((dm) => (
-                <button
-                  key={dm.id}
-                  onClick={() => handleChannelSelect(dm)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                >
-                  <div className="flex items-center space-x-2">
-                    <div className="relative">
-                      <Circle className="w-2 h-2 fill-green-500 text-green-500" />
-                    </div>
-                    <span className="text-sm font-medium">{dm.name}</span>
-                  </div>
-                  {dm.unread > 0 && (
-                    <Badge variant="secondary" className="bg-red-500 text-white text-xs px-2 py-0.5">
-                      {dm.unread}
-                    </Badge>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </ScrollArea>
-
-        {/* Sidebar Footer */}
-        <div className="border-t border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" className="flex-1 justify-start">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Channel
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Rocket className="w-4 h-4" />
+      <ScrollArea className="flex-1 px-3 py-4">
+        {/* Channels Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Channels</h3>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+              <Plus className="w-4 h-4" />
             </Button>
           </div>
+          <div className="space-y-1">
+            {channels.map((channel) => (
+              <button
+                key={channel.id}
+                onClick={() => handleChannelSelect(channel)}
+                className={`
+                  w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors
+                  ${
+                    currentChannel?.id === channel.id
+                      ? "bg-purple-100 text-purple-900 border-l-4 border-purple-500"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  }
+                `}
+              >
+                <div className="flex items-center space-x-2">
+                  <Hash className="w-4 h-4" />
+                  <span className="text-sm font-medium">{channel.name}</span>
+                </div>
+                {channel.unread > 0 && (
+                  <Badge variant="secondary" className="bg-red-500 text-white text-xs px-2 py-0.5">
+                    {channel.unread}
+                  </Badge>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Direct Messages Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Direct Messages</h3>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="space-y-1">
+            {directMessages.map((dm) => (
+              <button
+                key={dm.id}
+                onClick={() => handleChannelSelect(dm)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <Circle className="w-2 h-2 fill-green-500 text-green-500" />
+                  </div>
+                  <span className="text-sm font-medium">{dm.name}</span>
+                </div>
+                {dm.unread > 0 && (
+                  <Badge variant="secondary" className="bg-red-500 text-white text-xs px-2 py-0.5">
+                    {dm.unread}
+                  </Badge>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </ScrollArea>
+
+      {/* Sidebar Footer */}
+      <div className="border-t-2 border-slate-200 p-4 bg-slate-50">
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" className="flex-1 justify-start hover:bg-slate-200">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Channel
+          </Button>
+          <Button variant="ghost" size="sm" className="hover:bg-slate-200">
+            <Rocket className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="h-screen w-full bg-slate-50 relative overflow-hidden">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/70 z-40 lg:hidden" 
+          onClick={() => setSidebarOpen(false)} 
+        />
+      )}
+
+      {/* Mobile Full Screen Sidebar */}
+      <motion.div
+        className={`
+          fixed inset-0 z-50 bg-white lg:hidden
+          ${sidebarOpen ? "block" : "hidden"}
+        `}
+        initial={false}
+        animate={sidebarOpen ? { x: 0 } : { x: "-100%" }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+      >
+        <div className="h-full flex flex-col">
+          <SidebarContent />
         </div>
       </motion.div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Chat Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-slate-300 bg-white shadow-sm">
+      {/* Desktop Layout */}
+      <div className="hidden lg:flex h-full">
+        {/* Desktop Sidebar */}
+        <div className="w-72 bg-white border-r-2 border-slate-300 flex flex-col shadow-lg">
+          <SidebarContent />
+        </div>
+
+        {/* Desktop Chat Area */}
+        <div className="flex-1 flex flex-col">
+          <DesktopChatArea />
+        </div>
+      </div>
+
+      {/* Mobile Chat Area */}
+      <div className="lg:hidden h-full flex flex-col">
+        <MobileChatArea />
+      </div>
+    </div>
+  );
+
+  function MobileChatArea() {
+    return (
+      <>
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between px-4 py-4 border-b-2 border-slate-300 bg-white shadow-md">
           <div className="flex items-center space-x-3">
             <Button 
               variant="ghost" 
               size="sm" 
-              className="lg:hidden bg-slate-100 hover:bg-slate-200 border border-slate-300" 
+              className="bg-purple-100 hover:bg-purple-200 border-2 border-purple-300 rounded-lg p-2" 
               onClick={() => setSidebarOpen(true)}
             >
-              <Menu className="w-5 h-5 text-slate-700" />
+              <Menu className="w-6 h-6 text-purple-700" />
             </Button>
-            <Hash className="w-5 h-5 text-purple-600" />
-            <h1 className="text-lg font-semibold text-slate-900">
-              {currentChannel?.name || 'Select a channel'}
-            </h1>
-            <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 border border-purple-200">
-              {workspace.member_count || 0} members
-            </Badge>
+            <div className="flex items-center space-x-2">
+              <Hash className="w-5 h-5 text-purple-600" />
+              <h1 className="text-lg font-bold text-slate-900">
+                {currentChannel?.name || 'Select a channel'}
+              </h1>
+            </div>
           </div>
-
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-slate-100">
-              <Search className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-slate-100">
-              <Bell className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-slate-100">
-              <Users className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" className="hover:bg-slate-100">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="sm" className="hover:bg-slate-100 p-2">
+            <MoreVertical className="w-5 h-5" />
+          </Button>
         </div>
 
-        {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4">
+        {/* Mobile Messages Area */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 bg-white">
           {loadingMessages ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Loading messages...</p>
@@ -428,25 +461,25 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                   >
                     {showDate && (
                       <div className="flex items-center justify-center my-4">
-                        <div className="bg-slate-100 px-3 py-1 rounded-full">
-                          <span className="text-xs font-medium text-slate-600">
+                        <div className="bg-slate-200 px-3 py-1 rounded-full">
+                          <span className="text-xs font-bold text-slate-700">
                             {formatDate(message.timestamp)}
                           </span>
                         </div>
                       </div>
                     )}
-                    <div className="flex items-start space-x-3 group hover:bg-slate-50 -mx-4 px-4 py-2 rounded-lg">
+                    <div className="flex items-start space-x-3 p-2 rounded-lg hover:bg-slate-50">
                       <Avatar className="w-10 h-10">
-                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white">
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white font-bold">
                           {message.user.initials}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className="font-semibold text-slate-900">{message.user.name}</span>
+                          <span className="font-bold text-slate-900">{message.user.name}</span>
                           <span className="text-xs text-slate-500">{formatTime(message.timestamp)}</span>
                         </div>
-                        <p className="text-slate-700 leading-relaxed">{message.content}</p>
+                        <p className="text-slate-800 leading-relaxed">{message.content}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -455,18 +488,18 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
               <div ref={messagesEndRef} />
             </div>
           )}
-        </ScrollArea>
+        </div>
 
-        {/* Message Input */}
-        <div className="border-t border-slate-200 bg-white p-4">
-          <div className="flex items-end space-x-3">
+        {/* Mobile Message Input */}
+        <div className="border-t-2 border-slate-300 bg-white p-4 shadow-lg">
+          <div className="flex items-center space-x-3">
             <div className="flex-1 relative">
               <Input
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={`Message #${currentChannel?.name || 'channel'}`}
-                className="pr-20 py-3 resize-none border-2 border-slate-200 focus:border-purple-400 rounded-xl"
+                className="pr-16 py-3 text-base border-2 border-slate-300 focus:border-purple-500 rounded-xl"
               />
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -480,15 +513,129 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
             <Button
               onClick={handleSendMessage}
               disabled={!messageInput.trim()}
-              className="bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 px-6 py-3 rounded-xl"
+              className="bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 px-6 py-3 rounded-xl shadow-lg"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-5 h-5" />
             </Button>
           </div>
         </div>
-      </div>
-    </div>
-  );
+      </>
+    );
+  }
+
+  function DesktopChatArea() {
+    return (
+      <>
+        {/* Desktop Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b-2 border-slate-300 bg-white shadow-sm">
+          <div className="flex items-center space-x-4">
+            <Hash className="w-6 h-6 text-purple-600" />
+            <h1 className="text-xl font-bold text-slate-900">
+              {currentChannel?.name || 'Select a channel'}
+            </h1>
+            <Badge variant="secondary" className="text-sm bg-purple-100 text-purple-700 border border-purple-200 px-3 py-1">
+              {workspace.member_count || 0} members
+            </Badge>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button variant="ghost" size="sm" className="hover:bg-slate-100">
+              <Search className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="hover:bg-slate-100">
+              <Bell className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="hover:bg-slate-100">
+              <Users className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="hover:bg-slate-100">
+              <MoreVertical className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Desktop Messages Area */}
+        <ScrollArea className="flex-1 p-6 bg-white">
+          {loadingMessages ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-500">Loading messages...</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {messages.map((message, index) => {
+                const showDate =
+                  index === 0 || formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
+
+                return (
+                  <motion.div 
+                    key={message.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {showDate && (
+                      <div className="flex items-center justify-center my-6">
+                        <div className="bg-slate-200 px-4 py-2 rounded-full">
+                          <span className="text-sm font-bold text-slate-700">
+                            {formatDate(message.timestamp)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-start space-x-4 group hover:bg-slate-50 -mx-6 px-6 py-3 rounded-lg">
+                      <Avatar className="w-12 h-12">
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white font-bold">
+                          {message.user.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <span className="font-bold text-slate-900 text-lg">{message.user.name}</span>
+                          <span className="text-sm text-slate-500">{formatTime(message.timestamp)}</span>
+                        </div>
+                        <p className="text-slate-800 leading-relaxed text-base">{message.content}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Desktop Message Input */}
+        <div className="border-t-2 border-slate-300 bg-white p-6 shadow-lg">
+          <div className="flex items-end space-x-4">
+            <div className="flex-1 relative">
+              <Input
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={`Message #${currentChannel?.name || 'channel'}`}
+                className="pr-20 py-4 text-base resize-none border-2 border-slate-300 focus:border-purple-500 rounded-xl"
+              />
+              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <Paperclip className="w-5 h-5" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <Smile className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+            <Button
+              onClick={handleSendMessage}
+              disabled={!messageInput.trim()}
+              className="bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 px-8 py-4 rounded-xl shadow-lg text-base"
+            >
+              <Send className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
 };
 
 ChatInterface.propTypes = {
