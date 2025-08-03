@@ -413,29 +413,31 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   function MobileChatArea() {
     return (
       <div className="h-full flex flex-col">
-        {/* Mobile Header - Properly Positioned */}
-        <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-200 shadow-sm flex-shrink-0 min-h-[60px]">
-          <div className="flex items-center space-x-2 flex-1 min-w-0">
+        {/* Mobile Header - Enhanced Touch Targets */}
+        <div className="flex items-center justify-between px-2 py-2 bg-white border-b border-slate-200 shadow-sm flex-shrink-0 min-h-[64px]">
+          <div className="flex items-center space-x-1 flex-1 min-w-0">
             <Button 
               variant="ghost" 
               size="sm" 
-              className="h-10 w-10 p-0 hover:bg-slate-100 rounded-lg flex-shrink-0" 
+              className="h-12 w-12 p-0 hover:bg-slate-100 active:bg-slate-200 rounded-lg flex-shrink-0 touch-manipulation" 
               onClick={() => setSidebarOpen(true)}
+              aria-label="Open sidebar"
             >
               <Menu className="w-6 h-6 text-slate-700" />
             </Button>
-            <Hash className="w-5 h-5 text-slate-500 flex-shrink-0" />
-            <h1 className="text-lg font-semibold text-slate-900 truncate overflow-hidden">
+            <Hash className="w-5 h-5 text-slate-500 flex-shrink-0 ml-1" />
+            <h1 className="text-lg font-semibold text-slate-900 truncate overflow-hidden px-2">
               {currentChannel?.name || 'Select a channel'}
             </h1>
           </div>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-10 w-10 p-0 hover:bg-slate-100 rounded-lg flex-shrink-0"
+            className="h-12 w-12 p-0 hover:bg-slate-100 active:bg-slate-200 rounded-lg flex-shrink-0 touch-manipulation"
             onClick={() => window.location.reload()} 
+            aria-label="Go back to workspace selection"
           >
-            <Settings className="w-5 h-5 text-slate-700" />
+            <Settings className="w-6 h-6 text-slate-700" />
           </Button>
         </div>
 
