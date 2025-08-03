@@ -486,13 +486,14 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           )}
         </div>
 
-        {/* Mobile Message Input - Clean Slack Style */}
-        <div className="border-t border-slate-200 bg-white p-3 shadow-lg flex-shrink-0 min-h-[72px]">
-          <div className="flex items-center space-x-3">
+        {/* Mobile Message Input - Enhanced Touch UX */}
+        <div className="border-t border-slate-200 bg-white p-3 shadow-lg flex-shrink-0 min-h-[76px]">
+          <div className="flex items-center space-x-2">
             <Button 
               variant="ghost" 
               size="sm" 
-              className="h-10 w-10 p-0 hover:bg-slate-100 rounded-lg flex-shrink-0"
+              className="h-12 w-12 p-0 hover:bg-slate-100 active:bg-slate-200 rounded-xl flex-shrink-0 touch-manipulation"
+              aria-label="Add attachment"
             >
               <Plus className="w-6 h-6 text-slate-600" />
             </Button>
@@ -502,15 +503,16 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={`Message #${currentChannel?.name || 'channel'}`}
-                className="py-3 px-4 text-base border border-slate-300 focus:border-purple-500 rounded-xl bg-white focus:bg-white w-full min-h-[44px]"
+                className="py-4 px-4 text-base border-2 border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-2xl bg-white focus:bg-white w-full min-h-[48px] transition-all duration-200"
               />
             </div>
             {messageInput.trim() && (
               <Button
                 onClick={handleSendMessage}
-                className="bg-purple-600 hover:bg-purple-700 h-10 w-10 p-0 rounded-lg shadow-sm flex-shrink-0"
+                className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 h-12 w-12 p-0 rounded-xl shadow-lg flex-shrink-0 touch-manipulation transition-all duration-200"
+                aria-label="Send message"
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-6 h-6" />
               </Button>
             )}
           </div>
