@@ -146,32 +146,35 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (messageInput.trim() && currentChannel) {
-      const newMessage = {
-        id: Date.now().toString(),
-        user: {
-          name: user.displayName,
-          avatar: user.photoURL || '',
-          initials: user.displayName.split(' ').map(n => n[0]).join('').toUpperCase(),
-          status: "online",
-        },
-        content: messageInput,
-        timestamp: new Date(),
-        type: "message",
-      };
+    if (!messageInput?.trim() || !currentChannel || !user?.displayName) return;
+    
+    const messageContent = messageInput.trim();
+    const newMessage = {
+      id: Date.now().toString(),
+      user: {
+        name: user.displayName || 'Anonymous',
+        avatar: user.photoURL || '',
+        initials: (user.displayName || 'A').split(' ').map(n => n[0]).join('').toUpperCase(),
+        status: "online",
+      },
+      content: messageContent,
+      timestamp: new Date(),
+      type: "message",
+    };
 
-      setMessages(prev => [...prev, newMessage]);
-      setMessageInput("");
+    // Optimistically update messages
+    setMessages(prev => [...prev, newMessage]);
+    setMessageInput("");
 
-      // Try to send to backend
-      try {
-        await messageAPI.sendMessage(currentChannel.id, {
-          content: messageInput,
-          author: user.displayName
-        });
-      } catch (err) {
-        console.error('Send message error:', err);
-      }
+    // Try to send to backend with retry logic
+    try {
+      await messageAPI.sendMessage(currentChannel.id, {
+        content: messageContent,
+        author: user.displayName || 'Anonymous'
+      });
+    } catch (err) {
+      console.error('Send message error:', err);
+      // Could add error state/retry logic here in future
     }
   };
 
