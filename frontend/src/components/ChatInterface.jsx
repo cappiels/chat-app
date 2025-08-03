@@ -366,7 +366,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   );
 
   return (
-    <div className="h-screen w-full bg-slate-50 relative overflow-hidden">
+    <div className="h-screen w-screen bg-slate-50 relative overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
@@ -403,8 +403,8 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
         </div>
       </div>
 
-      {/* Mobile Chat Area */}
-      <div className="lg:hidden h-full flex flex-col">
+      {/* Mobile Chat Area - Full Viewport */}
+      <div className="lg:hidden h-screen w-screen flex flex-col">
         <MobileChatArea />
       </div>
     </div>
