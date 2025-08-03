@@ -403,8 +403,8 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
         </div>
       </div>
 
-      {/* Mobile Chat Area - Full Viewport */}
-      <div className="lg:hidden h-screen w-screen flex flex-col">
+      {/* Mobile Chat Area - Full Viewport with Safe Areas */}
+      <div className="lg:hidden h-screen w-screen flex flex-col bg-white">
         <MobileChatArea />
       </div>
     </div>
