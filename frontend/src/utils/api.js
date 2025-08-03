@@ -33,15 +33,15 @@ export const workspaceAPI = {
 };
 
 export const threadAPI = {
-  getThreads: (workspaceId) => api.get(`/threads?workspace_id=${workspaceId}`),
-  getThread: (id) => api.get(`/threads/${id}`),
-  createChannel: (workspaceId, data) => api.post(`/threads/channels`, { workspace_id: workspaceId, ...data }),
-  createDM: (workspaceId, userId) => api.post(`/threads/dm`, { workspace_id: workspaceId, user_id: userId }),
-  joinThread: (id) => api.post(`/threads/${id}/join`),
-  leaveThread: (id) => api.post(`/threads/${id}/leave`),
-  updateThread: (id, data) => api.put(`/threads/${id}`, data),
-  deleteThread: (id) => api.delete(`/threads/${id}`),
-  getMembers: (id) => api.get(`/threads/${id}/members`),
+  getThreads: (workspaceId) => api.get(`/workspaces/${workspaceId}/threads`),
+  getThread: (workspaceId, threadId) => api.get(`/workspaces/${workspaceId}/threads/${threadId}`),
+  createChannel: (workspaceId, data) => api.post(`/workspaces/${workspaceId}/threads/channels`, data),
+  createDM: (workspaceId, userId) => api.post(`/workspaces/${workspaceId}/threads/dm`, { user_id: userId }),
+  joinThread: (workspaceId, threadId) => api.post(`/workspaces/${workspaceId}/threads/${threadId}/join`),
+  leaveThread: (workspaceId, threadId) => api.post(`/workspaces/${workspaceId}/threads/${threadId}/leave`),
+  updateThread: (workspaceId, threadId, data) => api.put(`/workspaces/${workspaceId}/threads/${threadId}`, data),
+  deleteThread: (workspaceId, threadId) => api.delete(`/workspaces/${workspaceId}/threads/${threadId}`),
+  getMembers: (workspaceId, threadId) => api.get(`/workspaces/${workspaceId}/threads/${threadId}/members`),
 };
 
 export const messageAPI = {

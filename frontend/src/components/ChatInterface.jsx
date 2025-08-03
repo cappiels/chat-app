@@ -45,8 +45,9 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   const loadThreads = async () => {
     try {
       const response = await threadAPI.getThreads(workspace.id);
-      setThreads(response.data);
+      setThreads(response.data.threads || response.data);
     } catch (error) {
+      console.error('Load threads error:', error);
       toast.error('Failed to load channels');
     }
   };
