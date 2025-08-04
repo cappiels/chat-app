@@ -7,9 +7,9 @@
   --color-primary-dark: #2563eb;   /* Darker blue for hover */
   --color-primary-light: #dbeafe;  /* Light blue background */
   
-  --color-accent: #991b1b;         /* Maroon for highlights */
-  --color-accent-dark: #7f1d1d;    /* Darker maroon */
-  --color-accent-light: #fef2f2;   /* Light maroon background */
+  --color-accent: #ef4444;         /* Pure red for notifications/alerts */
+  --color-accent-dark: #dc2626;    /* Darker red */
+  --color-accent-light: #fef2f2;   /* Light red background */
   
   /* Neutral Colors */
   --color-background: #ffffff;      /* Main white background */
@@ -201,8 +201,8 @@ body {
 }
 
 .channel-item.active {
-  background-color: var(--color-accent);
-  color: var(--color-text-inverse);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
   font-weight: 500;
 }
 

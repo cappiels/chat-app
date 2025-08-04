@@ -64,7 +64,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite }) => {
         {/* Notifications */}
         <button className="btn-icon btn-ghost text-white relative">
           <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-maroon rounded-full" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" />
         </button>
 
         {/* Invite users */}
@@ -94,7 +94,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite }) => {
                 className="w-8 h-8 rounded"
               />
             ) : (
-              <div className="w-8 h-8 bg-maroon rounded flex items-center justify-center">
+              <div className="w-8 h-8 bg-accent rounded flex items-center justify-center">
                 <span className="text-white text-sm font-semibold">
                   {user?.displayName?.charAt(0) || 'U'}
                 </span>
@@ -118,7 +118,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite }) => {
               <hr className="my-1 border-border" />
               <button
                 onClick={onSignOut}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition text-maroon"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition text-accent"
               >
                 Sign out
               </button>
