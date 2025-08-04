@@ -28,8 +28,11 @@ export const workspaceAPI = {
   createWorkspace: (data) => api.post('/workspaces', data),
   updateWorkspace: (id, data) => api.put(`/workspaces/${id}`, data),
   deleteWorkspace: (id) => api.delete(`/workspaces/${id}`),
-  inviteUser: (id, email) => api.post(`/workspaces/${id}/invite`, { email }),
+  inviteUser: (id, data) => api.post(`/workspaces/${id}/invite`, data),
+  acceptInvite: (token) => api.post(`/workspaces/accept-invite/${token}`),
   getMembers: (id) => api.get(`/workspaces/${id}/members`),
+  getNotifications: (params = {}) => api.get('/workspaces/notifications', { params }),
+  markNotificationRead: (id) => api.put(`/workspaces/notifications/${id}/read`),
 };
 
 export const threadAPI = {

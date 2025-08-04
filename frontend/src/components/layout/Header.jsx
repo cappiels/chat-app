@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Search, X, Bell, HelpCircle, User } from 'lucide-react';
+import { Menu, Search, X, Bell, HelpCircle, User, UserPlus } from 'lucide-react';
+import { workspaceAPI } from '../../utils/api';
 
-const Header = ({ workspace, user, onMenuClick, onSignOut }) => {
+const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   return (
     <header className="app-header">
@@ -63,6 +67,18 @@ const Header = ({ workspace, user, onMenuClick, onSignOut }) => {
           <span className="absolute top-1 right-1 w-2 h-2 bg-maroon rounded-full" />
         </button>
 
+        {/* Invite users */}
+        {onInvite && (
+          <button 
+            onClick={onInvite}
+            className="btn-icon btn-ghost text-white flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Invite people to workspace"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm font-medium">Invite</span>
+          </button>
+        )}
+
         {/* Help */}
         <button className="btn-icon btn-ghost text-white hidden md:flex">
           <HelpCircle className="w-5 h-5" />
@@ -119,6 +135,7 @@ Header.propTypes = {
   user: PropTypes.object,
   onMenuClick: PropTypes.func.isRequired,
   onSignOut: PropTypes.func.isRequired,
+  onInvite: PropTypes.func,
 };
 
 export default Header;

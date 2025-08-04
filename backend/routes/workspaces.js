@@ -7,6 +7,7 @@ const {
   requireWorkspaceMembership, 
   requireWorkspaceAdmin 
 } = require('../middleware/auth');
+const emailService = require('../services/emailService');
 const router = express.Router();
 
 // Database connection
@@ -448,11 +449,33 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
 
     await client.query('COMMIT');
 
-    // Log invitation (email sending temporarily disabled)
+    // Send professional email invitation
     const workspace = workspaceInfo.rows[0];
     const inviteUrl = `${process.env.FRONTEND_URL}/invite/${inviteToken}`;
     
-    logInvitation(email, workspace, inviteUrl, req.user.display_name);
+    // Get member count for email
+    const memberCountResult = await client.query(`
+      SELECT COUNT(*) as count FROM workspace_members WHERE workspace_id = $1;
+    `, [workspaceId]);
+    
+    try {
+      await emailService.sendWorkspaceInvitation({
+        to: email,
+        workspaceName: workspace.name,
+        workspaceDescription: workspace.description,
+        inviterName: req.user.display_name,
+        inviterEmail: req.user.email,
+        inviteUrl,
+        userRole: role,
+        memberCount: memberCountResult.rows[0].count,
+        expiryDate: expiresAt
+      });
+      
+      console.log(`📧 Invitation email sent to ${email} for workspace ${workspace.name}`);
+    } catch (emailError) {
+      console.error('Email sending failed, but invitation saved:', emailError.message);
+      // Don't fail the invitation if email fails - user can still use direct link
+    }
 
     res.status(201).json({
       message: 'Invitation sent successfully',
@@ -474,6 +497,254 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
     });
   } finally {
     client.release();
+  }
+});
+
+/**
+ * POST /api/workspaces/accept-invite/:token
+ * Accept workspace invitation
+ */
+router.post('/accept-invite/:token', authenticateUser, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { token } = req.params;
+    const userId = req.user.id;
+
+    await client.query('BEGIN');
+
+    // Find valid invitation
+    const inviteQuery = `
+      SELECT wi.*, w.name as workspace_name, u.display_name as inviter_name
+      FROM workspace_invitations wi
+      JOIN workspaces w ON wi.workspace_id = w.id
+      JOIN users u ON wi.invited_by = u.id
+      WHERE wi.token = $1 
+      AND wi.expires_at > NOW() 
+      AND wi.accepted_at IS NULL;
+    `;
+
+    const inviteResult = await client.query(inviteQuery, [token]);
+
+    if (inviteResult.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Invalid Invitation', 
+        message: 'Invitation not found or has expired' 
+      });
+    }
+
+    const invitation = inviteResult.rows[0];
+
+    // Check if user's email matches invitation
+    if (req.user.email !== invitation.invited_email) {
+      return res.status(403).json({ 
+        error: 'Email Mismatch', 
+        message: 'This invitation was sent to a different email address' 
+      });
+    }
+
+    // Check if already a member
+    const membershipCheck = await client.query(`
+      SELECT role FROM workspace_members 
+      WHERE workspace_id = $1 AND user_id = $2;
+    `, [invitation.workspace_id, userId]);
+
+    if (membershipCheck.rows.length > 0) {
+      return res.status(409).json({ 
+        error: 'Already Member', 
+        message: 'You are already a member of this workspace' 
+      });
+    }
+
+    // Add user to workspace
+    await client.query(`
+      INSERT INTO workspace_members (workspace_id, user_id, role)
+      VALUES ($1, $2, $3);
+    `, [invitation.workspace_id, userId, invitation.role]);
+
+    // Add user to general channel automatically
+    const generalChannelQuery = `
+      SELECT id FROM threads 
+      WHERE workspace_id = $1 AND name = 'general' AND type = 'channel'
+      LIMIT 1;
+    `;
+    const generalChannel = await client.query(generalChannelQuery, [invitation.workspace_id]);
+    
+    if (generalChannel.rows.length > 0) {
+      await client.query(`
+        INSERT INTO thread_members (thread_id, user_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING;
+      `, [generalChannel.rows[0].id, userId]);
+    }
+
+    // Mark invitation as accepted
+    await client.query(`
+      UPDATE workspace_invitations 
+      SET accepted_at = NOW(), accepted_by = $1
+      WHERE token = $2;
+    `, [userId, token]);
+
+    // Create notification for inviter
+    await client.query(`
+      INSERT INTO notifications (
+        user_id, 
+        workspace_id, 
+        type, 
+        title, 
+        message, 
+        data
+      )
+      VALUES ($1, $2, 'invite_accepted', $3, $4, $5);
+    `, [
+      invitation.invited_by,
+      invitation.workspace_id,
+      '🎉 Invitation Accepted',
+      `${req.user.display_name} joined ${invitation.workspace_name}`,
+      JSON.stringify({
+        new_member_id: userId,
+        new_member_name: req.user.display_name,
+        new_member_email: req.user.email,
+        workspace_id: invitation.workspace_id,
+        workspace_name: invitation.workspace_name,
+        role: invitation.role
+      })
+    ]);
+
+    await client.query('COMMIT');
+
+    // Send email notification to inviter
+    try {
+      // Get inviter details and total member count
+      const inviterResult = await pool.query('SELECT email FROM users WHERE id = $1', [invitation.invited_by]);
+      const memberCountResult = await pool.query(`
+        SELECT COUNT(*) as count FROM workspace_members WHERE workspace_id = $1;
+      `, [invitation.workspace_id]);
+
+      if (inviterResult.rows.length > 0) {
+        await emailService.sendMemberJoinedNotification({
+          to: inviterResult.rows[0].email,
+          workspaceName: invitation.workspace_name,
+          newMemberName: req.user.display_name,
+          newMemberEmail: req.user.email,
+          memberRole: invitation.role,
+          workspaceUrl: `${process.env.FRONTEND_URL}/workspace/${invitation.workspace_id}`,
+          totalMembers: memberCountResult.rows[0].count
+        });
+        
+        console.log(`📧 Member joined notification sent to ${inviterResult.rows[0].email}`);
+      }
+    } catch (emailError) {
+      console.error('Failed to send member joined email notification:', emailError.message);
+      // Don't fail the join process if email fails
+    }
+
+    // Log successful join
+    console.log(`👥 User ${req.user.email} joined workspace ${invitation.workspace_name} via invitation`);
+
+    res.json({
+      message: 'Successfully joined workspace',
+      workspace: {
+        id: invitation.workspace_id,
+        name: invitation.workspace_name,
+        role: invitation.role
+      }
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Accept invitation error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to accept invitation' 
+    });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * GET /api/workspaces/notifications
+ * Get notifications for current user
+ */
+router.get('/notifications', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { limit = 20, offset = 0, unread_only = false } = req.query;
+
+    let notificationsQuery = `
+      SELECT n.*, w.name as workspace_name
+      FROM notifications n
+      LEFT JOIN workspaces w ON n.workspace_id = w.id
+      WHERE n.user_id = $1
+    `;
+
+    const params = [userId];
+
+    if (unread_only === 'true') {
+      notificationsQuery += ` AND n.is_read = false`;
+    }
+
+    notificationsQuery += ` ORDER BY n.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(parseInt(limit), parseInt(offset));
+
+    const result = await pool.query(notificationsQuery, params);
+
+    // Get unread count
+    const unreadResult = await pool.query(
+      'SELECT COUNT(*) as unread_count FROM notifications WHERE user_id = $1 AND is_read = false',
+      [userId]
+    );
+
+    res.json({
+      notifications: result.rows,
+      unread_count: parseInt(unreadResult.rows[0].unread_count),
+      total: result.rows.length
+    });
+
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to retrieve notifications' 
+    });
+  }
+});
+
+/**
+ * PUT /api/workspaces/notifications/:notificationId/read
+ * Mark notification as read
+ */
+router.put('/notifications/:notificationId/read', authenticateUser, async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const userId = req.user.id;
+
+    const result = await pool.query(`
+      UPDATE notifications 
+      SET is_read = true, read_at = NOW()
+      WHERE id = $1 AND user_id = $2
+      RETURNING *;
+    `, [notificationId, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Not Found', 
+        message: 'Notification not found' 
+      });
+    }
+
+    res.json({
+      message: 'Notification marked as read',
+      notification: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Mark notification read error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to mark notification as read' 
+    });
   }
 });
 
@@ -506,6 +777,28 @@ const createInvitationsTable = async () => {
       CREATE INDEX IF NOT EXISTS idx_workspace_invitations_token ON workspace_invitations (token);
       CREATE INDEX IF NOT EXISTS idx_workspace_invitations_email ON workspace_invitations (invited_email);
       CREATE INDEX IF NOT EXISTS idx_workspace_invitations_workspace ON workspace_invitations (workspace_id);
+    `);
+
+    // Create notifications table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR(128) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        data JSONB DEFAULT '{}',
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        read_at TIMESTAMP WITH TIME ZONE
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id);
+      CREATE INDEX IF NOT EXISTS idx_notifications_workspace_id ON notifications (workspace_id);
+      CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications (type);
+      CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications (created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, is_read) WHERE is_read = false;
     `);
   } catch (error) {
     console.error('Error creating invitations table:', error);

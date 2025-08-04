@@ -17,6 +17,9 @@ const knowledgeRoutes = require('./routes/knowledge-advanced');
 // Import Socket.IO server
 const SocketServer = require('./socket/socketServer');
 
+// Import email service (initializes automatically)
+const emailService = require('./services/emailService');
+
 // --- Initialization ---
 const app = express();
 const port = process.env.PORT || 8080;

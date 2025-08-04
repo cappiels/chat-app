@@ -6,6 +6,7 @@ import MobileNav from './MobileNav';
 import MessageList from '../chat/MessageList';
 import MessageComposer from '../chat/MessageComposer';
 import Thread from '../chat/Thread';
+import InviteDialog from '../InviteDialog';
 
 const AppLayout = ({ user, workspace, onSignOut }) => {
   const [channels, setChannels] = useState([]);
@@ -16,6 +17,7 @@ const AppLayout = ({ user, workspace, onSignOut }) => {
   const [selectedThread, setSelectedThread] = useState(null);
   const [activeSection, setActiveSection] = useState('chat');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   // Handle responsive behavior
   useEffect(() => {
@@ -116,6 +118,11 @@ const AppLayout = ({ user, workspace, onSignOut }) => {
     setMessages([...messages, newMessage]);
   };
 
+  const handleInviteSuccess = (invites) => {
+    console.log('Invitations sent successfully:', invites);
+    // In a real app, you might want to refresh workspace member list
+  };
+
   return (
     <div className="app-layout">
       {/* Header */}
@@ -124,6 +131,7 @@ const AppLayout = ({ user, workspace, onSignOut }) => {
         user={user}
         onMenuClick={() => setSidebarOpen(!sidebarOpen)}
         onSignOut={onSignOut}
+        onInvite={() => setInviteDialogOpen(true)}
       />
 
       {/* Mobile overlay */}
@@ -183,6 +191,14 @@ const AppLayout = ({ user, workspace, onSignOut }) => {
           onSectionChange={setActiveSection}
         />
       )}
+
+      {/* Invite Dialog */}
+      <InviteDialog
+        workspace={workspace}
+        isOpen={inviteDialogOpen}
+        onClose={() => setInviteDialogOpen(false)}
+        onInviteSuccess={handleInviteSuccess}
+      />
     </div>
   );
 };
