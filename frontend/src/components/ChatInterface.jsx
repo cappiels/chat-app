@@ -252,22 +252,42 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
     );
   }
 
-  // DESKTOP LAYOUT (lg and up)
-  const DesktopLayout = () => (
-    <div className="hidden lg:flex h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+  // SINGLE UNIFIED RESPONSIVE LAYOUT
+  return (
+    <div className="h-screen bg-gray-50 flex">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden" 
+          onClick={() => setSidebarOpen(false)} 
+        />
+      )}
+
+      {/* Sidebar - Always present on desktop, overlay on mobile */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 transform transition-transform lg:relative lg:translate-x-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        lg:flex lg:flex-col hidden lg:block
+      `}>
         <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
-              <span className="text-white font-bold text-lg">
-                {workspace.name.charAt(0).toUpperCase()}
-              </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
+                <span className="text-white font-bold text-lg">
+                  {workspace.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <h2 className="font-semibold text-gray-900">{workspace.name}</h2>
+                <p className="text-sm text-gray-500">{workspace.member_count || 0} members</p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-semibold text-gray-900">{workspace.name}</h2>
-              <p className="text-sm text-gray-500">{workspace.member_count || 0} members</p>
-            </div>
+            <button 
+              className="lg:hidden p-1 hover:bg-gray-100 rounded-full"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -277,7 +297,10 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
             {channels.map((channel) => (
               <button
                 key={channel.id}
-                onClick={() => setCurrentChannel(channel)}
+                onClick={() => {
+                  setCurrentChannel(channel);
+                  setSidebarOpen(false);
+                }}
                 className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-left transition-colors mb-1 ${
                   currentChannel?.id === channel.id
                     ? "bg-purple-100 text-purple-900"
@@ -292,12 +315,41 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
         </div>
       </div>
 
-      {/* Desktop Main Chat */}
-      <div className="flex-1 flex flex-col">
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Hash className="w-5 h-5 text-purple-600" />
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header - Responsive */}
+        <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            {/* Mobile hamburger */}
+            <button 
+              className="lg:hidden p-1 hover:bg-gray-100 rounded-full"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="w-6 h-6 text-gray-700" />
+            </button>
+
+            {/* Mobile back button - only show on mobile */}
+            <button 
+              className="lg:hidden p-1 hover:bg-gray-100 rounded-full"
+              onClick={() => window.location.reload()}
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-700" />
+            </button>
+
+            <Hash className="w-5 h-5 text-purple-600" />
+            
+            {/* Mobile: Show column with name + member count */}
+            <div className="lg:hidden flex flex-col">
+              <h1 className="text-lg font-semibold text-gray-900">
+                {currentChannel?.name || 'general_chat'}
+              </h1>
+              <p className="text-sm text-gray-500">
+                {workspace.member_count || 63} members • 3 tabs
+              </p>
+            </div>
+
+            {/* Desktop: Show inline */}
+            <div className="hidden lg:flex lg:items-center lg:space-x-3">
               <h1 className="text-xl font-bold text-gray-900">
                 {currentChannel?.name || 'Select a channel'}
               </h1>
@@ -305,7 +357,16 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
                 {workspace.member_count || 0} members
               </span>
             </div>
-            <div className="flex items-center space-x-2">
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {/* Mobile: Only headphones */}
+            <button className="lg:hidden p-2 hover:bg-gray-100 rounded-full">
+              <Headphones className="w-6 h-6 text-gray-600" />
+            </button>
+
+            {/* Desktop: Full toolbar */}
+            <div className="hidden lg:flex lg:items-center lg:space-x-2">
               <Button variant="ghost" size="sm">
                 <Search className="w-5 h-5" />
               </Button>
@@ -319,206 +380,129 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          {messages.map((message, index) => (
-            <div key={message.id} className="flex items-start space-x-3 mb-4">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${message.user.color || 'bg-gray-500'}`}>
-                {message.user.initials}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-baseline space-x-2 mb-1">
-                  <span className="font-semibold text-gray-900">{message.user.name}</span>
-                  <span className="text-sm text-gray-500">{formatTime(message.timestamp)}</span>
-                </div>
-                <p className="text-gray-800 leading-relaxed">{message.content}</p>
-                {message.reactions && (
-                  <div className="flex items-center space-x-2 mt-2">
-                    {message.reactions.map((reaction, idx) => (
-                      <div key={idx} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
-                        <span className="text-sm">{reaction.emoji}</span>
-                        <span className="text-sm font-medium text-gray-700">{reaction.count}</span>
-                      </div>
-                    ))}
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-4">
+          {messages.map((message, index) => {
+            const showDate = index === 0 || 
+              formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
+
+            return (
+              <div key={message.id}>
+                {showDate && (
+                  <div className="text-left mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {formatDate(message.timestamp)}
+                    </h3>
                   </div>
                 )}
+                
+                <div className="flex items-start space-x-3 mb-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${message.user.color || 'bg-gray-500'}`}>
+                    {message.user.initials}
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className="flex items-baseline space-x-2 mb-1">
+                      <span className="font-semibold text-gray-900 text-base">
+                        {message.user.name}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {formatTime(message.timestamp)}
+                      </span>
+                    </div>
+                    
+                    <p className="text-gray-800 text-base leading-relaxed">
+                      {message.content}
+                    </p>
+                    
+                    {message.attachments && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        {message.attachments} attachments
+                      </p>
+                    )}
+                    
+                    {message.reactions && (
+                      <div className="flex items-center space-x-3 mt-3">
+                        {message.reactions.map((reaction, idx) => (
+                          <div key={idx} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
+                            <span className="text-sm">{reaction.emoji}</span>
+                            <span className="text-sm font-medium text-gray-700">{reaction.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {message.replies && (
+                      <div className="mt-2">
+                        <button className="text-sm text-blue-600 hover:underline">
+                          {message.replies} replies
+                        </button>
+                        <span className="text-sm text-gray-500 ml-2">
+                          Jul 4th at 8:...
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="bg-white border-t border-gray-200 p-4">
+        {/* Message Input */}
+        <div className="bg-white border-t border-gray-200 px-4 lg:px-6 py-3 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={`Message #${currentChannel?.name || 'channel'}`}
-              className="flex-1 py-3 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
+            <button className="p-2 hover:bg-gray-100 rounded-full">
+              <Plus className="w-5 h-5 text-gray-600" />
+            </button>
+            <div className="flex-1">
+              <input
+                type="text"
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={`Message #${currentChannel?.name || 'general_chat'}`}
+                className="w-full py-3 px-4 bg-gray-100 lg:bg-white lg:border lg:border-gray-300 rounded-full lg:rounded-lg text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <button className="lg:hidden p-2 hover:bg-gray-100 rounded-full">
+              <Mic className="w-5 h-5 text-gray-600" />
+            </button>
             {messageInput.trim() && (
               <button
                 onClick={handleSendMessage}
-                className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg"
+                className="hidden lg:block bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg"
               >
                 <Send className="w-5 h-5" />
               </button>
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
 
-  // MOBILE LAYOUT (below lg)
-  const MobileLayout = () => (
-    <div className="lg:hidden h-screen bg-gray-50 flex flex-col">
-      {/* Mobile Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={() => window.location.reload()}
-            className="p-1 hover:bg-gray-100 rounded-full"
-          >
-            <ChevronLeft className="w-6 h-6 text-gray-700" />
-          </button>
-          <Hash className="w-5 h-5 text-gray-600" />
-          <div className="flex flex-col">
-            <h1 className="text-lg font-semibold text-gray-900">
-              {currentChannel?.name || 'general_chat'}
-            </h1>
-            <p className="text-sm text-gray-500">
-              {workspace.member_count || 63} members • 3 tabs
-            </p>
+        {/* Mobile Bottom Navigation - Only show on mobile */}
+        <div className="lg:hidden bg-white border-t border-gray-200 px-4 py-2 flex-shrink-0">
+          <div className="flex items-center justify-around">
+            <button className="flex flex-col items-center space-y-1 py-2 px-4">
+              <Home className="w-6 h-6 text-gray-900" />
+              <span className="text-xs font-medium text-gray-900">Home</span>
+            </button>
+            <button className="flex flex-col items-center space-y-1 py-2 px-4">
+              <MessageSquare className="w-6 h-6 text-gray-500" />
+              <span className="text-xs text-gray-500">DMs</span>
+            </button>
+            <button className="flex flex-col items-center space-y-1 py-2 px-4">
+              <Bell className="w-6 h-6 text-gray-500" />
+              <span className="text-xs text-gray-500">Activity</span>
+            </button>
+            <button className="flex flex-col items-center space-y-1 py-2 px-4">
+              <MoreHorizontal className="w-6 h-6 text-gray-500" />
+              <span className="text-xs text-gray-500">More</span>
+            </button>
           </div>
-        </div>
-        <button className="p-2 hover:bg-gray-100 rounded-full">
-          <Headphones className="w-6 h-6 text-gray-600" />
-        </button>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.map((message, index) => {
-          const showDate = index === 0 || 
-            formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
-
-          return (
-            <div key={message.id}>
-              {showDate && (
-                <div className="text-left mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {formatDate(message.timestamp)}
-                  </h3>
-                </div>
-              )}
-              
-              <div className="flex items-start space-x-3 mb-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${message.user.color || 'bg-gray-500'}`}>
-                  {message.user.initials}
-                </div>
-                
-                <div className="flex-1">
-                  <div className="flex items-baseline space-x-2 mb-1">
-                    <span className="font-semibold text-gray-900 text-base">
-                      {message.user.name}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {formatTime(message.timestamp)}
-                    </span>
-                  </div>
-                  
-                  <p className="text-gray-800 text-base leading-relaxed">
-                    {message.content}
-                  </p>
-                  
-                  {message.attachments && (
-                    <p className="text-sm text-gray-500 mt-2">
-                      {message.attachments} attachments
-                    </p>
-                  )}
-                  
-                  {message.reactions && (
-                    <div className="flex items-center space-x-3 mt-3">
-                      {message.reactions.map((reaction, idx) => (
-                        <div key={idx} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
-                          <span className="text-sm">{reaction.emoji}</span>
-                          <span className="text-sm font-medium text-gray-700">{reaction.count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {message.replies && (
-                    <div className="mt-2">
-                      <button className="text-sm text-blue-600 hover:underline">
-                        {message.replies} replies
-                      </button>
-                      <span className="text-sm text-gray-500 ml-2">
-                        Jul 4th at 8:...
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Mobile Input */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
-        <div className="flex items-center space-x-3">
-          <button className="p-2 hover:bg-gray-100 rounded-full">
-            <Plus className="w-5 h-5 text-gray-600" />
-          </button>
-          <div className="flex-1">
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={`Message #${currentChannel?.name || 'general_chat'}`}
-              className="w-full py-3 px-4 bg-gray-100 rounded-full text-base placeholder-gray-500 border-0 focus:outline-none focus:ring-0"
-            />
-          </div>
-          <button className="p-2 hover:bg-gray-100 rounded-full">
-            <Mic className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Bottom Nav */}
-      <div className="bg-white border-t border-gray-200 px-4 py-2 flex-shrink-0">
-        <div className="flex items-center justify-around">
-          <button className="flex flex-col items-center space-y-1 py-2 px-4">
-            <Home className="w-6 h-6 text-gray-900" />
-            <span className="text-xs font-medium text-gray-900">Home</span>
-          </button>
-          <button className="flex flex-col items-center space-y-1 py-2 px-4">
-            <MessageSquare className="w-6 h-6 text-gray-500" />
-            <span className="text-xs text-gray-500">DMs</span>
-          </button>
-          <button className="flex flex-col items-center space-y-1 py-2 px-4">
-            <Bell className="w-6 h-6 text-gray-500" />
-            <span className="text-xs text-gray-500">Activity</span>
-          </button>
-          <button className="flex flex-col items-center space-y-1 py-2 px-4">
-            <MoreHorizontal className="w-6 h-6 text-gray-500" />
-            <span className="text-xs text-gray-500">More</span>
-          </button>
         </div>
       </div>
     </div>
-  );
-
-  return (
-    <>
-      <DesktopLayout />
-      <MobileLayout />
-    </>
   );
 };
 
