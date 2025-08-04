@@ -13,6 +13,7 @@ import {
 import AppHeader from './AppHeader';
 import AppFooter from './AppFooter';
 import AppSidebar from './AppSidebar';
+import ChannelsSidebar from './ChannelsSidebar';
 import { threadAPI, messageAPI } from '../utils/api';
 
 const ChatInterface = ({ user, workspace, onSignOut }) => {
@@ -23,13 +24,13 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   const [loadingChannels, setLoadingChannels] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [activeSection, setActiveSection] = useState('chat');
-  const [isMobile, setIsMobile] = useState(true); // Default to mobile, then detect
+  const [isMobile, setIsMobile] = useState(true);
   const messagesEndRef = useRef(null);
 
   // Detect screen size
   useEffect(() => {
     const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 1024); // lg breakpoint is 1024px
+      setIsMobile(window.innerWidth < 1024);
     };
     
     checkScreenSize();
@@ -57,7 +58,6 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           }
         } catch (err) {
           console.error('Load channels error:', err);
-          // Demo data
           setChannels([
             { id: '1', name: 'general_chat', type: 'channel', unread: 0 },
             { id: '2', name: 'random', type: 'channel', unread: 2 },
@@ -96,7 +96,6 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
           setMessages(transformedMessages);
         } catch (err) {
           console.error('Load messages error:', err);
-          // Demo data
           setMessages([
             {
               id: "1",
@@ -234,10 +233,10 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
     );
   }
 
-  // UNIFIED ARCHITECTURE WITH REUSABLE COMPONENTS
+  // PROPER DESKTOP LAYOUT STRUCTURE
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
-      {/* Global App Header - Slack-like search bar */}
+      {/* Global App Header - Purple Search Bar */}
       <AppHeader 
         workspace={workspace}
         onSignOut={onSignOut}
@@ -245,174 +244,188 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Sidebar - Only shows on desktop */}
+        {/* Desktop Navigation Sidebar - Narrow (80px) */}
         <AppSidebar
           workspace={workspace}
-          channels={channels}
-          currentChannel={currentChannel}
-          onChannelSelect={setCurrentChannel}
           activeSection={activeSection}
           onSectionChange={setActiveSection}
           onSignOut={onSignOut}
         />
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Mobile Channel Header - Only shows on mobile */}
-          {isMobile && (
-            <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between lg:hidden">
-              <div className="flex items-center space-x-3">
-                <button 
-                  onClick={() => window.history.back()}
-                  className="p-1 hover:bg-gray-100 rounded-full"
-                >
-                  <ChevronLeft className="w-6 h-6 text-gray-700" />
-                </button>
-                <Hash className="w-5 h-5 text-gray-600" />
-                <div className="flex flex-col">
-                  <h1 className="text-lg font-semibold text-gray-900">
-                    {currentChannel?.name || 'general_chat'}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {workspace.member_count || 5} members
-                  </p>
-                </div>
-              </div>
-              <button className="p-2 hover:bg-gray-100 rounded-full">
-                <Headphones className="w-6 h-6 text-gray-600" />
-              </button>
-            </div>
-          )}
+        {/* Chat Area - Split into Channels (25%) and Messages (75%) */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Desktop Channels Sidebar - 25% width */}
+          <ChannelsSidebar
+            workspace={workspace}
+            channels={channels}
+            currentChannel={currentChannel}
+            onChannelSelect={setCurrentChannel}
+          />
 
-          {/* Desktop Channel Header - Only shows on desktop */}
-          {!isMobile && (
-            <div className="bg-white border-b border-gray-200 px-6 py-4 hidden lg:block">
-              <div className="flex items-center justify-between">
+          {/* Messages Area - 75% width */}
+          <div className="flex-1 flex flex-col min-w-0 bg-white">
+            {/* Mobile Channel Header - Only shows on mobile */}
+            {isMobile && (
+              <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between lg:hidden">
                 <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={() => window.history.back()}
+                    className="p-1 hover:bg-gray-100 rounded-full"
+                  >
+                    <ChevronLeft className="w-6 h-6 text-gray-700" />
+                  </button>
                   <Hash className="w-5 h-5 text-gray-600" />
-                  <h1 className="text-xl font-bold text-gray-900">
-                    {currentChannel?.name || 'Select a channel'}
-                  </h1>
-                  <span className="text-sm text-gray-500">
-                    {workspace.member_count || 0} members
-                  </span>
+                  <div className="flex flex-col">
+                    <h1 className="text-lg font-semibold text-gray-900">
+                      {currentChannel?.name || 'general_chat'}
+                    </h1>
+                    <p className="text-sm text-gray-500">
+                      {workspace.member_count || 5} members
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <div>Messages</div>
-                  <div>Canvas</div>
-                  <div>Files</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-4">
-            {loadingMessages ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Loading messages...</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {messages.map((message, index) => {
-                  const showDate = index === 0 || 
-                    formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
-
-                  return (
-                    <div key={message.id}>
-                      {showDate && (
-                        <div className="text-left mb-4">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {formatDate(message.timestamp)}
-                          </h3>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-start space-x-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${message.user.color || 'bg-gray-500'}`}>
-                          {message.user.initials}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline space-x-2 mb-1">
-                            <span className="font-semibold text-gray-900 text-base">
-                              {message.user.name}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              {formatTime(message.timestamp)}
-                            </span>
-                          </div>
-                          
-                          <p className="text-gray-800 text-base leading-relaxed">
-                            {message.content}
-                          </p>
-                          
-                          {message.attachments && (
-                            <p className="text-sm text-gray-500 mt-2">
-                              {message.attachments} attachments
-                            </p>
-                          )}
-                          
-                          {message.reactions && (
-                            <div className="flex items-center space-x-2 mt-3">
-                              {message.reactions.map((reaction, idx) => (
-                                <div key={idx} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
-                                  <span className="text-sm">{reaction.emoji}</span>
-                                  <span className="text-sm font-medium text-gray-700">{reaction.count}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {message.replies && (
-                            <div className="mt-2">
-                              <button className="text-sm text-blue-600 hover:underline">
-                                {message.replies} replies
-                              </button>
-                              <span className="text-sm text-gray-500 ml-2">
-                                Jul 4th at 8:...
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={messagesEndRef} />
+                <button className="p-2 hover:bg-gray-100 rounded-full">
+                  <Headphones className="w-6 h-6 text-gray-600" />
+                </button>
               </div>
             )}
-          </div>
 
-          {/* Message Input */}
-          <div className="bg-white border-t border-gray-200 px-4 lg:px-6 py-3">
-            <div className="flex items-center space-x-3">
-              <button className="p-2 hover:bg-gray-100 rounded-full">
-                <Plus className="w-5 h-5 text-gray-600" />
-              </button>
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder={`Message #${currentChannel?.name || 'general_chat'}`}
-                  className="w-full py-3 px-4 bg-gray-100 lg:bg-white lg:border lg:border-gray-300 rounded-full lg:rounded-lg text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
+            {/* Desktop Channel Header - Only shows on desktop */}
+            {!isMobile && (
+              <div className="bg-white border-b border-gray-200 px-6 py-4 hidden lg:block">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Hash className="w-5 h-5 text-gray-600" />
+                    <h1 className="text-xl font-bold text-gray-900">
+                      {currentChannel?.name || 'Select a channel'}
+                    </h1>
+                    <span className="text-sm text-gray-500">
+                      {workspace.member_count || 0} members
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-6">
+                    <button className="text-sm font-medium text-gray-700 border-b-2 border-purple-500 pb-2">
+                      Messages
+                    </button>
+                    <button className="text-sm font-medium text-gray-500 pb-2 hover:text-gray-700">
+                      Canvas
+                    </button>
+                    <button className="text-sm font-medium text-gray-500 pb-2 hover:text-gray-700">
+                      Files
+                    </button>
+                  </div>
+                </div>
               </div>
-              {isMobile && (
+            )}
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-4">
+              {loadingMessages ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">Loading messages...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((message, index) => {
+                    const showDate = index === 0 || 
+                      formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
+
+                    return (
+                      <div key={message.id}>
+                        {showDate && (
+                          <div className="text-left mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {formatDate(message.timestamp)}
+                            </h3>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start space-x-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${message.user.color || 'bg-gray-500'}`}>
+                            {message.user.initials}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline space-x-2 mb-1">
+                              <span className="font-semibold text-gray-900 text-base">
+                                {message.user.name}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {formatTime(message.timestamp)}
+                              </span>
+                            </div>
+                            
+                            <p className="text-gray-800 text-base leading-relaxed">
+                              {message.content}
+                            </p>
+                            
+                            {message.attachments && (
+                              <p className="text-sm text-gray-500 mt-2">
+                                {message.attachments} attachments
+                              </p>
+                            )}
+                            
+                            {message.reactions && (
+                              <div className="flex items-center space-x-2 mt-3">
+                                {message.reactions.map((reaction, idx) => (
+                                  <div key={idx} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
+                                    <span className="text-sm">{reaction.emoji}</span>
+                                    <span className="text-sm font-medium text-gray-700">{reaction.count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {message.replies && (
+                              <div className="mt-2">
+                                <button className="text-sm text-blue-600 hover:underline">
+                                  {message.replies} replies
+                                </button>
+                                <span className="text-sm text-gray-500 ml-2">
+                                  Jul 4th at 8:...
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="bg-white border-t border-gray-200 px-4 lg:px-6 py-3">
+              <div className="flex items-center space-x-3">
                 <button className="p-2 hover:bg-gray-100 rounded-full">
-                  <Mic className="w-5 h-5 text-gray-600" />
+                  <Plus className="w-5 h-5 text-gray-600" />
                 </button>
-              )}
-              {messageInput.trim() && (
-                <button
-                  onClick={handleSendMessage}
-                  className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              )}
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={`Message #${currentChannel?.name || 'general_chat'}`}
+                    className="w-full py-3 px-4 bg-gray-100 lg:bg-white lg:border lg:border-gray-300 rounded-full lg:rounded-lg text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                {isMobile && (
+                  <button className="p-2 hover:bg-gray-100 rounded-full">
+                    <Mic className="w-5 h-5 text-gray-600" />
+                  </button>
+                )}
+                {messageInput.trim() && (
+                  <button
+                    onClick={handleSendMessage}
+                    className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
