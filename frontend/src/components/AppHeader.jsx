@@ -5,18 +5,9 @@ import PropTypes from 'prop-types';
 const AppHeader = ({ workspace, onSignOut, searchPlaceholder = "Search" }) => {
   return (
     <div className="bg-purple-700 px-4 py-2 flex items-center justify-between">
-      {/* Left: Workspace info (mobile hidden) */}
-      <div className="hidden lg:flex items-center space-x-3 min-w-0">
-        <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
-          <span className="text-white font-bold text-sm">
-            {workspace?.name?.charAt(0)?.toUpperCase() || 'W'}
-          </span>
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-white font-semibold text-sm truncate">
-            {workspace?.name || 'Workspace'}
-          </h2>
-        </div>
+      {/* Left: Back/Menu button for mobile, nothing for desktop */}
+      <div className="w-8 lg:w-0">
+        {/* Empty space for desktop, menu could go here for mobile */}
       </div>
 
       {/* Center: Global Search Bar */}

@@ -23,7 +23,7 @@ const ChatInterface = ({ user, workspace, onSignOut }) => {
   const [loadingChannels, setLoadingChannels] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [activeSection, setActiveSection] = useState('chat');
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(true); // Default to mobile, then detect
   const messagesEndRef = useRef(null);
 
   // Detect screen size
