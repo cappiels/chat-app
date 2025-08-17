@@ -16,3 +16,4 @@ services:
   http_port: 3000
   routes:
   - path: /
+  catchall_document: index.html
