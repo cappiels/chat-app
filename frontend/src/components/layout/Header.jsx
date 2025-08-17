@@ -71,13 +71,13 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Workspace Switcher - Desktop */}
-        {onWorkspaceSwitch && (
-          <div className="relative hidden md:block">
+        {/* Workspace Switcher - Always Visible */}
+        <div className="relative">
             <button
               onClick={handleWorkspaceSwitcherToggle}
-              className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/15 rounded-lg transition-all bg-white/5 border border-white/20 backdrop-blur-sm"
+              className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/15 rounded-lg transition-all bg-white/10 border-2 border-white/40 backdrop-blur-sm"
               title="Switch workspace • Click to see all workspaces"
+              style={{ minWidth: '150px', backgroundColor: 'rgba(255,255,255,0.15)' }}
             >
               <Briefcase className="w-5 h-5" />
               <span className="font-semibold truncate max-w-32">
@@ -162,7 +162,6 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
               </div>
             )}
           </div>
-        )}
 
         {/* Workspace name on mobile */}
         <div className="md:hidden">
@@ -172,7 +171,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         </div>
 
         {/* Search bar */}
-        <div className="search-container hidden md:block">
+        <div className="search-container">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white pointer-events-none" />
             <input

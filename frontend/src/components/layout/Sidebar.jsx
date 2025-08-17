@@ -38,7 +38,9 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, isOpen,
             </h2>
             <div className="flex items-center gap-1">
               <div className="presence-indicator" />
-              <span className="text-xs text-tertiary">{workspace?.member_count || 0} members</span>
+              <span className="text-xs text-tertiary">
+                {workspace?.member_count || 0} {(workspace?.member_count || 0) === 1 ? 'member' : 'members'}
+              </span>
             </div>
           </div>
         </div>
