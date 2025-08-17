@@ -12,18 +12,28 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { auth } from '../firebase';
-import { useAuthState } from 'react-firebase-hooks/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 
 const InviteAcceptance = () => {
   const { token } = useParams();
   const navigate = useNavigate();
-  const [user, loading] = useAuthState(auth);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   
   const [inviteState, setInviteState] = useState('loading'); // 'loading', 'valid', 'invalid', 'accepting', 'accepted', 'error'
   const [inviteData, setInviteData] = useState(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
