@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    port: 5173,
+    strictPort: true, // Exit if port 5173 is already in use
     proxy: {
       // This tells Vite to forward any request that starts with /api
       // to your backend server running on port 8080.

@@ -29,6 +29,10 @@ const port = process.env.PORT || 8080;
 // CORS configuration for frontend communication  
 const allowedOrigins = [
   'http://localhost:5173',           // Local development
+  'http://localhost:5174',           // Local development (alt port)
+  'http://localhost:5175',           // Local development (alt port)
+  'http://localhost:5176',           // Local development (alt port)
+  'http://localhost:5177',           // Local development (alt port)
   'https://localhost:5173',          // Local HTTPS
   'https://coral-app-rgki8.ondigitalocean.app',  // Production frontend
   process.env.FRONTEND_URL           // Custom environment override
