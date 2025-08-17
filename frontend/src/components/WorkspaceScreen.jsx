@@ -138,13 +138,37 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
     }
     
     try {
+      console.log('Attempting to delete workspace:', workspace.id);
+      console.log('Current user:', user);
+      console.log('Workspace owner_user_id:', workspace.owner_user_id);
+      console.log('User ID comparison:', workspace.owner_user_id === user?.id);
+      
       // Call archive API instead of delete - this is now a "soft delete"
       await workspaceAPI.archiveWorkspace(workspace.id);
       toast.success('Workspace deleted successfully (archived for 90 days)');
       setWorkspaces(workspaces.filter(w => w.id !== workspace.id));
     } catch (error) {
       console.error('Delete workspace error:', error);
-      toast.error('Failed to delete workspace');
+      
+      // More specific error handling
+      if (error.response) {
+        const { status, data } = error.response;
+        console.error('Error response:', status, data);
+        
+        if (status === 403) {
+          toast.error('Only the workspace owner can delete this workspace');
+        } else if (status === 404) {
+          toast.error('Workspace not found');
+        } else if (status === 401) {
+          toast.error('Authentication failed. Please sign in again.');
+        } else {
+          toast.error(data?.message || 'Failed to delete workspace');
+        }
+      } else if (error.request) {
+        toast.error('Network error. Please check your connection.');
+      } else {
+        toast.error('An unexpected error occurred');
+      }
     }
   };
 
