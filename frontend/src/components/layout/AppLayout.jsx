@@ -8,7 +8,7 @@ import MessageComposer from '../chat/MessageComposer';
 import Thread from '../chat/Thread';
 import InviteDialog from '../InviteDialog';
 
-const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
+const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWorkspaces }) => {
   const [channels, setChannels] = useState([]);
   const [currentChannel, setCurrentChannel] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -118,11 +118,139 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
     }
   }, [currentChannel, user]);
 
-  const handleChannelSelect = (channel) => {
+  const handleChannelSelect = async (channel) => {
     setCurrentChannel(channel);
     if (isMobile) {
       setSidebarOpen(false);
     }
+    
+    // Load messages for the selected channel
+    try {
+      // In a real app, you would fetch messages from API
+      // For now, we'll generate different mock data for different channels
+      const channelMessages = generateMockMessagesForChannel(channel);
+      setMessages(channelMessages);
+      
+      // Also generate threads for this channel's messages
+      const channelThreads = channelMessages
+        .filter(msg => msg.thread_count > 0)
+        .map(msg => ({
+          id: `thread-${msg.id}`,
+          parentMessage: msg,
+          messages: generateMockThreadReplies(msg)
+        }));
+      
+      setThreads(channelThreads);
+    } catch (error) {
+      console.error('Failed to load channel messages:', error);
+    }
+  };
+
+  // Generate different mock messages based on channel
+  const generateMockMessagesForChannel = (channel) => {
+    const baseMessages = {
+      general: [
+        {
+          id: 'gen-1',
+          user: { name: 'Alex Johnson', initials: 'AJ', status: 'online' },
+          content: `Welcome to #${channel.name}! This is where we discuss general topics and company updates.`,
+          timestamp: new Date(Date.now() - 7200000),
+          reactions: [{ emoji: '👋', count: 5, users: ['Sarah', 'Mike', 'Lisa', 'John', 'Emma'] }]
+        },
+        {
+          id: 'gen-2',
+          user: { name: 'Sarah Chen', initials: 'SC', status: 'online' },
+          content: 'Good morning everyone! Hope you all have a great day ahead. 🌟',
+          timestamp: new Date(Date.now() - 3600000),
+          thread_count: 3,
+          thread_participants: ['Mike', 'Lisa', 'John']
+        }
+      ],
+      engineering: [
+        {
+          id: 'eng-1',
+          user: { name: 'Mike Johnson', initials: 'MJ', status: 'online' },
+          content: 'Just deployed the new API endpoint. Here are the details:\n- Endpoint: `/api/v2/users`\n- Rate limit: 1000 req/min\n- Authentication required',
+          timestamp: new Date(Date.now() - 5400000),
+          reactions: [{ emoji: '🚀', count: 3, users: ['Sarah', 'Lisa', 'Tom'] }]
+        },
+        {
+          id: 'eng-2',
+          user: { name: 'Lisa Park', initials: 'LP', status: 'online' },
+          content: 'Great work on the deployment! I noticed a small performance improvement in the dashboard loading times.',
+          timestamp: new Date(Date.now() - 1800000),
+          thread_count: 2,
+          thread_participants: ['Mike', 'Tom']
+        }
+      ],
+      design: [
+        {
+          id: 'des-1',
+          user: { name: 'Emma Wilson', initials: 'EW', status: 'online' },
+          content: 'New design system components are ready! 🎨\nCheck out the updated color palette and typography guidelines in Figma.',
+          timestamp: new Date(Date.now() - 4200000),
+          reactions: [{ emoji: '🎨', count: 4, users: ['Sarah', 'Mike', 'John', 'Alex'] }]
+        }
+      ],
+      marketing: [
+        {
+          id: 'mar-1',
+          user: { name: 'John Davis', initials: 'JD', status: 'away' },
+          content: 'Campaign results are in! 📊\n- CTR: 3.2% (up 0.8%)\n- Conversions: 127 (target was 100)\n- ROI: 4.2x',
+          timestamp: new Date(Date.now() - 2700000),
+          thread_count: 5,
+          thread_participants: ['Sarah', 'Alex', 'Emma']
+        }
+      ],
+      random: [
+        {
+          id: 'ran-1',
+          user: { name: 'Tom Anderson', initials: 'TA', status: 'online' },
+          content: 'Anyone up for coffee? ☕ There\'s a new cafe that opened near the office!',
+          timestamp: new Date(Date.now() - 900000),
+          reactions: [{ emoji: '☕', count: 6, users: ['Sarah', 'Mike', 'Lisa', 'Emma', 'John', 'Alex'] }]
+        }
+      ]
+    };
+
+    const channelMessages = baseMessages[channel.name] || [
+      {
+        id: `${channel.id}-default`,
+        user: { name: 'ChatFlow Bot', initials: 'CB', status: 'online' },
+        content: `Welcome to #${channel.name}! Start the conversation here.`,
+        timestamp: new Date(Date.now() - 3600000),
+      }
+    ];
+
+    // Always add user's message to show interaction
+    return [...channelMessages, {
+      id: `${channel.id}-user`,
+      user: {
+        name: user.displayName || 'You',
+        avatar: user.photoURL,
+        initials: user.displayName ? user.displayName.split(' ').map(n => n[0]).join('') : 'U',
+        status: 'online'
+      },
+      content: `Just switched to #${channel.name}`,
+      timestamp: new Date()
+    }];
+  };
+
+  const generateMockThreadReplies = (parentMessage) => {
+    return [
+      {
+        id: `${parentMessage.id}-reply-1`,
+        user: { name: 'Team Member', initials: 'TM', status: 'online' },
+        content: 'Thanks for sharing this!',
+        timestamp: new Date(parentMessage.timestamp.getTime() + 300000)
+      },
+      {
+        id: `${parentMessage.id}-reply-2`,
+        user: { name: 'Another User', initials: 'AU', status: 'online' },
+        content: 'This is really helpful information.',
+        timestamp: new Date(parentMessage.timestamp.getTime() + 600000)
+      }
+    ];
   };
 
   const handleThreadOpen = (message) => {
@@ -174,6 +302,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
         onSignOut={onSignOut}
         onInvite={() => setInviteDialogOpen(true)}
         onWorkspaceSwitch={onWorkspaceSwitch}
+        onBackToWorkspaces={onBackToWorkspaces}
       />
 
       {/* Mobile overlay */}
@@ -271,6 +400,7 @@ AppLayout.propTypes = {
   workspace: PropTypes.object.isRequired,
   onSignOut: PropTypes.func.isRequired,
   onWorkspaceSwitch: PropTypes.func,
+  onBackToWorkspaces: PropTypes.func,
 };
 
 export default AppLayout;

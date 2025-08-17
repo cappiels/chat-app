@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
@@ -48,6 +48,14 @@ function App() {
     }
   };
 
+  const handleWorkspaceSwitch = (workspace) => {
+    setSelectedWorkspace(workspace);
+  };
+
+  const handleBackToWorkspaces = () => {
+    setSelectedWorkspace(null);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
@@ -86,7 +94,8 @@ function App() {
                   user={user} 
                   workspace={selectedWorkspace} 
                   onSignOut={handleSignOut}
-                  onWorkspaceSwitch={setSelectedWorkspace}
+                  onWorkspaceSwitch={handleWorkspaceSwitch}
+                  onBackToWorkspaces={handleBackToWorkspaces}
                 />
               ) : (
                 <WorkspaceScreen 
@@ -107,7 +116,8 @@ function App() {
                   user={user} 
                   workspace={selectedWorkspace} 
                   onSignOut={handleSignOut}
-                  onWorkspaceSwitch={setSelectedWorkspace}
+                  onWorkspaceSwitch={handleWorkspaceSwitch}
+                  onBackToWorkspaces={handleBackToWorkspaces}
                 />
               ) : (
                 <Navigate to="/" replace />

@@ -4,7 +4,7 @@ import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefca
 import { workspaceAPI } from '../../utils/api';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 
-const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch }) => {
+const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -46,9 +46,12 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
 
   const handleWorkspaceDeleted = (workspaceId, archived) => {
     // Go back to workspace selection when current workspace is deleted/archived
-    if (onWorkspaceSwitch) {
+    if (onBackToWorkspaces) {
+      onBackToWorkspaces();
+    } else if (onWorkspaceSwitch) {
       onWorkspaceSwitch(null);
     }
+    setShowSettings(false);
   };
 
   const handleMemberRemoved = (memberId) => {
@@ -141,7 +144,9 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
                   <button
                     onClick={() => {
                       setShowWorkspaceSwitcher(false);
-                      onWorkspaceSwitch(null); // This will show workspace selection screen
+                      if (onBackToWorkspaces) {
+                        onBackToWorkspaces();
+                      }
                     }}
                     className="w-full text-left px-3 py-3 text-sm hover:bg-surface transition text-accent rounded-lg flex items-center gap-3"
                   >
@@ -284,6 +289,7 @@ Header.propTypes = {
   onSignOut: PropTypes.func.isRequired,
   onInvite: PropTypes.func,
   onWorkspaceSwitch: PropTypes.func,
+  onBackToWorkspaces: PropTypes.func,
 };
 
 export default Header;
