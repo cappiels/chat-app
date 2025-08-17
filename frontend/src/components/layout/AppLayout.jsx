@@ -15,6 +15,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [threadOpen, setThreadOpen] = useState(false);
   const [selectedThread, setSelectedThread] = useState(null);
+  const [threads, setThreads] = useState([]);
   const [activeSection, setActiveSection] = useState('chat');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -47,7 +48,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
   // Mock messages
   useEffect(() => {
     if (currentChannel) {
-      setMessages([
+      const mockMessages = [
         {
           id: '1',
           user: {
@@ -87,7 +88,33 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
           content: 'Looks great! I\'ll review them this afternoon.',
           timestamp: new Date(Date.now() - 1800000)
         }
-      ]);
+      ];
+      
+      setMessages(mockMessages);
+      
+      // Generate mock threads for messages that have threads
+      const mockThreads = mockMessages
+        .filter(msg => msg.thread_count > 0)
+        .map(msg => ({
+          id: `thread-${msg.id}`,
+          parentMessage: msg,
+          messages: [
+            {
+              id: `${msg.id}-reply-1`,
+              user: { name: 'Mike Johnson', initials: 'MJ', status: 'online' },
+              content: 'I agree, this looks great! When can we start implementing?',
+              timestamp: new Date(msg.timestamp.getTime() + 600000)
+            },
+            {
+              id: `${msg.id}-reply-2`,
+              user: { name: 'Lisa Park', initials: 'LP', status: 'online' },
+              content: 'I can start working on this tomorrow. Should take about 2 days.',
+              timestamp: new Date(msg.timestamp.getTime() + 1200000)
+            }
+          ]
+        }));
+      
+      setThreads(mockThreads);
     }
   }, [currentChannel, user]);
 
@@ -99,8 +126,22 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
   };
 
   const handleThreadOpen = (message) => {
-    setSelectedThread(message);
-    setThreadOpen(true);
+    // Find the thread for this message
+    const thread = threads.find(t => t.parentMessage.id === message.id);
+    if (thread) {
+      setSelectedThread(thread);
+      setThreadOpen(true);
+    } else {
+      // Create a new thread if none exists
+      const newThread = {
+        id: `thread-${message.id}`,
+        parentMessage: message,
+        messages: []
+      };
+      setThreads([...threads, newThread]);
+      setSelectedThread(newThread);
+      setThreadOpen(true);
+    }
   };
 
   const handleSendMessage = (content) => {
@@ -178,10 +219,31 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
       {/* Thread Sidebar */}
       {threadOpen && (
         <Thread
-          message={selectedThread}
+          thread={selectedThread}
           isOpen={threadOpen}
           onClose={() => setThreadOpen(false)}
           currentUser={user}
+          onSendReply={(content) => {
+            const newReply = {
+              id: `${selectedThread.id}-reply-${Date.now()}`,
+              user: {
+                name: user.displayName || 'You',
+                avatar: user.photoURL,
+                initials: user.displayName ? user.displayName.split(' ').map(n => n[0]).join('') : 'U',
+                status: 'online'
+              },
+              content,
+              timestamp: new Date()
+            };
+            
+            const updatedThread = {
+              ...selectedThread,
+              messages: [...selectedThread.messages, newReply]
+            };
+            
+            setSelectedThread(updatedThread);
+            setThreads(threads.map(t => t.id === selectedThread.id ? updatedThread : t));
+          }}
         />
       )}
 

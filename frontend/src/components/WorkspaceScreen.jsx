@@ -5,7 +5,12 @@ import {
   Sparkles, 
   Users, 
   Search,
-  ChevronRight
+  ChevronRight,
+  Settings,
+  MoreVertical,
+  Archive,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
@@ -89,6 +94,45 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
       toast.error('Failed to create workspace');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleArchiveWorkspace = async (workspace) => {
+    if (!window.confirm(`Are you sure you want to archive "${workspace.name}"? Members won't be able to access it, but you can restore it later.`)) {
+      return;
+    }
+    
+    try {
+      await workspaceAPI.archiveWorkspace(workspace.id);
+      toast.success('Workspace archived successfully');
+      // Remove from list or mark as archived
+      setWorkspaces(workspaces.filter(w => w.id !== workspace.id));
+    } catch (error) {
+      console.error('Archive workspace error:', error);
+      toast.error('Failed to archive workspace');
+    }
+  };
+
+  const handleDeleteWorkspace = async (workspace) => {
+    const confirmText = `Type "${workspace.name}" to confirm deletion:`;
+    const userInput = window.prompt(
+      `⚠️ DANGER: This will permanently delete "${workspace.name}" and ALL its data.\n\n${confirmText}`
+    );
+    
+    if (userInput !== workspace.name) {
+      if (userInput !== null) { // User didn't cancel
+        toast.error('Workspace name does not match. Deletion cancelled.');
+      }
+      return;
+    }
+    
+    try {
+      await workspaceAPI.deleteWorkspace(workspace.id);
+      toast.success('Workspace deleted permanently');
+      setWorkspaces(workspaces.filter(w => w.id !== workspace.id));
+    } catch (error) {
+      console.error('Delete workspace error:', error);
+      toast.error('Failed to delete workspace');
     }
   };
 
@@ -206,35 +250,102 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
           {filteredWorkspaces.map((workspace, index) => (
             <motion.div
               key={workspace.id}
-              className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/20 cursor-pointer group hover:shadow-xl transition-all duration-300"
+              className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/20 group hover:shadow-xl transition-all duration-300 relative"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
               whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => onSelectWorkspace(workspace)}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                    {workspace.name}
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
-                    {workspace.description || 'No description'}
-                  </p>
-                  <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                    <span className="flex items-center space-x-1">
-                      <Users className="w-4 h-4" />
-                      <span>{workspace.member_count || 0} members</span>
-                    </span>
-                    {workspace.role === 'admin' && (
-                      <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Admin
-                      </span>
-                    )}
+              {/* Workspace Options Menu */}
+              <div className="absolute top-4 right-4">
+                <div className="relative group/menu">
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-2 opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50">
+                    <div className="py-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Handle workspace settings
+                          toast.info('Workspace settings coming soon!');
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Settings
+                      </button>
+                      
+                      {(workspace.owner_user_id === user?.id || workspace.role === 'admin') && (
+                        <>
+                          <hr className="my-1 border-gray-200 dark:border-gray-700" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchiveWorkspace(workspace);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-yellow-600"
+                          >
+                            <Archive className="w-4 h-4" />
+                            Archive
+                          </button>
+                          
+                          {workspace.owner_user_id === user?.id && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteWorkspace(workspace);
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200" />
+              </div>
+
+              {/* Workspace Card Content */}
+              <div 
+                className="cursor-pointer"
+                onClick={() => onSelectWorkspace(workspace)}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1 pr-8">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                      {workspace.name}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                      {workspace.description || 'No description'}
+                    </p>
+                    <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                      <span className="flex items-center space-x-1">
+                        <Users className="w-4 h-4" />
+                        <span>{workspace.member_count || 0} members</span>
+                      </span>
+                      {workspace.role === 'admin' && (
+                        <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
+                          Admin
+                        </span>
+                      )}
+                      {workspace.owner_user_id === user?.id && (
+                        <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium">
+                          Owner
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200" />
+                </div>
               </div>
             </motion.div>
           ))}
