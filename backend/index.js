@@ -151,11 +151,11 @@ app.get('/status', (req, res) => {
   });
 });
 
-// Mount route modules
-app.use('/auth', authRoutes);
-app.use('/users', authLimiter, userRoutes);
-app.use('/workspaces', workspaceRoutes);
-app.use('/knowledge', knowledgeRoutes);
+// Mount route modules with /api prefix for Digital Ocean routing
+app.use('/api/auth', authRoutes);
+app.use('/api/users', authLimiter, userRoutes);
+app.use('/api/workspaces', workspaceRoutes);
+app.use('/api/knowledge', knowledgeRoutes);
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {

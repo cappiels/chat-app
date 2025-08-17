@@ -11,7 +11,18 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '') 
+        // Don't rewrite the path - keep /api prefix for backend routing
+        // rewrite: (path) => path.replace(/^\/api/, '') 
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    // Ensure proper SPA routing in build
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
       }
     }
   }
