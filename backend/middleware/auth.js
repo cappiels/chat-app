@@ -143,19 +143,7 @@ const upsertUser = async (userData) => {
   const client = await pool.connect();
   
   try {
-    await client.query('BEGIN');
-
-    // First, add missing columns to users table if they don't exist
-    await client.query(`
-      ALTER TABLE users 
-      ADD COLUMN IF NOT EXISTS profile_picture_url TEXT,
-      ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20),
-      ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) DEFAULT 'email',
-      ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
-    `);
-
-    // Upsert user
+    // Upsert user without ALTER TABLE - table schema is now handled by migrations
     const upsertQuery = `
       INSERT INTO users (id, email, display_name, profile_picture_url, phone_number, auth_provider, last_login, created_at)
       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -178,11 +166,9 @@ const upsertUser = async (userData) => {
       userData.auth_provider
     ]);
 
-    await client.query('COMMIT');
     return result.rows[0];
 
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Error upserting user:', error);
     throw error;
   } finally {

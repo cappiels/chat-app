@@ -42,8 +42,17 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   }, [openMenuId]);
 
   const loadWorkspaces = async () => {
+    // Add timeout to prevent hanging on API calls
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('API timeout')), 8000)
+    );
+
     try {
-      const response = await workspaceAPI.getWorkspaces();
+      const response = await Promise.race([
+        workspaceAPI.getWorkspaces(),
+        timeoutPromise
+      ]);
+      
       // Enhanced workspace data with mock statistics for better UX
       const enhancedWorkspaces = (response.data.workspaces || []).map(workspace => ({
         ...workspace,
@@ -56,7 +65,13 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
       setWorkspaces(enhancedWorkspaces);
     } catch (error) {
       console.error('Load workspaces error:', error);
-      toast.error('Failed to load workspaces');
+      if (error.message === 'API timeout') {
+        toast.error('Loading workspaces is taking longer than expected. Please check your connection.');
+      } else {
+        toast.error('Failed to load workspaces');
+      }
+      // Even on error, stop loading so user can see the page
+      setWorkspaces([]);
     } finally {
       setLoading(false);
     }
