@@ -15,12 +15,39 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, isOpen,
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [directMessagesExpanded, setDirectMessagesExpanded] = useState(true);
 
-  // Mock direct messages
-  const directMessages = [
-    { id: 'dm1', name: 'Sarah Chen', status: 'online', initials: 'SC' },
-    { id: 'dm2', name: 'Mike Johnson', status: 'away', initials: 'MJ' },
-    { id: 'dm3', name: 'Lisa Park', status: 'offline', initials: 'LP' },
-  ];
+  // Generate workspace-specific direct messages
+  const generateWorkspaceDirectMessages = (ws) => {
+    const workspaceMembers = {
+      'Frank': [
+        { id: 'dm-frank-1', name: 'Frank Wilson', status: 'online', initials: 'FW' },
+        { id: 'dm-frank-2', name: 'Project Manager', status: 'online', initials: 'PM' },
+        { id: 'dm-frank-3', name: 'Developer', status: 'away', initials: 'DEV' },
+        { id: 'dm-frank-4', name: 'Designer', status: 'offline', initials: 'DES' },
+      ],
+      'Engineering': [
+        { id: 'dm-eng-1', name: 'Senior Engineer', status: 'online', initials: 'SE' },
+        { id: 'dm-eng-2', name: 'Backend Dev', status: 'online', initials: 'BD' },
+        { id: 'dm-eng-3', name: 'Frontend Dev', status: 'away', initials: 'FD' },
+        { id: 'dm-eng-4', name: 'DevOps Engineer', status: 'online', initials: 'DO' },
+        { id: 'dm-eng-5', name: 'Junior Dev', status: 'offline', initials: 'JD' },
+        { id: 'dm-eng-6', name: 'Tech Lead', status: 'online', initials: 'TL' },
+      ],
+      'Design': [
+        { id: 'dm-des-1', name: 'Design Lead', status: 'online', initials: 'DL' },
+        { id: 'dm-des-2', name: 'UI Designer', status: 'away', initials: 'UID' },
+        { id: 'dm-des-3', name: 'UX Researcher', status: 'online', initials: 'UXR' },
+        { id: 'dm-des-4', name: 'Visual Designer', status: 'offline', initials: 'VD' },
+      ]
+    };
+
+    return workspaceMembers[ws?.name] || [
+      { id: 'dm-default-1', name: 'Team Member', status: 'online', initials: 'TM' },
+      { id: 'dm-default-2', name: 'Colleague', status: 'away', initials: 'COL' },
+      { id: 'dm-default-3', name: 'Collaborator', status: 'offline', initials: 'CB' },
+    ];
+  };
+
+  const directMessages = generateWorkspaceDirectMessages(workspace);
 
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
