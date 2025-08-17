@@ -30,11 +30,13 @@ export const workspaceAPI = {
   getWorkspace: (id) => api.get(`/workspaces/${id}`),
   createWorkspace: (data) => api.post('/workspaces', data),
   updateWorkspace: (id, data) => api.put(`/workspaces/${id}`, data),
-  deleteWorkspace: (id) => api.delete(`/workspaces/${id}`),
+  deleteWorkspace: (id, options = {}) => api.delete(`/workspaces/${id}`, { data: options }),
+  archiveWorkspace: (id) => api.delete(`/workspaces/${id}`, { data: { archive: true } }),
   inviteUser: (id, data) => api.post(`/workspaces/${id}/invite`, data),
   acceptInvitation: (token) => api.post(`/workspaces/accept-invite/${token}`),
   acceptInvite: (token) => api.post(`/workspaces/accept-invite/${token}`), // Keep for backward compatibility
   getMembers: (id) => api.get(`/workspaces/${id}/members`),
+  removeMember: (workspaceId, userId) => api.delete(`/workspaces/${workspaceId}/members/${userId}`),
   getNotifications: (params = {}) => api.get('/workspaces/notifications', { params }),
   markNotificationRead: (id) => api.put(`/workspaces/notifications/${id}/read`),
 };

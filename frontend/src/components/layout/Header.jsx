@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefcase } from 'lucide-react';
+import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefcase, Settings } from 'lucide-react';
 import { workspaceAPI } from '../../utils/api';
+import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 
 const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch }) => {
   const [searchFocused, setSearchFocused] = useState(false);
@@ -12,6 +13,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
   const [workspaces, setWorkspaces] = useState([]);
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Load available workspaces when component mounts or when workspace switcher is opened
   const loadWorkspaces = async () => {
@@ -40,6 +42,18 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
       loadWorkspaces();
     }
     setShowWorkspaceSwitcher(!showWorkspaceSwitcher);
+  };
+
+  const handleWorkspaceDeleted = (workspaceId, archived) => {
+    // Go back to workspace selection when current workspace is deleted/archived
+    if (onWorkspaceSwitch) {
+      onWorkspaceSwitch(null);
+    }
+  };
+
+  const handleMemberRemoved = (memberId) => {
+    // In a real app, you might want to refresh workspace data
+    console.log('Member removed:', memberId);
   };
 
   return (
@@ -108,6 +122,16 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
                   )}
                 </div>
                 <div className="border-t border-border p-2">
+                  <button
+                    onClick={() => {
+                      setShowWorkspaceSwitcher(false);
+                      setShowSettings(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition flex items-center gap-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Workspace Settings
+                  </button>
                   <button
                     onClick={() => {
                       setShowWorkspaceSwitcher(false);
@@ -227,6 +251,16 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
           </div>
         </div>
       </div>
+
+      {/* Workspace Settings Dialog */}
+      <WorkspaceSettingsDialog
+        workspace={workspace}
+        user={user}
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onWorkspaceDeleted={handleWorkspaceDeleted}
+        onMemberRemoved={handleMemberRemoved}
+      />
     </header>
   );
 };

@@ -712,6 +712,204 @@ router.get('/notifications', authenticateUser, async (req, res) => {
 });
 
 /**
+ * DELETE /api/workspaces/:workspaceId
+ * Delete or archive workspace (owner only)
+ */
+router.delete('/:workspaceId', authenticateUser, requireWorkspaceMembership, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { workspaceId } = req.params;
+    const { archive = false } = req.body;
+    const userId = req.user.id;
+
+    await client.query('BEGIN');
+
+    // Check if user is the workspace owner
+    const ownerCheck = await client.query(`
+      SELECT owner_user_id, name FROM workspaces WHERE id = $1;
+    `, [workspaceId]);
+
+    if (ownerCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Workspace Not Found', 
+        message: 'Workspace not found' 
+      });
+    }
+
+    const workspace = ownerCheck.rows[0];
+    if (workspace.owner_user_id !== userId) {
+      return res.status(403).json({ 
+        error: 'Forbidden', 
+        message: 'Only the workspace owner can delete this workspace' 
+      });
+    }
+
+    if (archive) {
+      // Archive workspace - add archived flag and timestamp
+      await client.query(`
+        UPDATE workspaces 
+        SET settings = COALESCE(settings, '{}') || '{"archived": true, "archived_at": $2}'::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1;
+      `, [workspaceId, new Date().toISOString()]);
+
+      console.log(`🗄️ Workspace archived: ${workspace.name} (${workspaceId}) by ${req.user.email}`);
+      
+      await client.query('COMMIT');
+      
+      res.json({
+        message: 'Workspace archived successfully',
+        action: 'archived'
+      });
+    } else {
+      // Permanently delete workspace and all related data
+      // Note: Foreign key cascades will handle related data deletion
+      await client.query(`DELETE FROM workspaces WHERE id = $1`, [workspaceId]);
+
+      console.log(`🗑️ Workspace permanently deleted: ${workspace.name} (${workspaceId}) by ${req.user.email}`);
+      
+      await client.query('COMMIT');
+      
+      res.json({
+        message: 'Workspace permanently deleted',
+        action: 'deleted'
+      });
+    }
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Delete workspace error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to delete workspace' 
+    });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * DELETE /api/workspaces/:workspaceId/members/:userId
+ * Remove member from workspace (admin only)
+ */
+router.delete('/:workspaceId/members/:userId', authenticateUser, requireWorkspaceMembership, requireWorkspaceAdmin, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { workspaceId, userId: targetUserId } = req.params;
+    const requesterId = req.user.id;
+
+    await client.query('BEGIN');
+
+    // Prevent self-removal
+    if (requesterId === targetUserId) {
+      return res.status(400).json({ 
+        error: 'Invalid Operation', 
+        message: 'You cannot remove yourself from the workspace' 
+      });
+    }
+
+    // Check if target user is a member
+    const memberCheck = await client.query(`
+      SELECT wm.role, u.display_name, u.email 
+      FROM workspace_members wm
+      JOIN users u ON wm.user_id = u.id
+      WHERE wm.workspace_id = $1 AND wm.user_id = $2;
+    `, [workspaceId, targetUserId]);
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Member Not Found', 
+        message: 'User is not a member of this workspace' 
+      });
+    }
+
+    const member = memberCheck.rows[0];
+
+    // Check if trying to remove workspace owner
+    const ownerCheck = await client.query(`
+      SELECT owner_user_id FROM workspaces WHERE id = $1;
+    `, [workspaceId]);
+
+    if (ownerCheck.rows[0]?.owner_user_id === targetUserId) {
+      return res.status(400).json({ 
+        error: 'Invalid Operation', 
+        message: 'Cannot remove the workspace owner. Transfer ownership first or delete the workspace.' 
+      });
+    }
+
+    // Remove user from all workspace threads
+    await client.query(`
+      DELETE FROM thread_members 
+      WHERE user_id = $1 
+      AND thread_id IN (
+        SELECT id FROM threads WHERE workspace_id = $2
+      );
+    `, [targetUserId, workspaceId]);
+
+    // Remove user from workspace
+    await client.query(`
+      DELETE FROM workspace_members 
+      WHERE workspace_id = $1 AND user_id = $2;
+    `, [workspaceId, targetUserId]);
+
+    // Get workspace name for logging
+    const workspaceInfo = await client.query(`
+      SELECT name FROM workspaces WHERE id = $1;
+    `, [workspaceId]);
+
+    // Create notification for removed user (if they want to know)
+    await client.query(`
+      INSERT INTO notifications (
+        user_id, 
+        workspace_id, 
+        type, 
+        title, 
+        message, 
+        data
+      )
+      VALUES ($1, $2, 'member_removed', $3, $4, $5);
+    `, [
+      targetUserId,
+      workspaceId,
+      'Removed from Workspace',
+      `You have been removed from ${workspaceInfo.rows[0].name}`,
+      JSON.stringify({
+        workspace_id: workspaceId,
+        workspace_name: workspaceInfo.rows[0].name,
+        removed_by: req.user.display_name,
+        removed_at: new Date().toISOString()
+      })
+    ]);
+
+    await client.query('COMMIT');
+
+    console.log(`👥 User ${member.email} removed from workspace ${workspaceInfo.rows[0].name} by ${req.user.email}`);
+
+    res.json({
+      message: 'Member removed successfully',
+      removed_member: {
+        id: targetUserId,
+        display_name: member.display_name,
+        email: member.email,
+        role: member.role
+      }
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Remove member error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to remove member' 
+    });
+  } finally {
+    client.release();
+  }
+});
+
+/**
  * PUT /api/workspaces/notifications/:notificationId/read
  * Mark notification as read
  */
