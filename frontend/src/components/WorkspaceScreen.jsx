@@ -268,23 +268,60 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
               transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
               whileHover={{ scale: 1.02 }}
             >
-              {/* Workspace Options Menu */}
-              <div className="absolute top-4 right-4">
+              {/* Workspace Card Content - Clickable area */}
+              <div 
+                className="cursor-pointer pr-12"
+                onClick={() => onSelectWorkspace(workspace)}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1 truncate">
+                      {workspace.name}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
+                      {workspace.description || 'No description'}
+                    </p>
+                    <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-sm text-gray-500 dark:text-gray-400">
+                      <span className="flex items-center space-x-1">
+                        <Users className="w-4 h-4" />
+                        <span>{workspace.member_count || 0} member{(workspace.member_count || 0) === 1 ? '' : 's'}</span>
+                      </span>
+                      {workspace.role === 'admin' && (
+                        <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
+                          Admin
+                        </span>
+                      )}
+                      {workspace.owner_user_id === user?.id && (
+                        <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium">
+                          Owner
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200 ml-2" />
+                </div>
+              </div>
+
+              {/* Workspace Options Menu - Fixed positioning */}
+              <div className="absolute top-4 right-4 z-10">
                 <div className="relative workspace-menu">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setOpenMenuId(openMenuId === workspace.id ? null : workspace.id);
                     }}
-                    className="p-2 opacity-60 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                    className="p-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm opacity-60 hover:opacity-100 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-all shadow-sm border border-gray-200/50 dark:border-gray-600/50"
                     title="Workspace options"
                   >
-                    <MoreVertical className="w-4 h-4 text-gray-500" />
+                    <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   </button>
                   
-                  {/* Dropdown Menu */}
+                  {/* Dropdown Menu - Fixed z-index and positioning */}
                   {openMenuId === workspace.id && (
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                    <div 
+                      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[100] overflow-hidden"
+                      style={{ zIndex: 9999 }}
+                    >
                       <div className="py-1">
                         <button
                           onClick={(e) => {
@@ -292,7 +329,7 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                             setOpenMenuId(null);
                             toast.info('Workspace settings coming soon!');
                           }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-300 transition-colors"
                         >
                           <Settings className="w-4 h-4" />
                           Settings
@@ -307,7 +344,7 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                                 setOpenMenuId(null);
                                 handleDeleteWorkspace(workspace);
                               }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600"
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 text-red-600 dark:text-red-400 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                               Delete
@@ -317,40 +354,6 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* Workspace Card Content */}
-              <div 
-                className="cursor-pointer"
-                onClick={() => onSelectWorkspace(workspace)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1 pr-8">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                      {workspace.name}
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
-                      {workspace.description || 'No description'}
-                    </p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                      <span className="flex items-center space-x-1">
-                        <Users className="w-4 h-4" />
-                        <span>{workspace.member_count || 0} members</span>
-                      </span>
-                      {workspace.role === 'admin' && (
-                        <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                          Admin
-                        </span>
-                      )}
-                      {workspace.owner_user_id === user?.id && (
-                        <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium">
-                          Owner
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200" />
                 </div>
               </div>
             </motion.div>
