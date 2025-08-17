@@ -1,5 +1,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700;900&display=swap");
 
+/* ===== TAILWIND CSS DIRECTIVES ===== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ===== CSS CUSTOM PROPERTIES ===== */
 :root {
   /* Brand Colors - Modern Blue/Purple Gradient Theme */
