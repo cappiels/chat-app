@@ -8,7 +8,7 @@ import MessageComposer from '../chat/MessageComposer';
 import Thread from '../chat/Thread';
 import InviteDialog from '../InviteDialog';
 
-const AppLayout = ({ user, workspace, onSignOut }) => {
+const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch }) => {
   const [channels, setChannels] = useState([]);
   const [currentChannel, setCurrentChannel] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -132,6 +132,7 @@ const AppLayout = ({ user, workspace, onSignOut }) => {
         onMenuClick={() => setSidebarOpen(!sidebarOpen)}
         onSignOut={onSignOut}
         onInvite={() => setInviteDialogOpen(true)}
+        onWorkspaceSwitch={onWorkspaceSwitch}
       />
 
       {/* Mobile overlay */}
@@ -207,6 +208,7 @@ AppLayout.propTypes = {
   user: PropTypes.object.isRequired,
   workspace: PropTypes.object.isRequired,
   onSignOut: PropTypes.func.isRequired,
+  onWorkspaceSwitch: PropTypes.func,
 };
 
 export default AppLayout;

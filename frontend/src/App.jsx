@@ -85,7 +85,8 @@ function App() {
                 <ChatInterface 
                   user={user} 
                   workspace={selectedWorkspace} 
-                  onSignOut={handleSignOut} 
+                  onSignOut={handleSignOut}
+                  onWorkspaceSwitch={setSelectedWorkspace}
                 />
               ) : (
                 <WorkspaceScreen 

@@ -1,14 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Search, X, Bell, HelpCircle, User, UserPlus } from 'lucide-react';
+import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefcase } from 'lucide-react';
 import { workspaceAPI } from '../../utils/api';
 
-const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite }) => {
+const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [workspaces, setWorkspaces] = useState([]);
+  const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
+  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+
+  // Load available workspaces when component mounts or when workspace switcher is opened
+  const loadWorkspaces = async () => {
+    if (loadingWorkspaces || !onWorkspaceSwitch) return;
+    
+    try {
+      setLoadingWorkspaces(true);
+      const response = await workspaceAPI.getWorkspaces();
+      setWorkspaces(response.data.workspaces || []);
+    } catch (error) {
+      console.error('Failed to load workspaces:', error);
+    } finally {
+      setLoadingWorkspaces(false);
+    }
+  };
+
+  const handleWorkspaceSelect = (selectedWorkspace) => {
+    if (selectedWorkspace.id !== workspace?.id && onWorkspaceSwitch) {
+      onWorkspaceSwitch(selectedWorkspace);
+    }
+    setShowWorkspaceSwitcher(false);
+  };
+
+  const handleWorkspaceSwitcherToggle = () => {
+    if (!showWorkspaceSwitcher && workspaces.length === 0) {
+      loadWorkspaces();
+    }
+    setShowWorkspaceSwitcher(!showWorkspaceSwitcher);
+  };
 
   return (
     <header className="app-header">
@@ -21,6 +53,75 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite }) => {
         >
           <Menu className="w-5 h-5" />
         </button>
+
+        {/* Workspace Switcher - Desktop */}
+        {onWorkspaceSwitch && (
+          <div className="relative hidden md:block">
+            <button
+              onClick={handleWorkspaceSwitcherToggle}
+              className="flex items-center gap-2 px-3 py-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+              title="Switch workspace"
+            >
+              <Briefcase className="w-4 h-4" />
+              <span className="font-semibold truncate max-w-32">
+                {workspace?.name || 'ChatFlow'}
+              </span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            
+            {/* Workspace Dropdown */}
+            {showWorkspaceSwitcher && (
+              <div className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-border z-50">
+                <div className="p-3 border-b border-border">
+                  <h3 className="text-sm font-semibold text-primary">Switch Workspace</h3>
+                </div>
+                <div className="py-1 max-h-64 overflow-y-auto">
+                  {loadingWorkspaces ? (
+                    <div className="p-3 text-center text-sm text-tertiary">
+                      Loading workspaces...
+                    </div>
+                  ) : workspaces.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-tertiary">
+                      No other workspaces found
+                    </div>
+                  ) : (
+                    workspaces.map((ws) => (
+                      <button
+                        key={ws.id}
+                        onClick={() => handleWorkspaceSelect(ws)}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-surface transition flex items-center gap-3 ${
+                          ws.id === workspace?.id ? 'bg-surface text-accent' : 'text-primary'
+                        }`}
+                      >
+                        <Briefcase className="w-4 h-4 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{ws.name}</div>
+                          <div className="text-xs text-tertiary truncate">
+                            {ws.member_count} members
+                          </div>
+                        </div>
+                        {ws.id === workspace?.id && (
+                          <div className="w-2 h-2 bg-accent rounded-full"></div>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="border-t border-border p-2">
+                  <button
+                    onClick={() => {
+                      setShowWorkspaceSwitcher(false);
+                      onWorkspaceSwitch(null); // This will show workspace selection screen
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition text-accent"
+                  >
+                    View all workspaces
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Workspace name on mobile */}
         <div className="md:hidden">
@@ -136,6 +237,7 @@ Header.propTypes = {
   onMenuClick: PropTypes.func.isRequired,
   onSignOut: PropTypes.func.isRequired,
   onInvite: PropTypes.func,
+  onWorkspaceSwitch: PropTypes.func,
 };
 
 export default Header;
