@@ -109,26 +109,10 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
     }
   };
 
-  const handleArchiveWorkspace = async (workspace) => {
-    if (!window.confirm(`Are you sure you want to archive "${workspace.name}"? Members won't be able to access it, but you can restore it later.`)) {
-      return;
-    }
-    
-    try {
-      await workspaceAPI.archiveWorkspace(workspace.id);
-      toast.success('Workspace archived successfully');
-      // Remove from list or mark as archived
-      setWorkspaces(workspaces.filter(w => w.id !== workspace.id));
-    } catch (error) {
-      console.error('Archive workspace error:', error);
-      toast.error('Failed to archive workspace');
-    }
-  };
-
   const handleDeleteWorkspace = async (workspace) => {
     const confirmText = `Type "${workspace.name}" to confirm deletion:`;
     const userInput = window.prompt(
-      `⚠️ DANGER: This will permanently delete "${workspace.name}" and ALL its data.\n\n${confirmText}`
+      `⚠️ This will delete "${workspace.name}" and make it inaccessible to all members.\n\nThe workspace will be permanently removed after 90 days.\n\n${confirmText}`
     );
     
     if (userInput !== workspace.name) {
@@ -139,8 +123,9 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
     }
     
     try {
-      await workspaceAPI.deleteWorkspace(workspace.id);
-      toast.success('Workspace deleted permanently');
+      // Call archive API instead of delete - this is now a "soft delete"
+      await workspaceAPI.archiveWorkspace(workspace.id);
+      toast.success('Workspace deleted successfully (archived for 90 days)');
       setWorkspaces(workspaces.filter(w => w.id !== workspace.id));
     } catch (error) {
       console.error('Delete workspace error:', error);
@@ -298,34 +283,20 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                           Settings
                         </button>
                         
-                        {(workspace.owner_user_id === user?.id || workspace.role === 'admin') && (
+                        {workspace.owner_user_id === user?.id && (
                           <>
                             <hr className="my-1 border-gray-200 dark:border-gray-700" />
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setOpenMenuId(null);
-                                handleArchiveWorkspace(workspace);
+                                handleDeleteWorkspace(workspace);
                               }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-yellow-600"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600"
                             >
-                              <Archive className="w-4 h-4" />
-                              Archive
+                              <Trash2 className="w-4 h-4" />
+                              Delete
                             </button>
-                            
-                            {workspace.owner_user_id === user?.id && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuId(null);
-                                  handleDeleteWorkspace(workspace);
-                                }}
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Delete
-                              </button>
-                            )}
                           </>
                         )}
                       </div>

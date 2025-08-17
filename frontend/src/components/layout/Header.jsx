@@ -14,6 +14,8 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [detailedWorkspace, setDetailedWorkspace] = useState(null);
+  const [loadingWorkspaceDetails, setLoadingWorkspaceDetails] = useState(false);
 
   // Load available workspaces when component mounts or when workspace switcher is opened
   const loadWorkspaces = async () => {
@@ -54,9 +56,43 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
     setShowSettings(false);
   };
 
+  const loadWorkspaceDetails = async () => {
+    if (!workspace?.id || loadingWorkspaceDetails) return;
+    
+    try {
+      setLoadingWorkspaceDetails(true);
+      const [workspaceResponse, membersResponse] = await Promise.all([
+        workspaceAPI.getWorkspace(workspace.id),
+        workspaceAPI.getMembers(workspace.id)
+      ]);
+      
+      setDetailedWorkspace({
+        ...workspaceResponse.data.workspace,
+        members: membersResponse.data.members || []
+      });
+    } catch (error) {
+      console.error('Failed to load workspace details:', error);
+      // Still show dialog with basic data as fallback
+      setDetailedWorkspace(workspace);
+    } finally {
+      setLoadingWorkspaceDetails(false);
+    }
+  };
+
+  const handleOpenSettings = async () => {
+    setShowWorkspaceSwitcher(false);
+    await loadWorkspaceDetails();
+    setShowSettings(true);
+  };
+
   const handleMemberRemoved = (memberId) => {
-    // In a real app, you might want to refresh workspace data
-    console.log('Member removed:', memberId);
+    // Refresh workspace details after member is removed
+    if (detailedWorkspace?.members) {
+      setDetailedWorkspace({
+        ...detailedWorkspace,
+        members: detailedWorkspace.members.filter(m => m.id !== memberId)
+      });
+    }
   };
 
   return (
@@ -127,10 +163,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
                 </div>
                 <div className="border-t border-border p-2 bg-gray-50/50">
                   <button
-                    onClick={() => {
-                      setShowWorkspaceSwitcher(false);
-                      setShowSettings(true);
-                    }}
+                    onClick={handleOpenSettings}
                     className="w-full text-left px-3 py-3 text-sm hover:bg-surface transition flex items-center gap-3 rounded-lg"
                   >
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -270,7 +303,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
 
       {/* Workspace Settings Dialog */}
       <WorkspaceSettingsDialog
-        workspace={workspace}
+        workspace={detailedWorkspace || workspace}
         user={user}
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
