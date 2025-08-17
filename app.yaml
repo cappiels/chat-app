@@ -16,4 +16,6 @@ services:
   http_port: 3000
   routes:
   - path: /
+  - path: /invite
+    preserve_path_prefix: false
   catchall_document: index.html
