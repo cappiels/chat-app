@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join {{workspaceName}} on ChatFlow</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
+        .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        .content { padding: 40px 30px; }
+        .workspace-info { background: #f8f9ff; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #667eea; }
+        .cta-button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin: 25px 0; transition: transform 0.2s; }
+        .cta-button:hover { transform: translateY(-2px); }
+        .footer { background: #f8f9fa; padding: 30px; text-align: center; font-size: 14px; color: #666; }
+        .expiry-notice { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .inviter-info { display: flex; align-items: center; margin: 20px 0; }
+        .inviter-avatar { width: 50px; height: 50px; border-radius: 50%; background: #667eea; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">💬 ChatFlow</div>
+            <h1>You're invited to join {{workspaceName}}!</h1>
+        </div>
+        
+        <div class="content">
+            <div class="inviter-info">
+                <div class="inviter-avatar">{{inviterInitials}}</div>
+                <div>
+                    <strong>{{inviterName}}</strong> invited you to collaborate<br>
+                    <span style="color: #666;">{{inviterEmail}}</span>
+                </div>
+            </div>
+            
+            <div class="workspace-info">
+                <h3 style="margin-top: 0; color: #667eea;">{{workspaceName}}</h3>
+                <p style="margin-bottom: 0;">{{workspaceDescription}}</p>
+                <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">
+                    Role: <strong>{{userRole}}</strong> • Members: {{memberCount}}
+                </p>
+            </div>
+            
+            <p>Join your team on ChatFlow to start collaborating with real-time messaging, file sharing, and advanced knowledge management.</p>
+            
+            <div style="text-align: center;">
+                <a href="{{inviteUrl}}" class="cta-button">Join {{workspaceName}}</a>
+            </div>
+            
+            <div class="expiry-notice">
+                <strong>⏰ Invitation expires in 7 days</strong><br>
+                This invitation link will expire on {{expiryDate}} for security reasons.
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            
+            <div style="font-size: 14px; color: #666;">
+                <p><strong>What is ChatFlow?</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li>Real-time team messaging and collaboration</li>
+                    <li>Advanced knowledge management system</li>
+                    <li>File sharing and threaded conversations</li>
+                    <li>Enterprise-grade security and permissions</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>If you don't want to join this workspace, you can safely ignore this email.</p>
+            <p style="margin: 10px 0 0 0;">
+                Can't click the button? Copy and paste this link: <br>
+                <a href="{{inviteUrl}}" style="color: #667eea; word-break: break-all;">{{inviteUrl}}</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

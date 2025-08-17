@@ -42,7 +42,7 @@ class EmailService {
       );
 
       // Create nodemailer transporter with Gmail
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           type: 'OAuth2',
@@ -341,41 +341,51 @@ class EmailService {
   }
 
   /**
-   * Core email sending method
+   * Core email sending method - Using Gmail API
    */
   async sendEmail({ to, subject, html, text, category = 'general' }) {
     try {
-      // If no transporter available, fall back to console logging
-      if (!this.transporter) {
-        console.log(`📧 EMAIL FALLBACK - ${category.toUpperCase()}`);
-        console.log(`To: ${to}`);
-        console.log(`Subject: ${subject}`);
-        console.log('---');
-        return { success: false, fallback: true };
-      }
+      // Set up Gmail API
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GMAIL_OAUTH_CLIENT_ID,
+        process.env.GMAIL_OAUTH_CLIENT_SECRET,
+        'https://developers.google.com/oauthplayground'
+      );
 
-      const mailOptions = {
-        from: `ChatFlow <${process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>`,
-        to,
-        subject,
-        html,
-        text: text || this.htmlToText(html),
-        headers: {
-          'X-Category': category,
-          'X-ChatFlow-Version': '1.0.0'
+      oauth2Client.setCredentials({
+        refresh_token: process.env.GMAIL_REFRESH_TOKEN
+      });
+
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+      // Create email message
+      const emailContent = `To: ${to}
+From: ChatFlow <${process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>
+Subject: ${subject}
+Content-Type: text/html; charset=utf-8
+
+${html}`;
+
+      // Encode email as base64
+      const encodedEmail = Buffer.from(emailContent).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+      // Send email via Gmail API
+      const result = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: {
+          raw: encodedEmail
         }
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
+      });
       
       // Update analytics
       this.analytics.sent++;
       
-      console.log(`📧 Email sent successfully: ${subject} to ${to}`);
+      console.log(`📧 Email sent successfully via Gmail API: ${subject} to ${to}`);
+      console.log(`📧 Message ID: ${result.data.id}`);
       
       return {
         success: true,
-        messageId: result.messageId,
+        messageId: result.data.id,
         category,
         timestamp: new Date().toISOString()
       };
