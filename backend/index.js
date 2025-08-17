@@ -80,6 +80,9 @@ const authLimiter = rateLimit({
   }
 });
 
+// --- Trust Proxy Configuration (for DigitalOcean) ---
+app.set('trust proxy', true); // Trust DigitalOcean's load balancer
+
 // --- Standard Middleware ---
 app.use(express.json({ limit: '10mb' })); // Support larger payloads for file uploads
 app.use(express.urlencoded({ extended: true }));

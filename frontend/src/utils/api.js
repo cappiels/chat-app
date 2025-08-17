@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { auth } from '../firebase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// In production, use the same domain with /api routing
+// In development, use localhost:8080
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD ? '' : 'http://localhost:8080');
 
 // Create axios instance with default config
 const api = axios.create({
