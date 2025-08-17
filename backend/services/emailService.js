@@ -320,7 +320,7 @@ class EmailService {
 
     return this.sendEmail({
       to,
-      subject: `🎉 You're invited to join ${workspaceName} on ChatFlow`,
+      subject: `You're invited to join ${workspaceName} on ChatFlow`,
       html,
       category: 'workspace-invitation'
     });
