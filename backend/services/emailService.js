@@ -25,8 +25,23 @@ class EmailService {
       failed: 0,
       delivered: 0
     };
+    this.initialized = false;
+    this.initializing = null;
     
-    this.initializeService();
+    // Start initialization but don't await it in constructor
+    this.initializing = this.initializeService();
+  }
+
+  /**
+   * Ensure service is initialized before use
+   */
+  async ensureInitialized() {
+    if (this.initialized) return;
+    if (this.initializing) {
+      await this.initializing;
+      return;
+    }
+    await this.initializeService();
   }
 
   /**
@@ -56,11 +71,13 @@ class EmailService {
       // Load email templates
       await this.loadTemplates();
       
+      this.initialized = true;
       console.log('📧 Email service initialized successfully');
     } catch (error) {
       console.error('❌ Email service initialization failed:', error);
       // Fallback to console logging if email fails
       this.transporter = null;
+      this.initialized = true; // Mark as initialized even if failed, to prevent hanging
     }
   }
 
@@ -280,6 +297,9 @@ class EmailService {
     memberCount,
     expiryDate
   }) {
+    // Ensure service is initialized before using
+    await this.ensureInitialized();
+    
     const template = this.templates.get('workspace-invitation');
     if (!template) {
       throw new Error('Workspace invitation template not found');
