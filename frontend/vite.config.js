@@ -25,5 +25,7 @@ export default defineConfig({
         manualChunks: undefined
       }
     }
-  }
+  },
+  // Ensure _redirects file is copied for SPA routing
+  publicDir: 'public'
 })
