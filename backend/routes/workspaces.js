@@ -451,7 +451,7 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
 
     // Send professional email invitation
     const workspace = workspaceInfo.rows[0];
-    const inviteUrl = `${process.env.FRONTEND_URL}/invite/${inviteToken}`;
+    const inviteUrl = `${process.env.FRONTEND_URL}/#/invite/${inviteToken}`;
     
     // Get member count for email
     const memberCountResult = await client.query(`
