@@ -15,4 +15,3 @@ services:
   output_dir: /dist
   routes:
   - path: /
-  index_fallback: true
