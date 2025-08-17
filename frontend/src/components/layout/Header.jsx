@@ -73,21 +73,22 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
           <div className="relative hidden md:block">
             <button
               onClick={handleWorkspaceSwitcherToggle}
-              className="flex items-center gap-2 px-3 py-2 text-white hover:bg-white/10 rounded-lg transition-colors"
-              title="Switch workspace"
+              className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/15 rounded-lg transition-all bg-white/5 border border-white/20 backdrop-blur-sm"
+              title="Switch workspace • Click to see all workspaces"
             >
-              <Briefcase className="w-4 h-4" />
+              <Briefcase className="w-5 h-5" />
               <span className="font-semibold truncate max-w-32">
                 {workspace?.name || 'ChatFlow'}
               </span>
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown className="w-4 h-4 transition-transform" />
             </button>
             
             {/* Workspace Dropdown */}
             {showWorkspaceSwitcher && (
-              <div className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-border z-50">
-                <div className="p-3 border-b border-border">
+              <div className="absolute left-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-border-strong z-50 animate-slide-up">
+                <div className="p-4 border-b border-border bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-xl">
                   <h3 className="text-sm font-semibold text-primary">Switch Workspace</h3>
+                  <p className="text-xs text-tertiary mt-1">Choose a workspace to switch to</p>
                 </div>
                 <div className="py-1 max-h-64 overflow-y-auto">
                   {loadingWorkspaces ? (
@@ -121,25 +122,36 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
                     ))
                   )}
                 </div>
-                <div className="border-t border-border p-2">
+                <div className="border-t border-border p-2 bg-gray-50/50">
                   <button
                     onClick={() => {
                       setShowWorkspaceSwitcher(false);
                       setShowSettings(true);
                     }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition flex items-center gap-2"
+                    className="w-full text-left px-3 py-3 text-sm hover:bg-surface transition flex items-center gap-3 rounded-lg"
                   >
-                    <Settings className="w-4 h-4" />
-                    Workspace Settings
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Settings className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Workspace Settings</div>
+                      <div className="text-xs text-tertiary">Manage settings, members & permissions</div>
+                    </div>
                   </button>
                   <button
                     onClick={() => {
                       setShowWorkspaceSwitcher(false);
                       onWorkspaceSwitch(null); // This will show workspace selection screen
                     }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition text-accent"
+                    className="w-full text-left px-3 py-3 text-sm hover:bg-surface transition text-accent rounded-lg flex items-center gap-3"
                   >
-                    View all workspaces
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <Briefcase className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium">View All Workspaces</div>
+                      <div className="text-xs text-tertiary">Browse and create workspaces</div>
+                    </div>
                   </button>
                 </div>
               </div>
