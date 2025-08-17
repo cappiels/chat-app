@@ -11,8 +11,8 @@ services:
 - name: frontend
   source_dir: /frontend
   build_command: npm run build
-  run_command: npx serve -s dist -p $PORT
+  run_command: npx serve -s dist -p $PORT --single
   environment_slug: node-js
-  http_port: 8080
+  http_port: 3000
   routes:
   - path: /
