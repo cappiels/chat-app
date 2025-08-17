@@ -24,10 +24,22 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState('');
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   useEffect(() => {
     loadWorkspaces();
   }, []);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openMenuId && !event.target.closest('.workspace-menu')) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openMenuId]);
 
   const loadWorkspaces = async () => {
     try {
@@ -258,59 +270,67 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
             >
               {/* Workspace Options Menu */}
               <div className="absolute top-4 right-4">
-                <div className="relative group/menu">
+                <div className="relative workspace-menu">
                   <button
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-2 opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMenuId(openMenuId === workspace.id ? null : workspace.id);
+                    }}
+                    className="p-2 opacity-60 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                    title="Workspace options"
                   >
-                    <MoreVertical className="w-4 h-4" />
+                    <MoreVertical className="w-4 h-4 text-gray-500" />
                   </button>
                   
                   {/* Dropdown Menu */}
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50">
-                    <div className="py-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Handle workspace settings
-                          toast.info('Workspace settings coming soon!');
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                      >
-                        <Settings className="w-4 h-4" />
-                        Settings
-                      </button>
-                      
-                      {(workspace.owner_user_id === user?.id || workspace.role === 'admin') && (
-                        <>
-                          <hr className="my-1 border-gray-200 dark:border-gray-700" />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleArchiveWorkspace(workspace);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-yellow-600"
-                          >
-                            <Archive className="w-4 h-4" />
-                            Archive
-                          </button>
-                          
-                          {workspace.owner_user_id === user?.id && (
+                  {openMenuId === workspace.id && (
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                      <div className="py-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(null);
+                            toast.info('Workspace settings coming soon!');
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                        >
+                          <Settings className="w-4 h-4" />
+                          Settings
+                        </button>
+                        
+                        {(workspace.owner_user_id === user?.id || workspace.role === 'admin') && (
+                          <>
+                            <hr className="my-1 border-gray-200 dark:border-gray-700" />
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteWorkspace(workspace);
+                                setOpenMenuId(null);
+                                handleArchiveWorkspace(workspace);
                               }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-yellow-600"
                             >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
+                              <Archive className="w-4 h-4" />
+                              Archive
                             </button>
-                          )}
-                        </>
-                      )}
+                            
+                            {workspace.owner_user_id === user?.id && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  handleDeleteWorkspace(workspace);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Delete
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
