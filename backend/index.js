@@ -140,8 +140,21 @@ app.get('/', (req, res) => {
   });
 });
 
-// API status endpoint
+// API status endpoint (both paths for compatibility)
 app.get('/status', (req, res) => {
+  res.json({
+    status: 'operational',
+    services: {
+      database: 'connected',
+      authentication: 'firebase',
+      email: 'nodemailer/gmail'
+    },
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
+  });
+});
+
+app.get('/api/status', (req, res) => {
   res.json({
     status: 'operational',
     services: {
