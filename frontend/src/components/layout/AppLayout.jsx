@@ -33,207 +33,168 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Mock data for demo
+  // Load channels based on workspace
   useEffect(() => {
-    setChannels([
-      { id: '1', name: 'general', type: 'channel', unread: 0 },
-      { id: '2', name: 'engineering', type: 'channel', unread: 3 },
-      { id: '3', name: 'design', type: 'channel', unread: 0 },
-      { id: '4', name: 'marketing', type: 'channel', unread: 1 },
-      { id: '5', name: 'random', type: 'channel', unread: 0 },
-    ]);
-    setCurrentChannel({ id: '1', name: 'general', type: 'channel' });
-  }, []);
+    if (workspace) {
+      // Generate workspace-specific channels
+      const workspaceChannels = generateWorkspaceChannels(workspace);
+      setChannels(workspaceChannels);
+      setCurrentChannel(workspaceChannels[0] || null);
+      setMessages([]);
+      setThreads([]);
+    }
+  }, [workspace]);
 
-  // Mock messages
-  useEffect(() => {
-    if (currentChannel) {
-      const mockMessages = [
-        {
-          id: '1',
-          user: {
-            name: 'Alex Johnson',
-            avatar: null,
-            initials: 'AJ',
-            status: 'online'
-          },
-          content: 'Hey team! Just wanted to check in on the project status. How are things going?',
-          timestamp: new Date(Date.now() - 7200000),
-          reactions: [
-            { emoji: '👍', count: 3, users: ['Sarah', 'Mike', 'Lisa'] },
-            { emoji: '🎉', count: 1, users: ['John'] }
-          ]
-        },
-        {
-          id: '2',
-          user: {
-            name: 'Sarah Chen',
-            avatar: null,
-            initials: 'SC',
-            status: 'online'
-          },
-          content: 'Good morning! I just finished the design mockups for the new feature. Here\'s the link to the Figma file.',
-          timestamp: new Date(Date.now() - 3600000),
-          thread_count: 5,
-          thread_participants: ['Mike', 'Lisa']
-        },
-        {
-          id: '3',
-          user: {
-            name: user.displayName || 'You',
-            avatar: user.photoURL,
-            initials: user.displayName ? user.displayName.split(' ').map(n => n[0]).join('') : 'U',
-            status: 'online'
-          },
-          content: 'Looks great! I\'ll review them this afternoon.',
-          timestamp: new Date(Date.now() - 1800000)
-        }
-      ];
-      
-      setMessages(mockMessages);
-      
-      // Generate mock threads for messages that have threads
-      const mockThreads = mockMessages
-        .filter(msg => msg.thread_count > 0)
-        .map(msg => ({
-          id: `thread-${msg.id}`,
-          parentMessage: msg,
-          messages: [
-            {
-              id: `${msg.id}-reply-1`,
-              user: { name: 'Mike Johnson', initials: 'MJ', status: 'online' },
-              content: 'I agree, this looks great! When can we start implementing?',
-              timestamp: new Date(msg.timestamp.getTime() + 600000)
-            },
-            {
-              id: `${msg.id}-reply-2`,
-              user: { name: 'Lisa Park', initials: 'LP', status: 'online' },
-              content: 'I can start working on this tomorrow. Should take about 2 days.',
-              timestamp: new Date(msg.timestamp.getTime() + 1200000)
-            }
-          ]
-        }));
-      
-      setThreads(mockThreads);
-    }
-  }, [currentChannel, user]);
+  const generateWorkspaceChannels = (ws) => {
+    const baseChannels = [
+      { id: 'general', name: 'general', type: 'channel', unread: 0 },
+    ];
 
-  const handleChannelSelect = async (channel) => {
-    setCurrentChannel(channel);
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
-    
-    // Load messages for the selected channel
-    try {
-      // In a real app, you would fetch messages from API
-      // For now, we'll generate different mock data for different channels
-      const channelMessages = generateMockMessagesForChannel(channel);
-      setMessages(channelMessages);
-      
-      // Also generate threads for this channel's messages
-      const channelThreads = channelMessages
-        .filter(msg => msg.thread_count > 0)
-        .map(msg => ({
-          id: `thread-${msg.id}`,
-          parentMessage: msg,
-          messages: generateMockThreadReplies(msg)
-        }));
-      
-      setThreads(channelThreads);
-    } catch (error) {
-      console.error('Failed to load channel messages:', error);
-    }
+    // Add workspace-specific channels based on workspace name or type
+    const workspaceSpecificChannels = {
+      'Frank': [
+        { id: 'team-frank', name: 'team-updates', type: 'channel', unread: 2 },
+        { id: 'projects-frank', name: 'projects', type: 'channel', unread: 1 },
+        { id: 'random-frank', name: 'random', type: 'channel', unread: 0 },
+      ],
+      'Engineering': [
+        { id: 'eng-general', name: 'engineering', type: 'channel', unread: 5 },
+        { id: 'eng-backend', name: 'backend', type: 'channel', unread: 2 },
+        { id: 'eng-frontend', name: 'frontend', type: 'channel', unread: 3 },
+        { id: 'eng-devops', name: 'devops', type: 'channel', unread: 0 },
+      ],
+      'Design': [
+        { id: 'design-general', name: 'design-team', type: 'channel', unread: 1 },
+        { id: 'design-reviews', name: 'design-reviews', type: 'channel', unread: 2 },
+        { id: 'design-resources', name: 'resources', type: 'channel', unread: 0 },
+      ]
+    };
+
+    const specific = workspaceSpecificChannels[ws.name] || [
+      { id: 'projects', name: 'projects', type: 'channel', unread: 0 },
+      { id: 'announcements', name: 'announcements', type: 'channel', unread: 0 },
+    ];
+
+    return [...baseChannels, ...specific];
   };
 
-  // Generate different mock messages based on channel
-  const generateMockMessagesForChannel = (channel) => {
-    const baseMessages = {
-      general: [
+  // Load messages when channel changes
+  useEffect(() => {
+    if (currentChannel && workspace) {
+      loadChannelMessages(currentChannel);
+    }
+  }, [currentChannel, workspace, user]);
+
+  const loadChannelMessages = (channel) => {
+    // Clear existing threads when switching channels
+    setThreads([]);
+    setSelectedThread(null);
+    setThreadOpen(false);
+
+    const channelMessages = generateChannelMessages(channel, workspace);
+    setMessages(channelMessages);
+    
+    // Generate threads for messages that have threads
+    const channelThreads = channelMessages
+      .filter(msg => msg.thread_count > 0)
+      .map(msg => ({
+        id: `thread-${msg.id}`,
+        parentMessage: msg,
+        messages: generateMockThreadReplies(msg)
+      }));
+    
+    setThreads(channelThreads);
+  };
+
+  const generateChannelMessages = (channel, ws) => {
+    const channelKey = `${ws.name}-${channel.name}`;
+    
+    const messageTemplates = {
+      'Frank-general': [
         {
-          id: 'gen-1',
-          user: { name: 'Alex Johnson', initials: 'AJ', status: 'online' },
-          content: `Welcome to #${channel.name}! This is where we discuss general topics and company updates.`,
+          id: 'frank-gen-1',
+          user: { name: 'Frank', initials: 'F', status: 'online' },
+          content: `Welcome to the Frank workspace! This is our main discussion channel.`,
           timestamp: new Date(Date.now() - 7200000),
-          reactions: [{ emoji: '👋', count: 5, users: ['Sarah', 'Mike', 'Lisa', 'John', 'Emma'] }]
+          reactions: [{ emoji: '👋', count: 3, users: ['Team', 'Members'] }]
         },
         {
-          id: 'gen-2',
-          user: { name: 'Sarah Chen', initials: 'SC', status: 'online' },
-          content: 'Good morning everyone! Hope you all have a great day ahead. 🌟',
-          timestamp: new Date(Date.now() - 3600000),
-          thread_count: 3,
-          thread_participants: ['Mike', 'Lisa', 'John']
-        }
-      ],
-      engineering: [
-        {
-          id: 'eng-1',
-          user: { name: 'Mike Johnson', initials: 'MJ', status: 'online' },
-          content: 'Just deployed the new API endpoint. Here are the details:\n- Endpoint: `/api/v2/users`\n- Rate limit: 1000 req/min\n- Authentication required',
-          timestamp: new Date(Date.now() - 5400000),
-          reactions: [{ emoji: '🚀', count: 3, users: ['Sarah', 'Lisa', 'Tom'] }]
-        },
-        {
-          id: 'eng-2',
-          user: { name: 'Lisa Park', initials: 'LP', status: 'online' },
-          content: 'Great work on the deployment! I noticed a small performance improvement in the dashboard loading times.',
+          id: 'frank-gen-2',
+          user: { name: 'Team Lead', initials: 'TL', status: 'online' },
+          content: 'Daily standup in 10 minutes. Please prepare your updates!',
           timestamp: new Date(Date.now() - 1800000),
           thread_count: 2,
-          thread_participants: ['Mike', 'Tom']
+          thread_participants: ['Frank', 'Developer']
         }
       ],
-      design: [
+      'Frank-team-updates': [
         {
-          id: 'des-1',
-          user: { name: 'Emma Wilson', initials: 'EW', status: 'online' },
-          content: 'New design system components are ready! 🎨\nCheck out the updated color palette and typography guidelines in Figma.',
-          timestamp: new Date(Date.now() - 4200000),
-          reactions: [{ emoji: '🎨', count: 4, users: ['Sarah', 'Mike', 'John', 'Alex'] }]
+          id: 'frank-team-1',
+          user: { name: 'Project Manager', initials: 'PM', status: 'online' },
+          content: 'Q4 roadmap has been finalized. Key deliverables:\n• Feature A - Due Nov 15\n• Feature B - Due Dec 1\n• Performance optimization - Ongoing',
+          timestamp: new Date(Date.now() - 3600000),
+          thread_count: 4,
+          thread_participants: ['Frank', 'Developer', 'Designer']
         }
       ],
-      marketing: [
+      'Frank-projects': [
         {
-          id: 'mar-1',
-          user: { name: 'John Davis', initials: 'JD', status: 'away' },
-          content: 'Campaign results are in! 📊\n- CTR: 3.2% (up 0.8%)\n- Conversions: 127 (target was 100)\n- ROI: 4.2x',
-          timestamp: new Date(Date.now() - 2700000),
-          thread_count: 5,
-          thread_participants: ['Sarah', 'Alex', 'Emma']
-        }
-      ],
-      random: [
-        {
-          id: 'ran-1',
-          user: { name: 'Tom Anderson', initials: 'TA', status: 'online' },
-          content: 'Anyone up for coffee? ☕ There\'s a new cafe that opened near the office!',
+          id: 'frank-proj-1',
+          user: { name: 'Developer', initials: 'D', status: 'online' },
+          content: 'Chat app MVP is 85% complete. Working on final navigation fixes.',
           timestamp: new Date(Date.now() - 900000),
-          reactions: [{ emoji: '☕', count: 6, users: ['Sarah', 'Mike', 'Lisa', 'Emma', 'John', 'Alex'] }]
+          reactions: [{ emoji: '🚀', count: 2, users: ['Frank', 'PM'] }]
+        }
+      ],
+      'Engineering-engineering': [
+        {
+          id: 'eng-main-1',
+          user: { name: 'Senior Engineer', initials: 'SE', status: 'online' },
+          content: 'Code review for PR #234 is complete. Great work on the optimization!',
+          timestamp: new Date(Date.now() - 2400000),
+          thread_count: 3,
+          thread_participants: ['Junior Dev', 'Tech Lead']
+        }
+      ],
+      'Engineering-backend': [
+        {
+          id: 'eng-back-1',
+          user: { name: 'Backend Dev', initials: 'BD', status: 'online' },
+          content: 'Database migration completed successfully. All tests passing ✅',
+          timestamp: new Date(Date.now() - 1200000),
         }
       ]
     };
 
-    const channelMessages = baseMessages[channel.name] || [
+    const messages = messageTemplates[channelKey] || [
       {
-        id: `${channel.id}-default`,
-        user: { name: 'ChatFlow Bot', initials: 'CB', status: 'online' },
-        content: `Welcome to #${channel.name}! Start the conversation here.`,
+        id: `${channelKey}-default`,
+        user: { name: 'System', initials: 'S', status: 'online' },
+        content: `This is the #${channel.name} channel in ${ws.name} workspace. Start the conversation!`,
         timestamp: new Date(Date.now() - 3600000),
       }
     ];
 
-    // Always add user's message to show interaction
-    return [...channelMessages, {
-      id: `${channel.id}-user`,
+    // Always add user's current message to show they switched
+    return [...messages, {
+      id: `${channelKey}-user-${Date.now()}`,
       user: {
         name: user.displayName || 'You',
         avatar: user.photoURL,
         initials: user.displayName ? user.displayName.split(' ').map(n => n[0]).join('') : 'U',
         status: 'online'
       },
-      content: `Just switched to #${channel.name}`,
+      content: `Switched to #${channel.name} in ${ws.name}`,
       timestamp: new Date()
     }];
+  };
+
+  const handleChannelSelect = async (channel) => {
+    setCurrentChannel(channel);
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+    // Messages will be loaded by the useEffect that watches currentChannel changes
   };
 
   const generateMockThreadReplies = (parentMessage) => {
