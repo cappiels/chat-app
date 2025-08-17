@@ -28,7 +28,7 @@ async function testInvitationEmail() {
       workspaceDescription: 'This is a test workspace to verify email functionality',
       inviterName: 'Test User',
       inviterEmail: 'test@example.com',
-      inviteUrl: 'https://coral-app-rgki8.ondigitalocean.app/invite/test-token-123',
+      inviteUrl: 'https://coral-app-rgki8.ondigitalocean.app/#/invite/test-token-123',
       userRole: 'member',
       memberCount: 2,
       expiryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
