@@ -16,3 +16,4 @@ services:
   http_port: 4173
   routes:
   - path: /
+  catchall: true
