@@ -7,6 +7,7 @@ import MessageList from '../chat/MessageList';
 import MessageComposer from '../chat/MessageComposer';
 import Thread from '../chat/Thread';
 import InviteDialog from '../InviteDialog';
+import { threadAPI, messageAPI } from '../../utils/api';
 
 const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWorkspaces }) => {
   const [channels, setChannels] = useState([]);
@@ -19,6 +20,12 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   const [activeSection, setActiveSection] = useState('chat');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  
+  // Loading and error states
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [error, setError] = useState(null);
 
   // Handle responsive behavior
   useEffect(() => {
@@ -35,47 +42,48 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
 
   // Load channels based on workspace
   useEffect(() => {
-    if (workspace) {
-      // Generate workspace-specific channels
-      const workspaceChannels = generateWorkspaceChannels(workspace);
-      setChannels(workspaceChannels);
-      setCurrentChannel(workspaceChannels[0] || null);
-      setMessages([]);
-      setThreads([]);
-    }
+    const loadChannels = async () => {
+      if (workspace) {
+        const realChannels = await loadWorkspaceChannels(workspace);
+        setChannels(realChannels);
+        setCurrentChannel(realChannels[0] || null);
+        setMessages([]);
+        setThreads([]);
+      }
+    };
+    loadChannels();
   }, [workspace]);
 
-  const generateWorkspaceChannels = (ws) => {
-    const baseChannels = [
-      { id: 'general', name: 'general', type: 'channel', unread: 0 },
-    ];
-
-    // Add workspace-specific channels based on workspace name or type
-    const workspaceSpecificChannels = {
-      'Frank': [
-        { id: 'team-frank', name: 'team-updates', type: 'channel', unread: 2 },
-        { id: 'projects-frank', name: 'projects', type: 'channel', unread: 1 },
-        { id: 'random-frank', name: 'random', type: 'channel', unread: 0 },
-      ],
-      'Engineering': [
-        { id: 'eng-general', name: 'engineering', type: 'channel', unread: 5 },
-        { id: 'eng-backend', name: 'backend', type: 'channel', unread: 2 },
-        { id: 'eng-frontend', name: 'frontend', type: 'channel', unread: 3 },
-        { id: 'eng-devops', name: 'devops', type: 'channel', unread: 0 },
-      ],
-      'Design': [
-        { id: 'design-general', name: 'design-team', type: 'channel', unread: 1 },
-        { id: 'design-reviews', name: 'design-reviews', type: 'channel', unread: 2 },
-        { id: 'design-resources', name: 'resources', type: 'channel', unread: 0 },
-      ]
-    };
-
-    const specific = workspaceSpecificChannels[ws.name] || [
-      { id: 'projects', name: 'projects', type: 'channel', unread: 0 },
-      { id: 'announcements', name: 'announcements', type: 'channel', unread: 0 },
-    ];
-
-    return [...baseChannels, ...specific];
+  const loadWorkspaceChannels = async (workspace) => {
+    try {
+      setChannelsLoading(true);
+      setError(null);
+      
+      const response = await threadAPI.getThreads(workspace.id);
+      const threadsData = response.data;
+      
+      // Filter channels from the threads response
+      const channels = threadsData.filter(thread => thread.type === 'channel').map(thread => ({
+        id: thread.id,
+        name: thread.name,
+        type: thread.type,
+        unread: thread.unread_count || 0
+      }));
+      
+      // Always ensure there's at least a general channel
+      if (channels.length === 0) {
+        return [{ id: 'general', name: 'general', type: 'channel', unread: 0 }];
+      }
+      
+      return channels;
+    } catch (error) {
+      console.error('Failed to load channels:', error);
+      setError('Failed to load channels. Please try refreshing the page.');
+      // Fallback to general channel only
+      return [{ id: 'general', name: 'general', type: 'channel', unread: 0 }];
+    } finally {
+      setChannelsLoading(false);
+    }
   };
 
   // Load messages when channel changes
@@ -85,108 +93,78 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     }
   }, [currentChannel, workspace, user]);
 
-  const loadChannelMessages = (channel) => {
+  const loadChannelMessages = async (channel) => {
     // Clear existing threads when switching channels
     setThreads([]);
     setSelectedThread(null);
     setThreadOpen(false);
+    setMessagesLoading(true);
+    setError(null);
 
-    const channelMessages = generateChannelMessages(channel, workspace);
-    setMessages(channelMessages);
-    
-    // Generate threads for messages that have threads
-    const channelThreads = channelMessages
-      .filter(msg => msg.thread_count > 0)
-      .map(msg => ({
-        id: `thread-${msg.id}`,
-        parentMessage: msg,
-        messages: generateMockThreadReplies(msg)
+    try {
+      const messagesResponse = await messageAPI.getMessages(channel.id);
+      const channelMessages = messagesResponse.data.map(msg => ({
+        id: msg.id,
+        user: {
+          name: msg.user_name || 'User',
+          avatar: msg.user_avatar,
+          initials: msg.user_name ? msg.user_name.split(' ').map(n => n[0]).join('') : 'U',
+          status: 'online'
+        },
+        content: msg.content,
+        timestamp: new Date(msg.created_at),
+        thread_count: msg.thread_count || 0,
+        thread_participants: msg.thread_participants || [],
+        reactions: msg.reactions || []
       }));
-    
-    setThreads(channelThreads);
+      
+      setMessages(channelMessages);
+      
+      // Load threads for messages that have thread replies
+      const channelThreads = [];
+      for (const msg of channelMessages.filter(m => m.thread_count > 0)) {
+        try {
+          const threadReplies = await loadThreadReplies(msg.id);
+          channelThreads.push({
+            id: `thread-${msg.id}`,
+            parentMessage: msg,
+            messages: threadReplies
+          });
+        } catch (error) {
+          console.error(`Failed to load thread for message ${msg.id}:`, error);
+        }
+      }
+      setThreads(channelThreads);
+      
+    } catch (error) {
+      console.error('Failed to load channel messages:', error);
+      setError('Failed to load messages. Please try again.');
+      // Show empty state - let user start conversation
+      setMessages([]);
+      setThreads([]);
+    } finally {
+      setMessagesLoading(false);
+    }
   };
 
-  const generateChannelMessages = (channel, ws) => {
-    const channelKey = `${ws.name}-${channel.name}`;
-    
-    const messageTemplates = {
-      'Frank-general': [
-        {
-          id: 'frank-gen-1',
-          user: { name: 'Frank', initials: 'F', status: 'online' },
-          content: `Welcome to the Frank workspace! This is our main discussion channel.`,
-          timestamp: new Date(Date.now() - 7200000),
-          reactions: [{ emoji: '👋', count: 3, users: ['Team', 'Members'] }]
+  const loadThreadReplies = async (messageId) => {
+    try {
+      const response = await messageAPI.getMessages(messageId, { thread: true });
+      return response.data.map(reply => ({
+        id: reply.id,
+        user: {
+          name: reply.user_name || 'User',
+          avatar: reply.user_avatar,
+          initials: reply.user_name ? reply.user_name.split(' ').map(n => n[0]).join('') : 'U',
+          status: 'online'
         },
-        {
-          id: 'frank-gen-2',
-          user: { name: 'Team Lead', initials: 'TL', status: 'online' },
-          content: 'Daily standup in 10 minutes. Please prepare your updates!',
-          timestamp: new Date(Date.now() - 1800000),
-          thread_count: 2,
-          thread_participants: ['Frank', 'Developer']
-        }
-      ],
-      'Frank-team-updates': [
-        {
-          id: 'frank-team-1',
-          user: { name: 'Project Manager', initials: 'PM', status: 'online' },
-          content: 'Q4 roadmap has been finalized. Key deliverables:\n• Feature A - Due Nov 15\n• Feature B - Due Dec 1\n• Performance optimization - Ongoing',
-          timestamp: new Date(Date.now() - 3600000),
-          thread_count: 4,
-          thread_participants: ['Frank', 'Developer', 'Designer']
-        }
-      ],
-      'Frank-projects': [
-        {
-          id: 'frank-proj-1',
-          user: { name: 'Developer', initials: 'D', status: 'online' },
-          content: 'Chat app MVP is 85% complete. Working on final navigation fixes.',
-          timestamp: new Date(Date.now() - 900000),
-          reactions: [{ emoji: '🚀', count: 2, users: ['Frank', 'PM'] }]
-        }
-      ],
-      'Engineering-engineering': [
-        {
-          id: 'eng-main-1',
-          user: { name: 'Senior Engineer', initials: 'SE', status: 'online' },
-          content: 'Code review for PR #234 is complete. Great work on the optimization!',
-          timestamp: new Date(Date.now() - 2400000),
-          thread_count: 3,
-          thread_participants: ['Junior Dev', 'Tech Lead']
-        }
-      ],
-      'Engineering-backend': [
-        {
-          id: 'eng-back-1',
-          user: { name: 'Backend Dev', initials: 'BD', status: 'online' },
-          content: 'Database migration completed successfully. All tests passing ✅',
-          timestamp: new Date(Date.now() - 1200000),
-        }
-      ]
-    };
-
-    const messages = messageTemplates[channelKey] || [
-      {
-        id: `${channelKey}-default`,
-        user: { name: 'System', initials: 'S', status: 'online' },
-        content: `This is the #${channel.name} channel in ${ws.name} workspace. Start the conversation!`,
-        timestamp: new Date(Date.now() - 3600000),
-      }
-    ];
-
-    // Always add user's current message to show they switched
-    return [...messages, {
-      id: `${channelKey}-user-${Date.now()}`,
-      user: {
-        name: user.displayName || 'You',
-        avatar: user.photoURL,
-        initials: user.displayName ? user.displayName.split(' ').map(n => n[0]).join('') : 'U',
-        status: 'online'
-      },
-      content: `Switched to #${channel.name} in ${ws.name}`,
-      timestamp: new Date()
-    }];
+        content: reply.content,
+        timestamp: new Date(reply.created_at)
+      }));
+    } catch (error) {
+      console.error('Failed to load thread replies:', error);
+      return [];
+    }
   };
 
   const handleChannelSelect = async (channel) => {
@@ -214,38 +192,74 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     ];
   };
 
-  const handleThreadOpen = (message) => {
-    // Find the thread for this message
-    const thread = threads.find(t => t.parentMessage.id === message.id);
-    if (thread) {
-      setSelectedThread(thread);
-      setThreadOpen(true);
-    } else {
-      // Create a new thread if none exists
-      const newThread = {
+  const handleThreadOpen = async (message) => {
+    try {
+      // Check if message has existing thread responses
+      if (message.thread_count > 0) {
+        // Load thread replies via API
+        const threadReplies = await loadThreadReplies(message.id);
+        const thread = {
+          id: `thread-${message.id}`,
+          parentMessage: message,
+          messages: threadReplies
+        };
+        setSelectedThread(thread);
+        setThreadOpen(true);
+      } else {
+        // Create new empty thread
+        const thread = {
+          id: `thread-${message.id}`,
+          parentMessage: message,
+          messages: []
+        };
+        setSelectedThread(thread);
+        setThreadOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to load thread:', error);
+      // Still allow opening thread but with empty messages
+      const thread = {
         id: `thread-${message.id}`,
         parentMessage: message,
         messages: []
       };
-      setThreads([...threads, newThread]);
-      setSelectedThread(newThread);
+      setSelectedThread(thread);
       setThreadOpen(true);
     }
   };
 
-  const handleSendMessage = (content) => {
-    const newMessage = {
-      id: Date.now().toString(),
-      user: {
-        name: user.displayName || 'You',
-        avatar: user.photoURL,
-        initials: user.displayName ? user.displayName.split(' ').map(n => n[0]).join('') : 'U',
-        status: 'online'
-      },
-      content,
-      timestamp: new Date()
-    };
-    setMessages([...messages, newMessage]);
+  const handleSendMessage = async (content) => {
+    if (!currentChannel || !content.trim()) return;
+    
+    try {
+      // Send message via API
+      await messageAPI.sendMessage({
+        thread_id: currentChannel.id,
+        content: content.trim(),
+        message_type: 'text'
+      });
+      
+      // Reload messages to get the real message with proper ID and timestamp
+      await loadChannelMessages(currentChannel);
+      
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Could show toast error notification here
+      // For now, add the message optimistically to show immediate feedback
+      const optimisticMessage = {
+        id: `temp-${Date.now()}`,
+        user: {
+          name: user.displayName || 'You',
+          avatar: user.photoURL,
+          initials: user.displayName ? user.displayName.split(' ').map(n => n[0]).join('') : 'U',
+          status: 'online'
+        },
+        content: content.trim(),
+        timestamp: new Date(),
+        sending: true // Mark as sending to show different UI state
+      };
+      setMessages([...messages, optimisticMessage]);
+    }
   };
 
   const handleInviteSuccess = (invites) => {
