@@ -20,6 +20,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   const [activeSection, setActiveSection] = useState('chat');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [createChannelDialogOpen, setCreateChannelDialogOpen] = useState(false);
   
   // Loading and error states
   const [channelsLoading, setChannelsLoading] = useState(false);
@@ -120,21 +121,9 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       
       setMessages(channelMessages);
       
-      // Load threads for messages that have thread replies
-      const channelThreads = [];
-      for (const msg of channelMessages.filter(m => m.thread_count > 0)) {
-        try {
-          const threadReplies = await loadThreadReplies(msg.id);
-          channelThreads.push({
-            id: `thread-${msg.id}`,
-            parentMessage: msg,
-            messages: threadReplies
-          });
-        } catch (error) {
-          console.error(`Failed to load thread for message ${msg.id}:`, error);
-        }
-      }
-      setThreads(channelThreads);
+      // Don't load all thread replies immediately - only load when user opens thread
+      // This dramatically improves initial load time
+      setThreads([]);
       
     } catch (error) {
       console.error('Failed to load channel messages:', error);
@@ -262,6 +251,40 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     }
   };
 
+  const handleCreateChannel = async (channelName) => {
+    if (!workspace || !channelName.trim()) return;
+    
+    try {
+      // Create channel via API
+      await threadAPI.createChannel(workspace.id, {
+        name: channelName.trim(),
+        type: 'channel',
+        description: `${channelName} channel`
+      });
+      
+      // Reload channels to show the new one
+      const updatedChannels = await loadWorkspaceChannels(workspace);
+      setChannels(updatedChannels);
+      
+      // Find and select the newly created channel
+      const newChannel = updatedChannels.find(ch => ch.name === channelName.trim());
+      if (newChannel) {
+        setCurrentChannel(newChannel);
+      }
+      
+    } catch (error) {
+      console.error('Failed to create channel:', error);
+      setError('Failed to create channel. Please try again.');
+    }
+  };
+
+  const handleAddChannelClick = () => {
+    const channelName = prompt('Enter channel name:');
+    if (channelName) {
+      handleCreateChannel(channelName);
+    }
+  };
+
   const handleInviteSuccess = (invites) => {
     console.log('Invitations sent successfully:', invites);
     // In a real app, you might want to refresh workspace member list
@@ -294,6 +317,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         channels={channels}
         currentChannel={currentChannel}
         onChannelSelect={handleChannelSelect}
+        onAddChannel={handleAddChannelClick}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

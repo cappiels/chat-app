@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { threadAPI } from '../../utils/api';
 
-const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, isOpen, onClose }) => {
+const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddChannel, isOpen, onClose }) => {
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [directMessagesExpanded, setDirectMessagesExpanded] = useState(true);
   const [directMessages, setDirectMessages] = useState([]);
@@ -114,7 +114,7 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, isOpen,
                   )}
                 </button>
               ))}
-              <button className="channel-item text-tertiary">
+              <button className="channel-item text-tertiary" onClick={onAddChannel}>
                 <Plus className="w-4 h-4 flex-shrink-0" />
                 <span className="truncate">Add channels</span>
               </button>
@@ -192,6 +192,7 @@ Sidebar.propTypes = {
   channels: PropTypes.array.isRequired,
   currentChannel: PropTypes.object,
   onChannelSelect: PropTypes.func.isRequired,
+  onAddChannel: PropTypes.func,
   isOpen: PropTypes.bool,
   onClose: PropTypes.func,
 };
