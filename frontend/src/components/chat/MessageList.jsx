@@ -64,18 +64,28 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser }) => {
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Channel Header */}
-      <div className="px-5 py-3 border-b border-slate-200">
+      <div className="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-white to-slate-50/50 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Hash className="w-5 h-5 text-slate-500" />
-            <h1 className="text-lg font-bold text-slate-900">{channel.name}</h1>
-            <span className="text-sm text-slate-500">#{channel.name}</span>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
+              <Hash className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-900">{channel.name}</h1>
+              <span className="text-xs text-slate-500 font-medium">#{channel.name}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700">
+          <div className="flex items-center gap-1">
+            <button 
+              className="p-2.5 rounded-lg transition-all duration-200 bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-blue-100 text-slate-600 hover:text-blue-700 border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:-translate-y-px"
+              title="View channel members"
+            >
               <Users className="w-4 h-4" />
             </button>
-            <button className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700">
+            <button 
+              className="p-2.5 rounded-lg transition-all duration-200 bg-white hover:bg-gradient-to-br hover:from-slate-50 hover:to-slate-100 text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md hover:-translate-y-px"
+              title="Channel information"
+            >
               <Info className="w-4 h-4" />
             </button>
           </div>
@@ -85,15 +95,15 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser }) => {
       {/* Messages */}
       <div className="px-5 py-4">
         {messages.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-50 rounded-full mb-4">
-              <Hash className="w-8 h-8 text-slate-400" />
+          <div className="text-center py-12">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl mb-6 shadow-lg">
+              <Hash className="w-10 h-10 text-blue-600" />
             </div>
-            <h3 className="text-lg font-semibold mb-1 text-slate-900">
+            <h3 className="text-xl font-bold mb-2 text-slate-900">
               This is the beginning of #{channel.name}
             </h3>
-            <p className="text-slate-500">
-              Start the conversation!
+            <p className="text-slate-600 max-w-md mx-auto">
+              Start the conversation! Share ideas, ask questions, or just say hello to get things going.
             </p>
           </div>
         ) : (
