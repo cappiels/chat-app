@@ -6,7 +6,7 @@ logAbsoluteTiming('🔥', 'firebase.js: Script execution started');
 // src/firebase.js
 const firebaseImportStart = performance.now();
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, connectAuthEmulator } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 logTiming('📦', 'firebase.js: Firebase imports completed', firebaseImportStart);
 
 const envValidationStart = performance.now();
