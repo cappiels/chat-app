@@ -334,10 +334,10 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                       e.stopPropagation();
                       setOpenMenuId(openMenuId === workspace.id ? null : workspace.id);
                     }}
-                    className="p-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm opacity-70 hover:opacity-100 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-all shadow-sm border border-gray-200/50 dark:border-gray-600/50"
+                    className="p-2.5 bg-white hover:bg-gray-50 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg border border-gray-200 hover:border-gray-300 opacity-80 hover:opacity-100 hover:scale-105"
                     title="Workspace options"
                   >
-                    <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    <MoreVertical className="w-4 h-4 text-gray-700 hover:text-gray-900" />
                   </button>
                   
                   {/* Dropdown Menu - Fixed z-index and positioning */}

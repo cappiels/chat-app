@@ -56,7 +56,7 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
   };
 
   return (
-    <aside className={`fixed left-0 top-11 bottom-0 w-64 bg-gradient-to-b from-slate-50 to-slate-100 border-r border-slate-200 shadow-lg transform transition-transform duration-300 z-30 md:relative md:top-0 md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       {/* Workspace Header */}
       <div className="p-4 border-b border-slate-200 bg-white/50 backdrop-blur-sm">
         <div className="flex items-center justify-between">
