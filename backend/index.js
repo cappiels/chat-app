@@ -70,6 +70,12 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip successful requests to static resources
+  skipSuccessfulRequests: false,
+  // Use a more secure key generator for proxied environments
+  keyGenerator: (req) => {
+    return req.ip; // This works properly with trust proxy: 1
+  }
 });
 // Apply to all requests, as the /api prefix is stripped by the platform
 app.use(limiter);
@@ -81,11 +87,17 @@ const authLimiter = rateLimit({
   message: {
     error: 'Too Many Auth Requests',
     message: 'Too many authentication attempts, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return req.ip; // This works properly with trust proxy: 1
   }
 });
 
-// --- Trust Proxy Configuration (for DigitalOcean) ---
-app.set('trust proxy', true); // Trust DigitalOcean's load balancer
+// --- Trust Proxy Configuration (for DigitalOcean App Platform) ---
+// Set to 1 since DigitalOcean App Platform uses 1 proxy hop
+app.set('trust proxy', 1);
 
 // --- Standard Middleware ---
 app.use(express.json({ limit: '10mb' })); // Support larger payloads for file uploads
