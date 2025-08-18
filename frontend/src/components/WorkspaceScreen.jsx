@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
+import { logAbsoluteTiming, logTiming } from '../utils/timing.js';
 
 // Beautiful workspace selection screen
 const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
@@ -42,9 +43,6 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   }, [openMenuId]);
 
   const loadWorkspaces = async () => {
-    // Import timing utilities dynamically to avoid circular dependencies
-    const { logAbsoluteTiming, logTiming } = await import('../utils/timing.js');
-    
     const workspaceLoadStart = performance.now();
     logAbsoluteTiming('📊', 'WorkspaceScreen: Starting workspace load');
     
