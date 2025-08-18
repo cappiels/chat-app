@@ -27,12 +27,10 @@ const InviteAcceptance = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    // Get current user immediately instead of setting up another listener
+    const currentUser = auth.currentUser;
+    setUser(currentUser);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
