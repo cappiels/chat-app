@@ -278,7 +278,7 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
 
         {/* Workspaces grid */}
         <motion.div
-          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8"
+          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
@@ -286,7 +286,7 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
           {filteredWorkspaces.map((workspace, index) => (
             <motion.div
               key={workspace.id}
-              className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/20 group hover:shadow-xl transition-all duration-300 relative"
+              className={`bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/20 group hover:shadow-xl transition-all duration-300 relative overflow-hidden ${openMenuId === workspace.id ? 'z-50' : 'z-10'}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
@@ -327,14 +327,14 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
               </div>
 
               {/* Workspace Options Menu - Fixed positioning */}
-              <div className="absolute top-4 right-4 z-10">
+              <div className="absolute top-4 right-4 z-20">
                 <div className="relative workspace-menu">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setOpenMenuId(openMenuId === workspace.id ? null : workspace.id);
                     }}
-                    className="p-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm opacity-60 hover:opacity-100 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-all shadow-sm border border-gray-200/50 dark:border-gray-600/50"
+                    className="p-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm opacity-70 hover:opacity-100 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-all shadow-sm border border-gray-200/50 dark:border-gray-600/50"
                     title="Workspace options"
                   >
                     <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
@@ -343,8 +343,7 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                   {/* Dropdown Menu - Fixed z-index and positioning */}
                   {openMenuId === workspace.id && (
                     <div 
-                      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[100] overflow-hidden"
-                      style={{ zIndex: 9999 }}
+                      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[9999] overflow-hidden"
                     >
                       <div className="py-1">
                         <button
