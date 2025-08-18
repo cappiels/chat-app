@@ -38,7 +38,8 @@ router.get('/', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const workspacesQuery = `
+    // Simplified, fast query - get basic workspace data first
+    const basicWorkspacesQuery = `
       SELECT 
         w.id,
         w.name,
@@ -48,24 +49,7 @@ router.get('/', authenticateUser, async (req, res) => {
         wm.role,
         wm.joined_at,
         u.display_name as owner_name,
-        u.profile_picture_url as owner_avatar,
-        (
-          SELECT COUNT(*) 
-          FROM workspace_members wm2 
-          WHERE wm2.workspace_id = w.id
-        ) as member_count,
-        (
-          SELECT COUNT(*) 
-          FROM threads t 
-          WHERE t.workspace_id = w.id
-        ) as channel_count,
-        (
-          SELECT COUNT(*) 
-          FROM messages m 
-          JOIN threads t ON m.thread_id = t.id 
-          WHERE t.workspace_id = w.id 
-          AND m.created_at >= NOW() - INTERVAL '24 hours'
-        ) as recent_message_count
+        u.profile_picture_url as owner_avatar
       FROM workspaces w
       JOIN workspace_members wm ON w.id = wm.workspace_id
       JOIN users u ON w.owner_user_id = u.id
@@ -73,19 +57,69 @@ router.get('/', authenticateUser, async (req, res) => {
       ORDER BY wm.joined_at DESC;
     `;
 
-    const result = await pool.query(workspacesQuery, [userId]);
+    // Add timeout to prevent hanging queries
+    const queryPromise = pool.query(basicWorkspacesQuery, [userId]);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Database query timeout')), 5000)
+    );
+
+    const result = await Promise.race([queryPromise, timeoutPromise]);
+
+    // Get basic member counts efficiently (optional for better UX)
+    const memberCountsQuery = `
+      SELECT workspace_id, COUNT(*) as member_count
+      FROM workspace_members 
+      WHERE workspace_id = ANY($1::uuid[])
+      GROUP BY workspace_id;
+    `;
+    
+    const workspaceIds = result.rows.map(w => w.id);
+    let memberCounts = {};
+    
+    if (workspaceIds.length > 0) {
+      try {
+        const countResult = await Promise.race([
+          pool.query(memberCountsQuery, [workspaceIds]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Count timeout')), 2000))
+        ]);
+        
+        countResult.rows.forEach(row => {
+          memberCounts[row.workspace_id] = parseInt(row.member_count);
+        });
+      } catch (countError) {
+        console.warn('Member count query failed, using defaults:', countError.message);
+        // Use default counts if query fails
+      }
+    }
+
+    // Enhance workspace data with counts (use defaults if query failed)
+    const enhancedWorkspaces = result.rows.map(workspace => ({
+      ...workspace,
+      member_count: memberCounts[workspace.id] || 1,
+      channel_count: 1, // Default - avoid expensive query
+      recent_message_count: 0 // Default - avoid expensive query
+    }));
 
     res.json({
-      workspaces: result.rows,
-      count: result.rows.length
+      workspaces: enhancedWorkspaces,
+      count: enhancedWorkspaces.length
     });
 
   } catch (error) {
     console.error('Get workspaces error:', error);
-    res.status(500).json({ 
-      error: 'Server Error', 
-      message: 'Unable to retrieve workspaces' 
-    });
+    
+    // Provide more specific error handling
+    if (error.message === 'Database query timeout') {
+      res.status(504).json({ 
+        error: 'Request Timeout', 
+        message: 'Database query is taking too long. Please try again.' 
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Server Error', 
+        message: 'Unable to retrieve workspaces' 
+      });
+    }
   }
 });
 

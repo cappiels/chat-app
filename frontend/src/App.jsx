@@ -17,14 +17,82 @@ function App() {
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
   
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
+    import('./utils/timing.js').then(({ logAbsoluteTiming, logTiming }) => {
+      const appStartTime = performance.now();
+      logAbsoluteTiming('🚀', 'App.jsx useEffect started');
+      
+      let isMounted = true;
+      let unsubscribe = null;
+      
+      // Initialize auth with detailed timing
+      const initializeAuth = async () => {
+        logAbsoluteTiming('🔐', 'Firebase auth initialization started');
+        
+        try {
+          // Check current user immediately first
+          const currentUserCheckStart = performance.now();
+          const currentUser = auth.currentUser;
+          logTiming('⚡', 'Auth.currentUser check', currentUserCheckStart);
+          
+          if (currentUser && isMounted) {
+            const userFoundTime = performance.now();
+            console.log('🔐 Found existing user session:', currentUser.email);
+            logTiming('⏱️', 'Total time to find existing user', appStartTime, userFoundTime);
+            setUser(currentUser);
+            setLoading(false);
+            return;
+          }
+          
+          // Set up auth state listener with timing
+          const listenerSetupStart = performance.now();
+          unsubscribe = onAuthStateChanged(auth, 
+            (user) => {
+              if (!isMounted) return;
+              
+              const authResolvedTime = performance.now();
+              console.log('🔐 User state:', user ? `Signed in as ${user.email}` : 'Not signed in');
+              logAbsoluteTiming('🔐', 'Auth state resolved');
+              logTiming('⏱️', 'Total auth resolution time', appStartTime, authResolvedTime);
+              
+              setUser(user);
+              setLoading(false);
+            },
+            (error) => {
+              const authErrorTime = performance.now();
+              console.error('❌ Auth state change error:', error);
+              logTiming('⏱️', 'Time to auth error', appStartTime, authErrorTime);
+              
+              if (!isMounted) return;
+              setLoading(false);
+              toast.error('Authentication error. Please refresh the page.');
+            }
+          );
+          
+          logTiming('⚡', 'Auth listener setup', listenerSetupStart);
+          
+        } catch (error) {
+          const authFailTime = performance.now();
+          console.error('❌ Auth initialization failed:', error);
+          logTiming('⏱️', 'Time to auth failure', appStartTime, authFailTime);
+          
+          if (isMounted) {
+            setLoading(false);
+            toast.error('Failed to initialize authentication. Please refresh the page.');
+          }
+        }
+      };
 
-    return () => {
-      unsubscribe();
-    };
+      // Start auth initialization immediately
+      initializeAuth();
+
+      return () => {
+        logAbsoluteTiming('🧹', 'App.jsx cleanup');
+        isMounted = false;
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
+    });
   }, []);
 
   const signInWithGoogle = async () => {

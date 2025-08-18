@@ -42,38 +42,69 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   }, [openMenuId]);
 
   const loadWorkspaces = async () => {
-    // Add timeout to prevent hanging on API calls
+    // Import timing utilities dynamically to avoid circular dependencies
+    const { logAbsoluteTiming, logTiming } = await import('../utils/timing.js');
+    
+    const workspaceLoadStart = performance.now();
+    logAbsoluteTiming('📊', 'WorkspaceScreen: Starting workspace load');
+    
+    // Reduced timeout from 8s to 4s for better UX
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('API timeout')), 8000)
+      setTimeout(() => reject(new Error('API timeout')), 4000)
     );
 
     try {
+      const apiCallStart = performance.now();
       const response = await Promise.race([
         workspaceAPI.getWorkspaces(),
         timeoutPromise
       ]);
+      logTiming('🌐', 'WorkspaceScreen: API call completed', apiCallStart);
       
-      // Enhanced workspace data with mock statistics for better UX
-      const enhancedWorkspaces = (response.data.workspaces || []).map(workspace => ({
+      const dataProcessStart = performance.now();
+      // Use actual data from optimized backend API
+      const workspaces = response.data.workspaces || [];
+      
+      // Only add UI enhancements, use real backend data for counts
+      const enhancedWorkspaces = workspaces.map(workspace => ({
         ...workspace,
-        // Add mock data for demonstration - in real app this would come from API
-        conversations: Math.floor(Math.random() * 200) + 50,
-        knowledgeBase: Math.floor(Math.random() * 100) + 20,
+        // Use real member_count from backend, fallback to 1
+        member_count: workspace.member_count || 1,
+        // Add UI enhancements for better UX
         lastActivity: getRandomLastActivity(),
-        color: getWorkspaceColor(workspace.name)
+        color: getWorkspaceColor(workspace.name),
+        // Keep real owner info from backend
+        owner_user_id: workspace.owner_user_id
       }));
+      
+      logTiming('⚙️', 'WorkspaceScreen: Data processing completed', dataProcessStart);
+      
+      const setStateStart = performance.now();
       setWorkspaces(enhancedWorkspaces);
+      logTiming('📝', 'WorkspaceScreen: State update completed', setStateStart);
+      
+      logTiming('⏱️', 'WorkspaceScreen: Total workspace load time', workspaceLoadStart);
+      
     } catch (error) {
+      const errorTime = performance.now();
       console.error('Load workspaces error:', error);
+      logTiming('❌', 'WorkspaceScreen: Error occurred after', workspaceLoadStart, errorTime);
+      
       if (error.message === 'API timeout') {
-        toast.error('Loading workspaces is taking longer than expected. Please check your connection.');
+        toast.error('Connection is slow. Try refreshing the page.');
+      } else if (error.response?.status === 504) {
+        toast.error('Server is taking too long to respond. Please try again.');
+      } else if (error.response?.status >= 500) {
+        toast.error('Server error. Please try again in a moment.');
       } else {
-        toast.error('Failed to load workspaces');
+        toast.error('Failed to load workspaces. Check your connection.');
       }
       // Even on error, stop loading so user can see the page
       setWorkspaces([]);
     } finally {
+      const finalizeStart = performance.now();
       setLoading(false);
+      logTiming('🏁', 'WorkspaceScreen: Loading state cleared', finalizeStart);
     }
   };
 
