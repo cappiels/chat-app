@@ -63,16 +63,16 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   };
 
   return (
-    <div className="message-input-container">
+    <div className="p-4 bg-gradient-to-t from-slate-50/30 to-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
       <form onSubmit={handleSubmit}>
-        <div className="message-input-wrapper">
+        <div className="bg-white border-2 border-slate-200 rounded-lg p-3 transition-all duration-200 shadow-sm focus-within:border-blue-500 focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.1)] focus-within:shadow-md focus-within:-translate-y-px">
           {/* Formatting toolbar */}
           {showFormatting && (
-            <div className="flex items-center gap-1 pb-2 mb-2 border-b border-border">
+            <div className="flex items-center gap-1 pb-2 mb-2 border-b border-slate-200">
               <button
                 type="button"
                 onClick={() => insertFormatting('**', '**')}
-                className="btn-icon btn-ghost p-1"
+                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Bold"
               >
                 <Bold className="w-4 h-4" />
@@ -80,7 +80,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
               <button
                 type="button"
                 onClick={() => insertFormatting('_', '_')}
-                className="btn-icon btn-ghost p-1"
+                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Italic"
               >
                 <Italic className="w-4 h-4" />
@@ -88,16 +88,16 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
               <button
                 type="button"
                 onClick={() => insertFormatting('`', '`')}
-                className="btn-icon btn-ghost p-1"
+                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Code"
               >
                 <Code className="w-4 h-4" />
               </button>
-              <div className="w-px h-5 bg-border mx-1" />
+              <div className="w-px h-5 bg-slate-200 mx-1" />
               <button
                 type="button"
                 onClick={() => insertFormatting('[', '](url)')}
-                className="btn-icon btn-ghost p-1"
+                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Link"
               >
                 <Link2 className="w-4 h-4" />
@@ -105,7 +105,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
               <button
                 type="button"
                 onClick={() => insertFormatting('• ')}
-                className="btn-icon btn-ghost p-1"
+                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Bulleted list"
               >
                 <List className="w-4 h-4" />
@@ -113,7 +113,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
               <button
                 type="button"
                 onClick={() => insertFormatting('1. ')}
-                className="btn-icon btn-ghost p-1"
+                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Numbered list"
               >
                 <ListOrdered className="w-4 h-4" />
@@ -126,7 +126,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
             {/* Plus button for attachments */}
             <button
               type="button"
-              className="btn-icon btn-ghost flex-shrink-0 mb-1"
+              className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700 flex-shrink-0 mb-1"
               title="Add attachments"
             >
               <Plus className="w-5 h-5" />
@@ -140,7 +140,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={placeholder || `Message #${channel?.name || 'channel'}`}
-                className="message-input"
+                className="w-full border-none outline-none text-[15px] font-[inherit] bg-transparent resize-none min-h-[24px] max-h-[200px] text-slate-900 placeholder:text-slate-500"
                 rows="1"
               />
             </div>
@@ -150,28 +150,28 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
               <button
                 type="button"
                 onClick={() => setShowFormatting(!showFormatting)}
-                className={`btn-icon btn-ghost ${showFormatting ? 'bg-surface' : ''}`}
+                className={`p-2 rounded-lg transition-colors text-slate-500 hover:text-slate-700 ${showFormatting ? 'bg-slate-100' : 'hover:bg-slate-100'}`}
                 title="Show formatting"
               >
                 <Bold className="w-4 h-4" />
               </button>
               <button
                 type="button"
-                className="btn-icon btn-ghost"
+                className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Mention someone"
               >
                 <AtSign className="w-4 h-4" />
               </button>
               <button
                 type="button"
-                className="btn-icon btn-ghost"
+                className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Add emoji"
               >
                 <Smile className="w-4 h-4" />
               </button>
               <button
                 type="button"
-                className="btn-icon btn-ghost"
+                className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                 title="Attach file"
               >
                 <Paperclip className="w-4 h-4" />
@@ -181,7 +181,11 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
               <button
                 type="submit"
                 disabled={!message.trim()}
-                className={`btn-icon ml-1 ${message.trim() ? 'btn-primary' : 'btn-ghost opacity-50'}`}
+                className={`p-2 ml-1 rounded-lg transition-all duration-200 ${
+                  message.trim() 
+                    ? 'bg-gradient-to-br from-blue-600 to-purple-700 text-white shadow-sm hover:-translate-y-px hover:shadow-md' 
+                    : 'text-slate-400 hover:bg-slate-100 opacity-50'
+                }`}
                 title="Send message"
               >
                 <Send className="w-4 h-4" />
@@ -190,10 +194,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
           </div>
 
           {/* Helper text */}
-          <div className="flex items-center justify-between mt-2 text-xs text-tertiary">
+          <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
             <span>
-              Press <kbd className="px-1 py-0.5 bg-surface rounded text-xs">Enter</kbd> to send, 
-              <kbd className="px-1 py-0.5 bg-surface rounded text-xs ml-1">Shift + Enter</kbd> for new line
+              Press <kbd className="px-1 py-0.5 bg-slate-100 rounded text-xs border border-slate-200">Enter</kbd> to send, 
+              <kbd className="px-1 py-0.5 bg-slate-100 rounded text-xs ml-1 border border-slate-200">Shift + Enter</kbd> for new line
             </span>
           </div>
         </div>

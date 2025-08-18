@@ -291,7 +291,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   };
 
   return (
-    <div className="app-layout">
+    <div className="flex h-screen w-screen overflow-hidden">
       {/* Header */}
       <Header
         workspace={workspace}
@@ -306,7 +306,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       {/* Mobile overlay */}
       {isMobile && (
         <div 
-          className={`mobile-overlay ${sidebarOpen ? 'visible' : ''}`}
+          className={`fixed inset-0 bg-black/50 z-40 ${sidebarOpen ? 'block' : 'hidden'}`}
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -323,7 +323,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       />
 
       {/* Main Content */}
-      <main className="main-content">
+      <main className="flex-1 flex flex-col bg-white mt-11 h-[calc(100vh-44px)] min-w-0 border-l border-slate-200">
         {currentChannel ? (
           <>
             <MessageList
@@ -339,7 +339,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-tertiary">Select a channel to start messaging</p>
+            <p className="text-slate-500">Select a channel to start messaging</p>
           </div>
         )}
       </main>

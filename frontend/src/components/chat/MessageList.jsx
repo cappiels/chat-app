@@ -64,18 +64,18 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser }) => {
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Channel Header */}
-      <div className="px-5 py-3 border-b border-border">
+      <div className="px-5 py-3 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Hash className="w-5 h-5 text-tertiary" />
-            <h1 className="text-lg font-bold text-primary">{channel.name}</h1>
-            <span className="text-sm text-tertiary">#{channel.name}</span>
+            <Hash className="w-5 h-5 text-slate-500" />
+            <h1 className="text-lg font-bold text-slate-900">{channel.name}</h1>
+            <span className="text-sm text-slate-500">#{channel.name}</span>
           </div>
           <div className="flex items-center gap-2">
-            <button className="btn-icon btn-ghost">
+            <button className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700">
               <Users className="w-4 h-4" />
             </button>
-            <button className="btn-icon btn-ghost">
+            <button className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700">
               <Info className="w-4 h-4" />
             </button>
           </div>
@@ -86,13 +86,13 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser }) => {
       <div className="px-5 py-4">
         {messages.length === 0 ? (
           <div className="text-center py-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-surface rounded-full mb-4">
-              <Hash className="w-8 h-8 text-tertiary" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-50 rounded-full mb-4">
+              <Hash className="w-8 h-8 text-slate-400" />
             </div>
-            <h3 className="text-lg font-semibold mb-1">
+            <h3 className="text-lg font-semibold mb-1 text-slate-900">
               This is the beginning of #{channel.name}
             </h3>
-            <p className="text-tertiary">
+            <p className="text-slate-500">
               Start the conversation!
             </p>
           </div>
@@ -102,11 +102,11 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser }) => {
               <div key={groupIndex}>
                 {/* Date Divider */}
                 <div className="flex items-center my-4">
-                  <div className="flex-1 h-px bg-border" />
-                  <span className="px-3 text-xs font-semibold text-tertiary">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                     {formatDate(group.date)}
                   </span>
-                  <div className="flex-1 h-px bg-border" />
+                  <div className="flex-1 h-px bg-slate-200" />
                 </div>
 
                 {/* Messages for this date */}
