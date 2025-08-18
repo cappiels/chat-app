@@ -323,7 +323,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       />
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col bg-white mt-11 h-[calc(100vh-44px)] min-w-0 border-l border-slate-200">
+      <main className="flex-1 flex flex-col bg-white mt-11 h-[calc(100vh-44px)] min-w-0 border-l border-slate-200" style={{ marginTop: '44px', height: 'calc(100vh - 44px)' }}>
         {currentChannel ? (
           <>
             <MessageList

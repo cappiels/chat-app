@@ -206,7 +206,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         {/* Search bar */}
         <div className="search-container">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none z-10" />
             <input
               type="text"
               value={searchQuery}
@@ -214,14 +214,14 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
               placeholder={`Search ${workspace?.name || 'ChatFlow'}`}
-              className="search-input"
+              className="search-input pl-10"
             />
             {searchQuery && searchFocused && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10"
               >
-                <X className="w-4 h-4 text-tertiary" />
+                <X className="w-4 h-4 text-gray-400" />
               </button>
             )}
           </div>
