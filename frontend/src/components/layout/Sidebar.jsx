@@ -38,7 +38,7 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       const threadsData = response.data;
       
       // Filter direct messages from the threads response
-      const dms = threadsData.filter(thread => thread.type === 'dm').map(thread => ({
+      const dms = threadsData.direct_messages.map(thread => ({
         id: thread.id,
         name: thread.name || 'Direct Message',
         status: 'online', // Default status - could be enhanced with real presence data
@@ -90,25 +90,22 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       {/* Channel List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-1">
         {/* Channels Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setChannelsExpanded(!channelsExpanded)}
-            className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider hover:text-slate-800 transition-colors duration-200"
-          >
-            <div className="flex items-center gap-2">
+        <div className="mb-6 relative">
+          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+            <button
+              onClick={() => setChannelsExpanded(!channelsExpanded)}
+              className="flex items-center gap-2 hover:text-slate-800 transition-colors duration-200"
+            >
               <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${channelsExpanded ? '' : '-rotate-90'}`} />
               <span>Channels</span>
-            </div>
+            </button>
             <button 
               className="p-1 hover:bg-slate-200 rounded transition-colors duration-200" 
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddChannel();
-              }}
+              onClick={onAddChannel}
             >
               <Plus className="w-3 h-3" />
             </button>
-          </button>
+          </div>
 
           {channelsExpanded && (
             <div className="mt-2 space-y-0.5">
@@ -143,19 +140,19 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
         </div>
 
         {/* Direct Messages Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setDirectMessagesExpanded(!directMessagesExpanded)}
-            className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider hover:text-slate-800 transition-colors duration-200"
-          >
-            <div className="flex items-center gap-2">
+        <div className="mb-6 relative">
+          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+            <button
+              onClick={() => setDirectMessagesExpanded(!directMessagesExpanded)}
+              className="flex items-center gap-2 hover:text-slate-800 transition-colors duration-200"
+            >
               <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${directMessagesExpanded ? '' : '-rotate-90'}`} />
               <span>Direct messages</span>
-            </div>
-            <button className="p-1 hover:bg-slate-200 rounded transition-colors duration-200" onClick={(e) => e.stopPropagation()}>
+            </button>
+            <button className="p-1 hover:bg-slate-200 rounded transition-colors duration-200">
               <Plus className="w-3 h-3" />
             </button>
-          </button>
+          </div>
 
           {directMessagesExpanded && (
             <div className="mt-2 space-y-0.5">

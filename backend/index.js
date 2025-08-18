@@ -190,40 +190,6 @@ app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/workspaces/:workspaceId/threads', threadRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
 
-// Import and mount message routes directly for compatibility
-const messageRoutes = require('./routes/messages');
-
-// Messages route with thread_id query parameter compatibility
-app.get('/api/messages', async (req, res) => {
-  const { thread_id } = req.query;
-  if (thread_id) {
-    // Forward to the proper nested route
-    req.url = `/api/workspaces/*/threads/${thread_id}/messages`;
-    req.params = { threadId: thread_id };
-    return messageRoutes(req, res);
-  }
-  res.status(400).json({ error: 'thread_id parameter required' });
-});
-
-// Send message route compatibility
-app.post('/api/messages', async (req, res) => {
-  const { thread_id } = req.body;
-  if (thread_id) {
-    // Forward to the proper nested route
-    req.url = `/api/workspaces/*/threads/${thread_id}/messages`;
-    req.params = { threadId: thread_id };
-    return messageRoutes(req, res);
-  }
-  res.status(400).json({ error: 'thread_id in body required' });
-});
-
-// Channel creation compatibility route
-app.post('/api/workspaces/:workspaceId/threads/channels', async (req, res) => {
-  // Forward to the main threads route with type=channel
-  req.body.type = 'channel';
-  req.url = `/api/workspaces/${req.params.workspaceId}/threads`;
-  return threadRoutes(req, res);
-});
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {

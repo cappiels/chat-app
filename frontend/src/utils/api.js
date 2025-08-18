@@ -4,7 +4,7 @@ import { auth } from '../firebase';
 // In production, use the same domain with /api routing
 // In development, use localhost:8080
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.PROD ? '' : 'http://localhost:8080');
+  (import.meta.env.PROD ? '/api' : 'http://localhost:8080/api');
 
 // Create axios instance with default config
 const api = axios.create({
@@ -24,7 +24,7 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// API functions - NO /api prefix needed (DigitalOcean routes /api to backend)
+// API functions - baseURL already includes /api, so no prefix needed
 export const workspaceAPI = {
   getWorkspaces: () => api.get('/workspaces'),
   getWorkspace: (id) => api.get(`/workspaces/${id}`),
@@ -44,20 +44,20 @@ export const workspaceAPI = {
 export const threadAPI = {
   getThreads: (workspaceId) => api.get(`/workspaces/${workspaceId}/threads`),
   getThread: (workspaceId, threadId) => api.get(`/workspaces/${workspaceId}/threads/${threadId}`),
-  createChannel: (workspaceId, data) => api.post(`/workspaces/${workspaceId}/threads/channels`, data),
-  createDM: (workspaceId, userId) => api.post(`/workspaces/${workspaceId}/threads/dm`, { user_id: userId }),
+  createChannel: (workspaceId, data) => api.post(`/workspaces/${workspaceId}/threads`, { ...data, type: 'channel' }),
+  createDM: (workspaceId, userId) => api.post(`/workspaces/${workspaceId}/threads`, { type: 'direct_message', members: [userId] }),
   joinThread: (workspaceId, threadId) => api.post(`/workspaces/${workspaceId}/threads/${threadId}/join`),
-  leaveThread: (workspaceId, threadId) => api.post(`/workspaces/${workspaceId}/threads/${threadId}/leave`),
+  leaveThread: (workspaceId, threadId) => api.delete(`/workspaces/${workspaceId}/threads/${threadId}/leave`),
   updateThread: (workspaceId, threadId, data) => api.put(`/workspaces/${workspaceId}/threads/${threadId}`, data),
   deleteThread: (workspaceId, threadId) => api.delete(`/workspaces/${workspaceId}/threads/${threadId}`),
   getMembers: (workspaceId, threadId) => api.get(`/workspaces/${workspaceId}/threads/${threadId}/members`),
 };
 
 export const messageAPI = {
-  getMessages: (threadId, params = {}) => api.get(`/messages?thread_id=${threadId}`, { params }),
-  sendMessage: (data) => api.post('/messages', data),
-  updateMessage: (id, data) => api.put(`/messages/${id}`, data),
-  deleteMessage: (id) => api.delete(`/messages/${id}`),
+  getMessages: (workspaceId, threadId, params = {}) => api.get(`/workspaces/${workspaceId}/threads/${threadId}/messages`, { params }),
+  sendMessage: (workspaceId, threadId, data) => api.post(`/workspaces/${workspaceId}/threads/${threadId}/messages`, data),
+  updateMessage: (workspaceId, threadId, messageId, data) => api.put(`/workspaces/${workspaceId}/threads/${threadId}/messages/${messageId}`, data),
+  deleteMessage: (workspaceId, threadId, messageId) => api.delete(`/workspaces/${workspaceId}/threads/${threadId}/messages/${messageId}`),
   addReaction: (id, emoji) => api.post(`/messages/${id}/reactions`, { emoji }),
   removeReaction: (id, emoji) => api.delete(`/messages/${id}/reactions`, { data: { emoji } }),
   pinMessage: (id) => api.post(`/messages/${id}/pin`),

@@ -63,8 +63,8 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       const response = await threadAPI.getThreads(workspace.id);
       const threadsData = response.data;
       
-      // Filter channels from the threads response
-      const channels = threadsData.filter(thread => thread.type === 'channel').map(thread => ({
+      // Use channels from the structured response
+      const channels = (threadsData.channels || []).map(thread => ({
         id: thread.id,
         name: thread.name,
         type: thread.type,
@@ -103,8 +103,8 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     setError(null);
 
     try {
-      const messagesResponse = await messageAPI.getMessages(channel.id);
-      const channelMessages = messagesResponse.data.map(msg => ({
+      const messagesResponse = await messageAPI.getMessages(workspace.id, channel.id);
+      const channelMessages = messagesResponse.data.messages.map(msg => ({
         id: msg.id,
         user: {
           name: msg.user_name || 'User',
@@ -222,8 +222,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     
     try {
       // Send message via API
-      await messageAPI.sendMessage({
-        thread_id: currentChannel.id,
+      await messageAPI.sendMessage(workspace.id, currentChannel.id, {
         content: content.trim(),
         message_type: 'text'
       });
