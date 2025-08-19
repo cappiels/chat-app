@@ -61,27 +61,33 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       setError(null);
       
       const response = await threadAPI.getThreads(workspace.id);
+      console.log('Threads API response:', response.data);
+      
+      // Handle the actual response structure from backend
       const threadsData = response.data;
+      const allThreads = threadsData.threads || [];
       
-      // Use channels from the structured response
-      const channels = (threadsData.channels || []).map(thread => ({
-        id: thread.id,
-        name: thread.name,
-        type: thread.type,
-        unread: thread.unread_count || 0
-      }));
+      // Filter only channels (not DMs) and map to expected format
+      const channels = allThreads
+        .filter(thread => thread.type === 'channel')
+        .map(thread => ({
+          id: thread.id,
+          name: thread.name,
+          type: thread.type,
+          unread: thread.unread_count || 0,
+          is_member: thread.is_member,
+          member_count: thread.member_count || 0
+        }));
       
-      // Always ensure there's at least a general channel
-      if (channels.length === 0) {
-        return [{ id: 'general', name: 'general', type: 'channel', unread: 0 }];
-      }
+      console.log('Processed channels:', channels);
       
+      // If no channels found, return empty array - don't create fake channels
       return channels;
+      
     } catch (error) {
       console.error('Failed to load channels:', error);
-      setError('Failed to load channels. Please try refreshing the page.');
-      // Fallback to general channel only
-      return [{ id: 'general', name: 'general', type: 'channel', unread: 0 }];
+      setError(`Failed to load channels: ${error.response?.data?.message || error.message}`);
+      return [];
     } finally {
       setChannelsLoading(false);
     }
@@ -95,6 +101,11 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   }, [currentChannel, workspace, user]);
 
   const loadChannelMessages = async (channel) => {
+    if (!channel?.id) {
+      console.log('No valid channel provided');
+      return;
+    }
+    
     // Clear existing threads when switching channels
     setThreads([]);
     setSelectedThread(null);
@@ -103,32 +114,37 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     setError(null);
 
     try {
+      console.log(`Loading messages for channel: ${channel.name} (${channel.id})`);
       const messagesResponse = await messageAPI.getMessages(workspace.id, channel.id);
-      const channelMessages = messagesResponse.data.messages.map(msg => ({
+      console.log('Messages API response:', messagesResponse.data);
+      
+      // Handle the actual response structure from backend
+      const messagesData = messagesResponse.data;
+      const rawMessages = messagesData.messages || [];
+      
+      const channelMessages = rawMessages.map(msg => ({
         id: msg.id,
         user: {
-          name: msg.user_name || 'User',
-          avatar: msg.user_avatar,
-          initials: msg.user_name ? msg.user_name.split(' ').map(n => n[0]).join('') : 'U',
+          name: msg.sender_name || 'User',
+          avatar: msg.sender_avatar,
+          initials: msg.sender_name ? msg.sender_name.split(' ').map(n => n[0]).join('') : 'U',
           status: 'online'
         },
         content: msg.content,
         timestamp: new Date(msg.created_at),
-        thread_count: msg.thread_count || 0,
-        thread_participants: msg.thread_participants || [],
+        thread_count: msg.reply_count || 0,
+        thread_participants: [],
         reactions: msg.reactions || []
       }));
       
+      console.log('Processed messages:', channelMessages);
       setMessages(channelMessages);
-      
-      // Don't load all thread replies immediately - only load when user opens thread
-      // This dramatically improves initial load time
       setThreads([]);
       
     } catch (error) {
       console.error('Failed to load channel messages:', error);
-      setError('Failed to load messages. Please try again.');
-      // Show empty state - let user start conversation
+      console.error('Error details:', error.response?.data);
+      setError(`Failed to load messages: ${error.response?.data?.message || error.message}`);
       setMessages([]);
       setThreads([]);
     } finally {
