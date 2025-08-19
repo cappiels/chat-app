@@ -13,6 +13,7 @@ const userRoutes = require('./routes/users');
 const workspaceRoutes = require('./routes/workspaces');
 const threadRoutes = require('./routes/threads');
 const knowledgeRoutes = require('./routes/knowledge-advanced');
+const versionRoutes = require('./routes/version');
 
 // Import Socket.IO server
 const SocketServer = require('./socket/socketServer');
@@ -189,6 +190,7 @@ app.use('/api/users', authLimiter, userRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 // Note: threadRoutes are already mounted within workspaceRoutes at /:workspaceId/threads
 app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/version', versionRoutes);
 
 
 // Legacy workspace endpoint (for backward compatibility)
