@@ -51,18 +51,18 @@ class SocketManager {
   // Workspace events
   joinWorkspace(workspaceId) {
     if (!this.socket) return;
-    this.socket.emit('join_workspace', { workspace_id: workspaceId });
+    this.socket.emit('join_workspace', { workspaceId });
   }
 
   // Thread events
-  joinThread(threadId) {
+  joinThread(workspaceId, threadId) {
     if (!this.socket) return;
-    this.socket.emit('join_thread', { thread_id: threadId });
+    this.socket.emit('join_thread', { workspaceId, threadId });
   }
 
   leaveThread(threadId) {
     if (!this.socket) return;
-    this.socket.emit('leave_thread', { thread_id: threadId });
+    this.socket.emit('leave_thread', { threadId });
   }
 
   // Message events
@@ -95,12 +95,23 @@ class SocketManager {
   // Typing events
   startTyping(threadId) {
     if (!this.socket) return;
-    this.socket.emit('typing_start', { thread_id: threadId });
+    this.socket.emit('typing_start', { threadId });
   }
 
   stopTyping(threadId) {
     if (!this.socket) return;
-    this.socket.emit('typing_stop', { thread_id: threadId });
+    this.socket.emit('typing_stop', { threadId });
+  }
+
+  // Notification events
+  markAsRead(workspaceId, entityType, entityId, messageId) {
+    if (!this.socket) return;
+    this.socket.emit('mark_as_read', { workspaceId, entityType, entityId, messageId });
+  }
+
+  clearNotifications(workspaceId, entityType, entityId) {
+    if (!this.socket) return;
+    this.socket.emit('notification_read', { workspaceId, entityType, entityId });
   }
 
   // Presence events

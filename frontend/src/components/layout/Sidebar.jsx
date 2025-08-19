@@ -8,17 +8,26 @@ import {
   MessageSquare,
   Users,
   MoreVertical,
-  X
+  X,
+  Bell,
+  BellOff
 } from 'lucide-react';
-import { threadAPI } from '../../utils/api';
+import { threadAPI, notificationAPI } from '../../utils/api';
+import socketManager from '../../utils/socket';
 
 const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddChannel, isOpen, onClose }) => {
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [directMessagesExpanded, setDirectMessagesExpanded] = useState(true);
   const [directMessages, setDirectMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [unreadSummary, setUnreadSummary] = useState({
+    total_unread: 0,
+    total_mentions: 0,
+    unread_conversations: 0
+  });
+  const [channelsWithUnread, setChannelsWithUnread] = useState([]);
 
-  // Load direct messages when workspace changes
+  // Load direct messages and unread data when workspace changes
   useEffect(() => {
     const loadDMs = async () => {
       if (workspace) {
@@ -28,6 +37,97 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
     };
     loadDMs();
   }, [workspace]);
+
+  // Load unread summary and channel data
+  useEffect(() => {
+    const loadUnreadData = async () => {
+      if (!workspace?.id) return;
+      
+      try {
+        // Load both unread summary and channels with unread counts
+        const [summaryResponse, channelsResponse] = await Promise.all([
+          notificationAPI.getUnreadSummary(workspace.id),
+          notificationAPI.getChannelsWithUnread(workspace.id)
+        ]);
+        
+        setUnreadSummary(summaryResponse.data.summary);
+        setChannelsWithUnread(channelsResponse.data.channels);
+      } catch (error) {
+        console.error('Failed to load unread data:', error);
+      }
+    };
+
+    loadUnreadData();
+    
+    // Set up polling for unread updates every 30 seconds
+    const interval = setInterval(loadUnreadData, 30000);
+    return () => clearInterval(interval);
+  }, [workspace?.id]);
+
+  // Set up real-time notification listeners
+  useEffect(() => {
+    if (!workspace?.id) return;
+
+    const handleNotificationUpdate = (data) => {
+      if (data.workspaceId === workspace.id) {
+        // Update unread count for specific channel
+        setChannelsWithUnread(prev => {
+          const existingIndex = prev.findIndex(ch => ch.id === data.entityId);
+          if (existingIndex >= 0) {
+            const updated = [...prev];
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              unread_count: updated[existingIndex].unread_count + data.unreadIncrement,
+              unread_mentions: updated[existingIndex].unread_mentions + data.mentionIncrement
+            };
+            return updated;
+          }
+          return prev;
+        });
+
+        // Update summary
+        setUnreadSummary(prev => ({
+          ...prev,
+          total_unread: prev.total_unread + data.unreadIncrement,
+          total_mentions: prev.total_mentions + data.mentionIncrement
+        }));
+      }
+    };
+
+    const handleReadStatusUpdate = (data) => {
+      if (data.workspaceId === workspace.id) {
+        // Update specific channel unread count
+        setChannelsWithUnread(prev => 
+          prev.map(ch => 
+            ch.id === data.entityId 
+              ? { ...ch, unread_count: data.unreadCount }
+              : ch
+          )
+        );
+      }
+    };
+
+    const handleWorkspaceNotificationUpdate = (data) => {
+      if (data.workspaceId === workspace.id) {
+        setUnreadSummary({
+          total_unread: data.totalUnread,
+          total_mentions: data.totalMentions,
+          unread_conversations: data.totalUnread > 0 ? 1 : 0 // Simplified count
+        });
+      }
+    };
+
+    // Listen for real-time notification events
+    socketManager.on('notification_update', handleNotificationUpdate);
+    socketManager.on('read_status_update', handleReadStatusUpdate);
+    socketManager.on('workspace_notification_update', handleWorkspaceNotificationUpdate);
+
+    return () => {
+      socketManager.off('notification_update', handleNotificationUpdate);
+      socketManager.off('read_status_update', handleReadStatusUpdate);
+      socketManager.off('workspace_notification_update', handleWorkspaceNotificationUpdate);
+    };
+  }, [workspace?.id]);
 
   const loadWorkspaceDirectMessages = async (workspace) => {
     if (!workspace) return [];
@@ -53,6 +153,59 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to get unread count for a specific channel
+  const getChannelUnreadCount = (channelId) => {
+    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
+    return channelData?.unread_count || 0;
+  };
+
+  // Helper to get mention count for a specific channel
+  const getChannelMentionCount = (channelId) => {
+    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
+    return channelData?.unread_mentions || 0;
+  };
+
+  // Helper to check if channel is muted
+  const isChannelMuted = (channelId) => {
+    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
+    return channelData?.is_muted || false;
+  };
+
+  // Handle marking channel as read when user clicks on it
+  const handleChannelSelect = async (channel) => {
+    // Mark as read if there are unread messages
+    const unreadCount = getChannelUnreadCount(channel.id);
+    if (unreadCount > 0) {
+      try {
+        await notificationAPI.markAsRead(workspace.id, {
+          entity_type: 'thread',
+          entity_id: channel.id
+        });
+        
+        // Update local state immediately for instant UI feedback
+        setChannelsWithUnread(prev => 
+          prev.map(ch => 
+            ch.id === channel.id 
+              ? { ...ch, unread_count: 0, unread_mentions: 0 }
+              : ch
+          )
+        );
+        
+        // Update summary
+        setUnreadSummary(prev => ({
+          ...prev,
+          total_unread: Math.max(0, prev.total_unread - unreadCount),
+          total_mentions: Math.max(0, prev.total_mentions - getChannelMentionCount(channel.id)),
+          unread_conversations: Math.max(0, prev.unread_conversations - 1)
+        }));
+      } catch (error) {
+        console.error('Failed to mark channel as read:', error);
+      }
+    }
+    
+    onChannelSelect(channel);
   };
 
   return (
@@ -109,25 +262,46 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
 
           {channelsExpanded && (
             <div className="mt-2 space-y-0.5">
-              {channels.map((channel) => (
-                <button
-                  key={channel.id}
-                  onClick={() => onChannelSelect(channel)}
-                  className={`w-full flex items-center gap-2 px-2 py-2 text-sm rounded-lg transition-all duration-200 ${
-                    currentChannel?.id === channel.id 
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-sm' 
-                      : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                  } ${channel.unread ? 'font-semibold' : ''}`}
-                >
-                  <Hash className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate flex-1">{channel.name}</span>
-                  {channel.unread > 0 && (
-                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium shadow-sm">
-                      {channel.unread}
-                    </span>
-                  )}
-                </button>
-              ))}
+              {channels.map((channel) => {
+                const unreadCount = getChannelUnreadCount(channel.id);
+                const mentionCount = getChannelMentionCount(channel.id);
+                const isMuted = isChannelMuted(channel.id);
+                
+                return (
+                  <button
+                    key={channel.id}
+                    onClick={() => handleChannelSelect(channel)}
+                    className={`w-full flex items-center gap-2 px-2 py-2 text-sm rounded-lg transition-all duration-200 relative group ${
+                      currentChannel?.id === channel.id 
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-sm' 
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                    } ${unreadCount > 0 ? 'font-semibold' : ''}`}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Hash className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate flex-1">{channel.name}</span>
+                      {isMuted && (
+                        <BellOff className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {mentionCount > 0 && (
+                        <span className="bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-bold shadow-sm animate-pulse">
+                          @{mentionCount}
+                        </span>
+                      )}
+                      {unreadCount > 0 && mentionCount === 0 && (
+                        <span className={`text-white text-xs px-1.5 py-0.5 rounded-full font-medium shadow-sm ${
+                          isMuted ? 'bg-slate-400' : 'bg-red-500'
+                        }`}>
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
               <button 
                 className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all duration-200" 
                 onClick={onAddChannel}

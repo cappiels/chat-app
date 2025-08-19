@@ -103,4 +103,27 @@ export const knowledgeAPI = {
   getTags: (workspaceId) => api.get(`/knowledge/workspace/${workspaceId}/tags`),
 };
 
+export const notificationAPI = {
+  // Get unread summary across all channels/threads
+  getUnreadSummary: (workspaceId) => api.get(`/workspaces/${workspaceId}/notifications/unread-summary`),
+  
+  // Get all channels with their unread counts and latest messages
+  getChannelsWithUnread: (workspaceId) => api.get(`/workspaces/${workspaceId}/notifications/channels`),
+  
+  // Mark messages as read for a specific channel/thread
+  markAsRead: (workspaceId, data) => api.post(`/workspaces/${workspaceId}/notifications/mark-read`, data),
+  
+  // Mark all messages as read across entire workspace
+  markAllAsRead: (workspaceId) => api.post(`/workspaces/${workspaceId}/notifications/mark-all-read`),
+  
+  // Mute/unmute a channel or thread
+  updateMuteStatus: (workspaceId, data) => api.put(`/workspaces/${workspaceId}/notifications/mute`, data),
+  
+  // Get notification history
+  getHistory: (workspaceId, params = {}) => api.get(`/workspaces/${workspaceId}/notifications/history`, { params }),
+  
+  // Mark a specific notification as read
+  markNotificationAsRead: (workspaceId, notificationId) => api.put(`/workspaces/${workspaceId}/notifications/${notificationId}/read`),
+};
+
 export default api;

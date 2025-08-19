@@ -30,6 +30,10 @@ const logInvitation = (email, workspace, inviteUrl, inviterName) => {
 const threadRoutes = require('./threads');
 router.use('/:workspaceId/threads', threadRoutes);
 
+// Mount notification routes as sub-routes
+const notificationRoutes = require('./notifications');
+router.use('/:workspaceId/notifications', notificationRoutes);
+
 /**
  * GET /api/workspaces
  * Get all workspaces for current user

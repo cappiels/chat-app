@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefcase, Settings } from 'lucide-react';
-import { workspaceAPI } from '../../utils/api';
+import { workspaceAPI, notificationAPI } from '../../utils/api';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 
 const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces }) => {
@@ -16,6 +16,30 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
   const [showSettings, setShowSettings] = useState(false);
   const [detailedWorkspace, setDetailedWorkspace] = useState(null);
   const [loadingWorkspaceDetails, setLoadingWorkspaceDetails] = useState(false);
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  const [totalMentions, setTotalMentions] = useState(0);
+
+  // Load unread summary when workspace changes
+  useEffect(() => {
+    const loadUnreadSummary = async () => {
+      if (!workspace?.id) return;
+      
+      try {
+        const response = await notificationAPI.getUnreadSummary(workspace.id);
+        const summary = response.data.summary;
+        setTotalUnreadCount(summary.total_unread || 0);
+        setTotalMentions(summary.total_mentions || 0);
+      } catch (error) {
+        console.error('Failed to load unread summary:', error);
+      }
+    };
+
+    loadUnreadSummary();
+    
+    // Set up polling for unread updates every 30 seconds
+    const interval = setInterval(loadUnreadSummary, 30000);
+    return () => clearInterval(interval);
+  }, [workspace?.id]);
 
   // Load available workspaces when component mounts or when workspace switcher is opened
   const loadWorkspaces = async () => {
@@ -236,9 +260,21 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         </button>
 
         {/* Notifications */}
-        <button className="btn-icon btn-ghost text-white relative">
+        <button 
+          className="btn-icon btn-ghost text-white relative"
+          onClick={() => setShowNotifications(!showNotifications)}
+          title={`${totalUnreadCount} unread messages${totalMentions > 0 ? `, ${totalMentions} mentions` : ''}`}
+        >
           <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" />
+          {totalMentions > 0 ? (
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[1.25rem] h-5 flex items-center justify-center animate-pulse">
+              @{totalMentions}
+            </span>
+          ) : totalUnreadCount > 0 ? (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium min-w-[1.25rem] h-5 flex items-center justify-center">
+              {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+            </span>
+          ) : null}
         </button>
 
         {/* Invite users */}

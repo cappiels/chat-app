@@ -2,8 +2,9 @@ import React, { useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Hash, Reply, MoreHorizontal, Smile, Bookmark, Edit, Users, Info } from 'lucide-react';
 import Message from './Message';
+import NewMessageDivider from './NewMessageDivider';
 
-const MessageList = ({ channel, messages, onThreadClick, currentUser }) => {
+const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId }) => {
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -126,14 +127,33 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser }) => {
                     prevMessage.user.name !== message.user.name ||
                     (message.timestamp - prevMessage.timestamp) > 300000; // 5 minutes
 
+                  // Check if this is the first unread message
+                  const isFirstUnreadMessage = lastReadMessageId && 
+                    prevMessage?.id === lastReadMessageId && 
+                    message.id !== lastReadMessageId;
+
+                  // Count unread messages after this point
+                  const unreadMessagesAfter = lastReadMessageId ? 
+                    messages.filter(m => {
+                      const lastReadIndex = messages.findIndex(msg => msg.id === lastReadMessageId);
+                      const currentIndex = messages.findIndex(msg => msg.id === message.id);
+                      return currentIndex > lastReadIndex;
+                    }).length : 0;
+
                   return (
-                    <Message
-                      key={message.id}
-                      message={message}
-                      showAvatar={showAvatar}
-                      onThreadClick={() => onThreadClick(message)}
-                      currentUser={currentUser}
-                    />
+                    <React.Fragment key={message.id}>
+                      {/* Show NEW divider before first unread message */}
+                      {isFirstUnreadMessage && unreadMessagesAfter > 0 && (
+                        <NewMessageDivider messageCount={unreadMessagesAfter} />
+                      )}
+                      
+                      <Message
+                        message={message}
+                        showAvatar={showAvatar}
+                        onThreadClick={() => onThreadClick(message)}
+                        currentUser={currentUser}
+                      />
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -151,6 +171,7 @@ MessageList.propTypes = {
   messages: PropTypes.array.isRequired,
   onThreadClick: PropTypes.func.isRequired,
   currentUser: PropTypes.object.isRequired,
+  lastReadMessageId: PropTypes.string,
 };
 
 export default MessageList;

@@ -146,6 +146,16 @@ class SocketServer {
       this.handlePresenceUpdate(socket, data);
     });
 
+    // Handle marking messages as read
+    socket.on('mark_as_read', async (data) => {
+      await this.handleMarkAsRead(socket, data);
+    });
+
+    // Handle notification updates
+    socket.on('notification_read', async (data) => {
+      await this.handleNotificationRead(socket, data);
+    });
+
     // Handle disconnection
     socket.on('disconnect', (reason) => {
       this.handleDisconnection(socket, reason);
@@ -352,6 +362,9 @@ class SocketServer {
         timestamp: new Date()
       });
 
+      // Update unread counts for users not currently viewing this thread
+      await this.updateUnreadCountsForNewMessage(socket, message, threadId);
+
       // Send notifications for mentions
       if (mentions && mentions.length > 0) {
         for (const mention of mentions) {
@@ -364,6 +377,80 @@ class SocketServer {
     } catch (error) {
       console.error('Send message error:', error);
       socket.emit('error', { message: 'Failed to send message' });
+    }
+  }
+
+  async updateUnreadCountsForNewMessage(senderSocket, message, threadId) {
+    try {
+      const workspaceId = this.activeConnections.get(senderSocket.id)?.currentWorkspace;
+      
+      if (!workspaceId) return;
+
+      // Get thread info to determine entity type
+      const threadResult = await pool.query(
+        'SELECT type FROM threads WHERE id = $1',
+        [threadId]
+      );
+
+      if (threadResult.rows.length === 0) return;
+
+      const entityType = threadResult.rows[0].type;
+
+      // Get all workspace members except the sender
+      const membersResult = await pool.query(`
+        SELECT user_id FROM workspace_members 
+        WHERE workspace_id = $1 AND user_id != $2
+      `, [workspaceId, senderSocket.userId]);
+
+      // Update unread counts for each member
+      for (const member of membersResult.rows) {
+        const memberId = member.user_id;
+
+        // Check if user is currently viewing this thread
+        const isCurrentlyViewing = Array.from(this.activeConnections.values())
+          .some(conn => conn.userId === memberId && conn.currentThread === threadId);
+
+        if (!isCurrentlyViewing) {
+          // Increment unread count for users not currently viewing
+          await pool.query(`
+            INSERT INTO user_read_status (user_id, workspace_id, entity_type, entity_id, unread_count, unread_mentions)
+            VALUES ($1, $2, $3, $4, 1, $5)
+            ON CONFLICT (user_id, workspace_id, entity_type, entity_id)
+            DO UPDATE SET 
+              unread_count = user_read_status.unread_count + 1,
+              unread_mentions = user_read_status.unread_mentions + $5
+          `, [
+            memberId, 
+            workspaceId, 
+            entityType, 
+            threadId, 
+            message.mentions?.some(m => m.user_id === memberId) ? 1 : 0
+          ]);
+
+          // Broadcast notification update to user's devices
+          this.broadcastToUserDevices(memberId, 'notification_update', {
+            workspaceId,
+            entityType,
+            entityId: threadId,
+            messageId: message.id,
+            unreadIncrement: 1,
+            mentionIncrement: message.mentions?.some(m => m.user_id === memberId) ? 1 : 0,
+            message: {
+              id: message.id,
+              content: message.content,
+              senderName: message.sender_name,
+              createdAt: message.created_at
+            },
+            timestamp: new Date()
+          });
+
+          // Update workspace-level counts for this user
+          await this.updateWorkspaceNotificationCounts(memberId, workspaceId);
+        }
+      }
+
+    } catch (error) {
+      console.error('Update unread counts error:', error);
     }
   }
 
@@ -561,6 +648,103 @@ class SocketServer {
           timestamp: new Date()
         });
       }
+    }
+  }
+
+  async handleMarkAsRead(socket, { workspaceId, entityType, entityId, messageId }) {
+    try {
+      const userId = socket.userId;
+
+      // Call the PostgreSQL function to mark as read
+      const result = await pool.query(`
+        SELECT mark_messages_as_read($1, $2, $3, $4, $5) as unread_count
+      `, [userId, workspaceId, entityType, entityId, messageId]);
+
+      const unreadCount = result.rows[0]?.unread_count || 0;
+
+      // Broadcast read status update to user's other devices
+      this.broadcastToUserDevices(userId, 'read_status_update', {
+        workspaceId,
+        entityType,
+        entityId,
+        messageId,
+        unreadCount,
+        readAt: new Date()
+      });
+
+      // Update workspace-level notification counts
+      await this.updateWorkspaceNotificationCounts(userId, workspaceId);
+
+      console.log(`📖 ${socket.user.display_name} marked ${entityType}:${entityId} as read`);
+
+    } catch (error) {
+      console.error('Mark as read error:', error);
+      socket.emit('error', { message: 'Failed to mark as read' });
+    }
+  }
+
+  async handleNotificationRead(socket, { workspaceId, entityType, entityId }) {
+    try {
+      const userId = socket.userId;
+
+      // Mark all messages in entity as read
+      await pool.query(`
+        UPDATE user_read_status 
+        SET unread_count = 0, last_read_at = CURRENT_TIMESTAMP
+        WHERE user_id = $1 AND workspace_id = $2 AND entity_type = $3 AND entity_id = $4
+      `, [userId, workspaceId, entityType, entityId]);
+
+      // Broadcast notification update to user's other devices
+      this.broadcastToUserDevices(userId, 'notification_cleared', {
+        workspaceId,
+        entityType,
+        entityId,
+        clearedAt: new Date()
+      });
+
+      // Update workspace-level counts
+      await this.updateWorkspaceNotificationCounts(userId, workspaceId);
+
+      console.log(`🔕 ${socket.user.display_name} cleared notifications for ${entityType}:${entityId}`);
+
+    } catch (error) {
+      console.error('Notification read error:', error);
+      socket.emit('error', { message: 'Failed to clear notifications' });
+    }
+  }
+
+  broadcastToUserDevices(userId, event, data) {
+    // Send to all devices/tabs for this user
+    for (const [socketId, connection] of this.activeConnections) {
+      if (connection.userId === userId) {
+        this.io.to(socketId).emit(event, data);
+      }
+    }
+  }
+
+  async updateWorkspaceNotificationCounts(userId, workspaceId) {
+    try {
+      // Get updated notification summary for workspace
+      const summaryResult = await pool.query(`
+        SELECT 
+          SUM(unread_count) as total_unread,
+          SUM(unread_mentions) as total_mentions
+        FROM user_read_status 
+        WHERE user_id = $1 AND workspace_id = $2
+      `, [userId, workspaceId]);
+
+      const summary = summaryResult.rows[0] || { total_unread: 0, total_mentions: 0 };
+
+      // Broadcast updated counts to user's devices
+      this.broadcastToUserDevices(userId, 'workspace_notification_update', {
+        workspaceId,
+        totalUnread: parseInt(summary.total_unread || 0),
+        totalMentions: parseInt(summary.total_mentions || 0),
+        updatedAt: new Date()
+      });
+
+    } catch (error) {
+      console.error('Update workspace notification counts error:', error);
     }
   }
 
