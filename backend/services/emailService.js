@@ -57,6 +57,21 @@ class EmailService {
         'GMAIL_SERVICE_ACCOUNT_EMAIL'
       ];
       
+      // 🔍 DEBUG: Log environment variable status
+      console.log('🔍 EMAIL SERVICE DEBUG - Environment Variables Check:');
+      requiredEnvVars.forEach(varName => {
+        const value = process.env[varName];
+        if (value) {
+          // Show first 10 and last 4 characters for security
+          const masked = value.length > 14 ? 
+            `${value.substring(0, 10)}...${value.substring(value.length - 4)}` : 
+            `${value.substring(0, 3)}...${value.substring(value.length - 1)}`;
+          console.log(`✅ ${varName}: ${masked} (length: ${value.length})`);
+        } else {
+          console.log(`❌ ${varName}: MISSING`);
+        }
+      });
+      
       const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
       
       if (missingVars.length > 0) {
@@ -68,12 +83,40 @@ class EmailService {
         return;
       }
 
+      console.log('✅ All required Gmail OAuth environment variables are present');
+
+      // 🧪 TEST: Verify credentials actually work
+      console.log('🧪 TESTING: Verifying OAuth credentials validity...');
+      
       // Set up Gmail OAuth2
       this.oauth2Client = new google.auth.OAuth2(
         process.env.GMAIL_OAUTH_CLIENT_ID,
         process.env.GMAIL_OAUTH_CLIENT_SECRET,
         'https://developers.google.com/oauthplayground' // Redirect URL
       );
+
+      // Test credential validity by attempting token refresh
+      try {
+        this.oauth2Client.setCredentials({
+          refresh_token: process.env.GMAIL_REFRESH_TOKEN
+        });
+        
+        console.log('🔄 Testing OAuth token refresh...');
+        const { credentials } = await this.oauth2Client.refreshAccessToken();
+        console.log('✅ OAuth token refresh successful!');
+        console.log(`✅ Access token obtained (expires: ${new Date(credentials.expiry_date).toISOString()})`);
+        
+        // Test Gmail API access
+        const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
+        console.log('🧪 Testing Gmail API access...');
+        const profile = await gmail.users.getProfile({ userId: 'me' });
+        console.log(`✅ Gmail API access successful! Email: ${profile.data.emailAddress}`);
+        
+      } catch (tokenError) {
+        console.error('❌ CREDENTIAL VALIDATION FAILED:', tokenError.message);
+        console.error('🔍 This means your OAuth credentials are incorrect or expired');
+        throw new Error(`Invalid OAuth credentials: ${tokenError.message}`);
+      }
 
       // Create nodemailer transporter with Gmail
       this.transporter = nodemailer.createTransport({
