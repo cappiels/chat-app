@@ -5,7 +5,7 @@ const {
   requireWorkspaceMembership, 
   requireWorkspaceAdmin 
 } = require('../middleware/auth');
-const router = express.Router();
+const router = express.Router({ mergeParams: true }); // Fix: Inherit parent route params
 
 // Database connection
 const pool = new Pool({
