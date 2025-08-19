@@ -153,7 +153,17 @@ const InviteAcceptance = () => {
       </p>
       <button
         onClick={() => navigate('/')}
-        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
+        className="text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
+        style={{
+          background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+          border: 'none'
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.background = 'linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%)';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.background = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
+        }}
       >
         Go to ChatFlow
       </button>
@@ -247,7 +257,21 @@ const InviteAcceptance = () => {
         <button
           onClick={acceptInvitation}
           disabled={inviteState === 'accepting'}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+          className="flex-1 disabled:bg-blue-400 text-white px-6 py-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+          style={{
+            background: inviteState === 'accepting' ? '#93c5fd' : 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+            border: 'none'
+          }}
+          onMouseEnter={(e) => {
+            if (inviteState !== 'accepting') {
+              e.target.style.background = 'linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (inviteState !== 'accepting') {
+              e.target.style.background = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
+            }
+          }}
         >
           {inviteState === 'accepting' ? (
             <>
@@ -352,7 +376,17 @@ const InviteAcceptance = () => {
       <div className="space-y-3">
         <button
           onClick={acceptInvitation}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
+          className="w-full text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
+          style={{
+            background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+            border: 'none'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = 'linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
+          }}
         >
           Try Again
         </button>

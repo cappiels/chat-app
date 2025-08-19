@@ -126,7 +126,12 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
             transition={{ duration: 0.8, delay: 0.6 }}
           >
             <motion.button
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 sm:px-8 md:px-12 py-3 sm:py-4 text-lg sm:text-xl font-bold rounded-xl shadow-lg group relative overflow-hidden w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-primary px-6 sm:px-8 md:px-12 py-3 sm:py-4 text-lg sm:text-xl font-bold rounded-xl shadow-lg group relative overflow-hidden w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+                color: 'white',
+                border: 'none'
+              }}
               onClick={onSignIn}
               disabled={isLoading}
               whileHover={{ scale: 1.05 }}
@@ -138,8 +143,8 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
-                    <span className="hidden sm:inline">Get Started with Google</span>
-                    <span className="sm:hidden">Get Started</span>
+                    <span className="hidden sm:inline">Login with Google</span>
+                    <span className="sm:hidden">Login with Google</span>
                     <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform duration-200" />
                   </>
                 )}

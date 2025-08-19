@@ -330,7 +330,17 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
                       </div>
                       <button
                         onClick={copyInviteLink}
-                        className="p-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                        className="p-3 text-white rounded-lg transition-colors"
+                        style={{
+                          background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+                          border: 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = 'linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
+                        }}
                       >
                         {linkCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </button>
@@ -383,7 +393,23 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
                   <button
                     onClick={handleSendInvites}
                     disabled={isLoading || emails.every(email => !email.trim())}
-                    className="px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl font-medium transition-colors flex items-center space-x-2"
+                    className="px-6 py-2 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl font-medium transition-colors flex items-center space-x-2"
+                    style={{
+                      background: isLoading || emails.every(email => !email.trim()) 
+                        ? undefined 
+                        : 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+                      border: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isLoading && !emails.every(email => !email.trim())) {
+                        e.target.style.background = 'linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isLoading && !emails.every(email => !email.trim())) {
+                        e.target.style.background = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
+                      }
+                    }}
                   >
                     {isLoading ? (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
