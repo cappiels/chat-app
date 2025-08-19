@@ -49,6 +49,25 @@ class EmailService {
    */
   async initializeService() {
     try {
+      // Check if all required environment variables are present
+      const requiredEnvVars = [
+        'GMAIL_OAUTH_CLIENT_ID',
+        'GMAIL_OAUTH_CLIENT_SECRET', 
+        'GMAIL_REFRESH_TOKEN',
+        'GMAIL_SERVICE_ACCOUNT_EMAIL'
+      ];
+      
+      const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+      
+      if (missingVars.length > 0) {
+        console.warn(`⚠️ Email service disabled - missing environment variables: ${missingVars.join(', ')}`);
+        console.log('📧 Email service will use console fallback mode');
+        this.transporter = null;
+        this.initialized = true;
+        await this.loadTemplates();
+        return;
+      }
+
       // Set up Gmail OAuth2
       this.oauth2Client = new google.auth.OAuth2(
         process.env.GMAIL_OAUTH_CLIENT_ID,
@@ -72,9 +91,10 @@ class EmailService {
       await this.loadTemplates();
       
       this.initialized = true;
-      console.log('📧 Email service initialized successfully');
+      console.log('📧 Email service initialized successfully with Gmail API');
     } catch (error) {
       console.error('❌ Email service initialization failed:', error);
+      console.log('📧 Falling back to console logging mode');
       // Fallback to console logging if email fails
       this.transporter = null;
       this.initialized = true; // Mark as initialized even if failed, to prevent hanging
@@ -365,29 +385,50 @@ class EmailService {
    */
   async sendEmail({ to, subject, html, text, category = 'general' }) {
     try {
-      // Set up Gmail API
+      // Check if we have the required environment variables
+      if (!process.env.GMAIL_OAUTH_CLIENT_ID || !process.env.GMAIL_OAUTH_CLIENT_SECRET || !process.env.GMAIL_REFRESH_TOKEN || !process.env.GMAIL_SERVICE_ACCOUNT_EMAIL) {
+        throw new Error('Missing required Gmail OAuth environment variables');
+      }
+
+      // Set up Gmail API with proper error handling
       const oauth2Client = new google.auth.OAuth2(
         process.env.GMAIL_OAUTH_CLIENT_ID,
         process.env.GMAIL_OAUTH_CLIENT_SECRET,
         'https://developers.google.com/oauthplayground'
       );
 
+      // Set credentials and refresh access token
       oauth2Client.setCredentials({
         refresh_token: process.env.GMAIL_REFRESH_TOKEN
       });
 
+      // Force refresh the access token
+      console.log('🔄 Refreshing Gmail access token...');
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      oauth2Client.setCredentials(credentials);
+      console.log('✅ Gmail access token refreshed successfully');
+
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-      // Create email message
-      const emailContent = `To: ${to}
-From: ChatFlow <${process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>
-Subject: ${subject}
-Content-Type: text/html; charset=utf-8
+      // Create email message with proper formatting
+      const emailContent = [
+        `To: ${to}`,
+        `From: ChatFlow <${process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>`,
+        `Subject: ${subject}`,
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=utf-8',
+        '',
+        html
+      ].join('\r\n');
 
-${html}`;
+      // Encode email as base64url
+      const encodedEmail = Buffer.from(emailContent)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
 
-      // Encode email as base64
-      const encodedEmail = Buffer.from(emailContent).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      console.log(`📧 Sending email to ${to}...`);
 
       // Send email via Gmail API
       const result = await gmail.users.messages.send({
@@ -412,6 +453,7 @@ ${html}`;
       
     } catch (error) {
       console.error(`❌ Email send failed: ${error.message}`);
+      console.error('Full error details:', error);
       this.analytics.failed++;
       
       // Fall back to console logging
