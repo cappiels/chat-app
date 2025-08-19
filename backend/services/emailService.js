@@ -428,10 +428,28 @@ class EmailService {
    */
   async sendEmail({ to, subject, html, text, category = 'general' }) {
     try {
+      // 🔍 DEBUG: Show EXACTLY what environment variables are available at send time
+      console.log('🔍 SEND EMAIL DEBUG - Runtime Environment Check:');
+      const requiredVars = ['GMAIL_OAUTH_CLIENT_ID', 'GMAIL_OAUTH_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'GMAIL_SERVICE_ACCOUNT_EMAIL'];
+      requiredVars.forEach(varName => {
+        const value = process.env[varName];
+        if (value) {
+          const masked = value.length > 14 ? 
+            `${value.substring(0, 10)}...${value.substring(value.length - 4)}` : 
+            `${value.substring(0, 3)}...${value.substring(value.length - 1)}`;
+          console.log(`✅ ${varName}: ${masked} (length: ${value.length})`);
+        } else {
+          console.log(`❌ ${varName}: MISSING or UNDEFINED`);
+        }
+      });
+      
       // Check if we have the required environment variables
       if (!process.env.GMAIL_OAUTH_CLIENT_ID || !process.env.GMAIL_OAUTH_CLIENT_SECRET || !process.env.GMAIL_REFRESH_TOKEN || !process.env.GMAIL_SERVICE_ACCOUNT_EMAIL) {
+        console.log('❌ FAILED: One or more required Gmail OAuth environment variables are missing at runtime');
         throw new Error('Missing required Gmail OAuth environment variables');
       }
+      
+      console.log('✅ All Gmail OAuth variables confirmed present at send time');
 
       // Set up Gmail API with proper error handling
       const oauth2Client = new google.auth.OAuth2(
