@@ -187,7 +187,7 @@ app.get('/api/status', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authLimiter, userRoutes);
 app.use('/api/workspaces', workspaceRoutes);
-app.use('/api/workspaces/:workspaceId/threads', threadRoutes);
+// Note: threadRoutes are already mounted within workspaceRoutes at /:workspaceId/threads
 app.use('/api/knowledge', knowledgeRoutes);
 
 
