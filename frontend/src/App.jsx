@@ -19,69 +19,35 @@ function App() {
   useEffect(() => {
     let isMounted = true;
     let unsubscribe = null;
+    let authResolved = false;
     
-    // Fast auth initialization - prioritize speed over extensive logging
-    const initializeAuth = () => {
-      try {
-        // 1. Check if user is already available (fastest path)
-        const currentUser = auth.currentUser;
-        if (currentUser && isMounted) {
-          console.log('🔐 Fast path: Found existing user session');
-          setUser(currentUser);
-          setLoading(false);
-          return;
-        }
-        
-        // 2. Check localStorage for cached auth state
-        try {
-          const cachedAuth = localStorage.getItem('firebase:authUser:' + auth.app.options.apiKey + ':[DEFAULT]');
-          if (cachedAuth && cachedAuth !== 'null') {
-            console.log('🔐 Found cached auth state, initializing...');
-            // Don't wait for Firebase validation, show UI immediately
-            setLoading(false);
-          }
-        } catch (e) {
-          console.warn('Could not check cached auth:', e);
-        }
-        
-        // 3. Set up auth listener with minimal delay
-        unsubscribe = onAuthStateChanged(auth, 
-          (user) => {
-            if (!isMounted) return;
-            console.log('🔐 Auth state resolved:', user ? 'signed in' : 'signed out');
-            setUser(user);
-            setLoading(false);
-          },
-          (error) => {
-            console.error('❌ Auth error:', error);
-            if (!isMounted) return;
-            setLoading(false);
-            toast.error('Authentication error. Please refresh the page.');
-          }
-        );
-        
-        // 4. Fallback timeout - much shorter now
-        setTimeout(() => {
-          if (isMounted && loading) {
-            console.warn('⚠️ Auth taking too long, proceeding without user');
-            setLoading(false);
-          }
-        }, 3000); // Only 3 seconds max wait
-        
-      } catch (error) {
-        console.error('❌ Auth initialization failed:', error);
-        if (isMounted) {
-          setLoading(false);
-          toast.error('Failed to initialize authentication.');
-        }
-      }
+    // Immediate auth resolution - no complex logic, just fast execution
+    const resolveAuth = (user) => {
+      if (authResolved || !isMounted) return;
+      authResolved = true;
+      setUser(user);
+      setLoading(false);
+      console.log('🔐 Auth resolved immediately:', user ? 'signed in' : 'signed out');
     };
 
-    // Start immediately - no delays
-    initializeAuth();
+    // Set up auth listener first - this is the most reliable method
+    unsubscribe = onAuthStateChanged(auth, resolveAuth, (error) => {
+      console.error('❌ Auth error:', error);
+      resolveAuth(null);
+    });
+
+    // Aggressive timeout - don't wait more than 1 second
+    const timeoutId = setTimeout(() => {
+      if (!authResolved && isMounted) {
+        console.log('⚡ Fast timeout: proceeding without waiting for Firebase');
+        resolveAuth(auth.currentUser);
+      }
+    }, 1000);
 
     return () => {
       isMounted = false;
+      authResolved = true;
+      clearTimeout(timeoutId);
       if (unsubscribe) {
         unsubscribe();
       }
