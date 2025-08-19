@@ -4,7 +4,7 @@ import { Hash, Reply, MoreHorizontal, Smile, Bookmark, Edit, Users, Info } from 
 import Message from './Message';
 import NewMessageDivider from './NewMessageDivider';
 
-const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId }) => {
+const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, onChannelMembers, onChannelInfo }) => {
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -80,12 +80,14 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
             <button 
               className="p-2.5 rounded-lg transition-all duration-200 bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-blue-100 text-slate-600 hover:text-blue-700 border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:-translate-y-px"
               title="View channel members"
+              onClick={onChannelMembers}
             >
               <Users className="w-4 h-4" />
             </button>
             <button 
               className="p-2.5 rounded-lg transition-all duration-200 bg-white hover:bg-gradient-to-br hover:from-slate-50 hover:to-slate-100 text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md hover:-translate-y-px"
               title="Channel information"
+              onClick={onChannelInfo}
             >
               <Info className="w-4 h-4" />
             </button>
@@ -172,6 +174,8 @@ MessageList.propTypes = {
   onThreadClick: PropTypes.func.isRequired,
   currentUser: PropTypes.object.isRequired,
   lastReadMessageId: PropTypes.string,
+  onChannelMembers: PropTypes.func,
+  onChannelInfo: PropTypes.func,
 };
 
 export default MessageList;

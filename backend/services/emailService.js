@@ -45,37 +45,33 @@ class EmailService {
   }
 
   /**
-   * Initialize Gmail OAuth2 and Nodemailer
+   * Initialize Gmail Service Account (Enterprise-Ready)
    */
   async initializeService() {
     try {
-      // Check if all required environment variables are present
-      const requiredEnvVars = [
-        'GMAIL_OAUTH_CLIENT_ID',
-        'GMAIL_OAUTH_CLIENT_SECRET', 
-        'GMAIL_REFRESH_TOKEN',
+      // Enterprise-grade Service Account approach
+      const requiredServiceAccountVars = [
+        'GMAIL_PRIVATE_KEY',
         'GMAIL_SERVICE_ACCOUNT_EMAIL'
       ];
       
-      // 🔍 DEBUG: Log environment variable status
-      console.log('🔍 EMAIL SERVICE DEBUG - Environment Variables Check:');
-      requiredEnvVars.forEach(varName => {
+      console.log('🏢 EMAIL SERVICE - Enterprise Service Account Initialization');
+      requiredServiceAccountVars.forEach(varName => {
         const value = process.env[varName];
         if (value) {
-          // Show first 10 and last 4 characters for security
-          const masked = value.length > 14 ? 
-            `${value.substring(0, 10)}...${value.substring(value.length - 4)}` : 
-            `${value.substring(0, 3)}...${value.substring(value.length - 1)}`;
-          console.log(`✅ ${varName}: ${masked} (length: ${value.length})`);
+          const masked = varName === 'GMAIL_PRIVATE_KEY' ? 
+            `${value.substring(0, 25)}...${value.substring(value.length - 25)}` :
+            value;
+          console.log(`✅ ${varName}: ${masked}`);
         } else {
           console.log(`❌ ${varName}: MISSING`);
         }
       });
       
-      const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+      const missingVars = requiredServiceAccountVars.filter(varName => !process.env[varName]);
       
       if (missingVars.length > 0) {
-        console.warn(`⚠️ Email service disabled - missing environment variables: ${missingVars.join(', ')}`);
+        console.warn(`⚠️ Email service disabled - missing service account variables: ${missingVars.join(', ')}`);
         console.log('📧 Email service will use console fallback mode');
         this.transporter = null;
         this.initialized = true;
@@ -83,58 +79,61 @@ class EmailService {
         return;
       }
 
-      console.log('✅ All required Gmail OAuth environment variables are present');
+      console.log('🔧 Setting up Gmail Service Account authentication...');
 
-      // 🧪 TEST: Verify credentials actually work
-      console.log('🧪 TESTING: Verifying OAuth credentials validity...');
-      
-      // Set up Gmail OAuth2
-      this.oauth2Client = new google.auth.OAuth2(
-        process.env.GMAIL_OAUTH_CLIENT_ID,
-        process.env.GMAIL_OAUTH_CLIENT_SECRET,
-        'https://developers.google.com/oauthplayground' // Redirect URL
+      // Create JWT client for service account
+      const jwtClient = new google.auth.JWT(
+        process.env.GMAIL_SERVICE_ACCOUNT_EMAIL,
+        null,
+        process.env.GMAIL_PRIVATE_KEY.replace(/\\n/g, '\n'), // Handle escaped newlines
+        [
+          'https://www.googleapis.com/auth/gmail.send',
+          'https://www.googleapis.com/auth/gmail.readonly'
+        ]
       );
 
-      // Test credential validity by attempting token refresh
+      // Test service account access
+      console.log('🧪 Testing service account credentials...');
+      
       try {
-        this.oauth2Client.setCredentials({
-          refresh_token: process.env.GMAIL_REFRESH_TOKEN
-        });
-        
-        console.log('🔄 Testing OAuth token refresh...');
-        const { credentials } = await this.oauth2Client.refreshAccessToken();
-        console.log('✅ OAuth token refresh successful!');
-        console.log(`✅ Access token obtained (expires: ${new Date(credentials.expiry_date).toISOString()})`);
+        await jwtClient.authorize();
+        console.log('✅ Service account authorization successful!');
         
         // Test Gmail API access
-        const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
-        console.log('🧪 Testing Gmail API access...');
+        const gmail = google.gmail({ version: 'v1', auth: jwtClient });
         const profile = await gmail.users.getProfile({ userId: 'me' });
         console.log(`✅ Gmail API access successful! Email: ${profile.data.emailAddress}`);
         
-      } catch (tokenError) {
-        console.error('❌ CREDENTIAL VALIDATION FAILED:', tokenError.message);
-        console.error('🔍 This means your OAuth credentials are incorrect or expired');
-        throw new Error(`Invalid OAuth credentials: ${tokenError.message}`);
+        // Store auth client for later use
+        this.authClient = jwtClient;
+        
+      } catch (authError) {
+        console.error('❌ SERVICE ACCOUNT VALIDATION FAILED:', authError.message);
+        throw new Error(`Invalid service account credentials: ${authError.message}`);
       }
 
-      // Create nodemailer transporter with Gmail
-      this.transporter = nodemailer.createTransport({
+      // Create enterprise-grade nodemailer transporter 
+      this.transporter = nodemailer.createTransporter({
         service: 'gmail',
         auth: {
           type: 'OAuth2',
           user: process.env.GMAIL_SERVICE_ACCOUNT_EMAIL,
-          clientId: process.env.GMAIL_OAUTH_CLIENT_ID,
-          clientSecret: process.env.GMAIL_OAUTH_CLIENT_SECRET,
-          refreshToken: await this.getRefreshToken(),
+          serviceClient: jwtClient,
+          accessToken: await jwtClient.getAccessToken()
         },
+        pool: true, // Enable connection pooling for enterprise performance
+        maxConnections: 5,
+        maxMessages: 100,
+        rateDelta: 1000, // Rate limiting for Gmail API
+        rateLimit: 5
       });
 
       // Load email templates
       await this.loadTemplates();
       
       this.initialized = true;
-      console.log('📧 Email service initialized successfully with Gmail API');
+      console.log('🏢 Enterprise email service initialized successfully with Gmail Service Account');
+      
     } catch (error) {
       console.error('❌ Email service initialization failed:', error);
       console.log('📧 Falling back to console logging mode');
@@ -424,54 +423,38 @@ class EmailService {
   }
 
   /**
-   * Core email sending method - Using Gmail API
+   * Enterprise-grade email sending using Service Account (Production-Ready)
    */
   async sendEmail({ to, subject, html, text, category = 'general' }) {
     try {
-      // 🔍 DEBUG: Show EXACTLY what environment variables are available at send time
-      console.log('🔍 SEND EMAIL DEBUG - Runtime Environment Check:');
-      const requiredVars = ['GMAIL_OAUTH_CLIENT_ID', 'GMAIL_OAUTH_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'GMAIL_SERVICE_ACCOUNT_EMAIL'];
-      requiredVars.forEach(varName => {
-        const value = process.env[varName];
-        if (value) {
-          const masked = value.length > 14 ? 
-            `${value.substring(0, 10)}...${value.substring(value.length - 4)}` : 
-            `${value.substring(0, 3)}...${value.substring(value.length - 1)}`;
-          console.log(`✅ ${varName}: ${masked} (length: ${value.length})`);
-        } else {
-          console.log(`❌ ${varName}: MISSING or UNDEFINED`);
-        }
-      });
+      await this.ensureInitialized();
       
-      // Check if we have the required environment variables
-      if (!process.env.GMAIL_OAUTH_CLIENT_ID || !process.env.GMAIL_OAUTH_CLIENT_SECRET || !process.env.GMAIL_REFRESH_TOKEN || !process.env.GMAIL_SERVICE_ACCOUNT_EMAIL) {
-        console.log('❌ FAILED: One or more required Gmail OAuth environment variables are missing at runtime');
-        throw new Error('Missing required Gmail OAuth environment variables');
+      // Enterprise fallback for when email service is not available
+      if (!this.transporter || !this.authClient) {
+        console.log(`🏢 EMAIL ENTERPRISE FALLBACK - ${category.toUpperCase()}`);
+        console.log(`📧 To: ${to}`);
+        console.log(`📧 Subject: ${subject}`);
+        console.log(`📧 Service: Gmail Service Account`);
+        console.log('📧 Status: Console logging (email service not available)');
+        
+        return { 
+          success: false, 
+          error: 'Email service not initialized',
+          fallback: true,
+          enterprise_mode: true
+        };
       }
+
+      console.log(`🏢 Sending enterprise email via Gmail Service Account to ${to}...`);
+
+      // Refresh service account access token
+      await this.authClient.authorize();
+      const accessToken = await this.authClient.getAccessToken();
       
-      console.log('✅ All Gmail OAuth variables confirmed present at send time');
+      // Use Gmail API directly with service account
+      const gmail = google.gmail({ version: 'v1', auth: this.authClient });
 
-      // Set up Gmail API with proper error handling
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.GMAIL_OAUTH_CLIENT_ID,
-        process.env.GMAIL_OAUTH_CLIENT_SECRET,
-        'https://developers.google.com/oauthplayground'
-      );
-
-      // Set credentials and refresh access token
-      oauth2Client.setCredentials({
-        refresh_token: process.env.GMAIL_REFRESH_TOKEN
-      });
-
-      // Force refresh the access token
-      console.log('🔄 Refreshing Gmail access token...');
-      const { credentials } = await oauth2Client.refreshAccessToken();
-      oauth2Client.setCredentials(credentials);
-      console.log('✅ Gmail access token refreshed successfully');
-
-      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
-      // Create email message with proper formatting
+      // Create professional email message
       const emailContent = [
         `To: ${to}`,
         `From: ChatFlow <${process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>`,
@@ -482,16 +465,14 @@ class EmailService {
         html
       ].join('\r\n');
 
-      // Encode email as base64url
+      // Encode email as base64url for Gmail API
       const encodedEmail = Buffer.from(emailContent)
         .toString('base64')
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/, '');
 
-      console.log(`📧 Sending email to ${to}...`);
-
-      // Send email via Gmail API
+      // Send via Gmail API with service account
       const result = await gmail.users.messages.send({
         userId: 'me',
         requestBody: {
@@ -499,34 +480,38 @@ class EmailService {
         }
       });
       
-      // Update analytics
+      // Update enterprise analytics
       this.analytics.sent++;
       
-      console.log(`📧 Email sent successfully via Gmail API: ${subject} to ${to}`);
-      console.log(`📧 Message ID: ${result.data.id}`);
+      console.log(`✅ Enterprise email sent successfully: ${subject} to ${to}`);
+      console.log(`📧 Gmail Message ID: ${result.data.id}`);
+      console.log(`📊 Analytics: ${this.analytics.sent} sent, ${this.analytics.failed} failed`);
       
       return {
         success: true,
         messageId: result.data.id,
         category,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        method: 'gmail_service_account'
       };
       
     } catch (error) {
-      console.error(`❌ Email send failed: ${error.message}`);
-      console.error('Full error details:', error);
+      console.error(`❌ Enterprise email send failed: ${error.message}`);
+      console.error('🔍 Error details:', error);
       this.analytics.failed++;
       
-      // Fall back to console logging
-      console.log(`📧 EMAIL FALLBACK - ${category.toUpperCase()}`);
-      console.log(`To: ${to}`);
-      console.log(`Subject: ${subject}`);
-      console.log('---');
+      // Enterprise fallback logging
+      console.log(`🏢 EMAIL ENTERPRISE FALLBACK - ${category.toUpperCase()}`);
+      console.log(`📧 To: ${to}`);
+      console.log(`📧 Subject: ${subject}`);
+      console.log(`📧 Error: ${error.message}`);
+      console.log(`📊 Analytics: ${this.analytics.sent} sent, ${this.analytics.failed} failed`);
       
       return { 
         success: false, 
         error: error.message,
-        fallback: true 
+        fallback: true,
+        enterprise_mode: true
       };
     }
   }

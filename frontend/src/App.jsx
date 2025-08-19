@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import toast, { Toaster } from 'react-hot-toast';
@@ -9,7 +9,6 @@ import InviteAcceptance from './components/InviteAcceptance';
 import HomePage from './components/HomePage';
 import WorkspaceScreen from './components/WorkspaceScreen';
 import { workspaceAPI } from './utils/api';
-import { logAbsoluteTiming, logTiming } from './utils/timing.js';
 
 // Main App component with Router
 function App() {
@@ -18,75 +17,70 @@ function App() {
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
   
   useEffect(() => {
-    const appStartTime = performance.now();
-    logAbsoluteTiming('🚀', 'App.jsx useEffect started');
-    
     let isMounted = true;
     let unsubscribe = null;
     
-    // Initialize auth with detailed timing
-    const initializeAuth = async () => {
-      logAbsoluteTiming('🔐', 'Firebase auth initialization started');
-      
+    // Fast auth initialization - prioritize speed over extensive logging
+    const initializeAuth = () => {
       try {
-        // Check current user immediately first
-        const currentUserCheckStart = performance.now();
+        // 1. Check if user is already available (fastest path)
         const currentUser = auth.currentUser;
-        logTiming('⚡', 'Auth.currentUser check', currentUserCheckStart);
-        
         if (currentUser && isMounted) {
-          const userFoundTime = performance.now();
-          console.log('🔐 Found existing user session:', currentUser.email);
-          logTiming('⏱️', 'Total time to find existing user', appStartTime, userFoundTime);
+          console.log('🔐 Fast path: Found existing user session');
           setUser(currentUser);
           setLoading(false);
           return;
         }
         
-        // Set up auth state listener with timing
-        const listenerSetupStart = performance.now();
+        // 2. Check localStorage for cached auth state
+        try {
+          const cachedAuth = localStorage.getItem('firebase:authUser:' + auth.app.options.apiKey + ':[DEFAULT]');
+          if (cachedAuth && cachedAuth !== 'null') {
+            console.log('🔐 Found cached auth state, initializing...');
+            // Don't wait for Firebase validation, show UI immediately
+            setLoading(false);
+          }
+        } catch (e) {
+          console.warn('Could not check cached auth:', e);
+        }
+        
+        // 3. Set up auth listener with minimal delay
         unsubscribe = onAuthStateChanged(auth, 
           (user) => {
             if (!isMounted) return;
-            
-            const authResolvedTime = performance.now();
-            console.log('🔐 User state:', user ? `Signed in as ${user.email}` : 'Not signed in');
-            logAbsoluteTiming('🔐', 'Auth state resolved');
-            logTiming('⏱️', 'Total auth resolution time', appStartTime, authResolvedTime);
-            
+            console.log('🔐 Auth state resolved:', user ? 'signed in' : 'signed out');
             setUser(user);
             setLoading(false);
           },
           (error) => {
-            const authErrorTime = performance.now();
-            console.error('❌ Auth state change error:', error);
-            logTiming('⏱️', 'Time to auth error', appStartTime, authErrorTime);
-            
+            console.error('❌ Auth error:', error);
             if (!isMounted) return;
             setLoading(false);
             toast.error('Authentication error. Please refresh the page.');
           }
         );
         
-        logTiming('⚡', 'Auth listener setup', listenerSetupStart);
+        // 4. Fallback timeout - much shorter now
+        setTimeout(() => {
+          if (isMounted && loading) {
+            console.warn('⚠️ Auth taking too long, proceeding without user');
+            setLoading(false);
+          }
+        }, 3000); // Only 3 seconds max wait
         
       } catch (error) {
-        const authFailTime = performance.now();
         console.error('❌ Auth initialization failed:', error);
-        logTiming('⏱️', 'Time to auth failure', appStartTime, authFailTime);
-        
         if (isMounted) {
           setLoading(false);
-          toast.error('Failed to initialize authentication. Please refresh the page.');
+          toast.error('Failed to initialize authentication.');
         }
       }
     };
 
-    // Start auth initialization immediately
+    // Start immediately - no delays
     initializeAuth();
 
     return () => {
-      logAbsoluteTiming('🧹', 'App.jsx cleanup');
       isMounted = false;
       if (unsubscribe) {
         unsubscribe();
@@ -131,7 +125,7 @@ function App() {
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="text-center"
         >
           <div className="loading-dots mb-4">

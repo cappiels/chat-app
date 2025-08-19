@@ -511,7 +511,11 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
 
     // Send professional email invitation
     const workspace = workspaceInfo.rows[0];
-    const inviteUrl = `${process.env.FRONTEND_URL}/#/invite/${inviteToken}`;
+    // Robust frontend URL detection with fallbacks
+    const frontendUrl = process.env.FRONTEND_URL || 
+                       process.env.REACT_APP_FRONTEND_URL ||
+                       'https://coral-app-rgki8.ondigitalocean.app'; // Production fallback
+    const inviteUrl = `${frontendUrl}/#/invite/${inviteToken}`;
     
     // Get member count for email
     const memberCountResult = await client.query(`
@@ -698,13 +702,18 @@ router.post('/accept-invite/:token', authenticateUser, async (req, res) => {
       `, [invitation.workspace_id]);
 
       if (inviterResult.rows.length > 0) {
+        // Use same robust URL fallback as invite URLs
+        const frontendUrl = process.env.FRONTEND_URL || 
+                           process.env.REACT_APP_FRONTEND_URL ||
+                           'https://coral-app-rgki8.ondigitalocean.app'; // Production fallback
+        
         await emailService.sendMemberJoinedNotification({
           to: inviterResult.rows[0].email,
           workspaceName: invitation.workspace_name,
           newMemberName: req.user.display_name,
           newMemberEmail: req.user.email,
           memberRole: invitation.role,
-          workspaceUrl: `${process.env.FRONTEND_URL}/workspace/${invitation.workspace_id}`,
+          workspaceUrl: `${frontendUrl}/workspace/${invitation.workspace_id}`,
           totalMembers: memberCountResult.rows[0].count
         });
         
@@ -862,6 +871,57 @@ router.delete('/:workspaceId', authenticateUser, requireWorkspaceMembership, asy
     });
   } finally {
     client.release();
+  }
+});
+
+/**
+ * DELETE /api/workspaces/:workspaceId/invitations/:invitationId
+ * Cancel pending invitation (admin only)
+ */
+router.delete('/:workspaceId/invitations/:invitationId', authenticateUser, requireWorkspaceMembership, requireWorkspaceAdmin, async (req, res) => {
+  try {
+    const { workspaceId, invitationId } = req.params;
+
+    // Check if invitation exists and belongs to this workspace
+    const invitationCheck = await pool.query(`
+      SELECT wi.*, w.name as workspace_name
+      FROM workspace_invitations wi
+      JOIN workspaces w ON wi.workspace_id = w.id
+      WHERE wi.id = $1 AND wi.workspace_id = $2 AND wi.accepted_at IS NULL;
+    `, [invitationId, workspaceId]);
+
+    if (invitationCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Invitation Not Found', 
+        message: 'Invitation not found or has already been accepted' 
+      });
+    }
+
+    const invitation = invitationCheck.rows[0];
+
+    // Delete the invitation
+    await pool.query(`
+      DELETE FROM workspace_invitations 
+      WHERE id = $1;
+    `, [invitationId]);
+
+    console.log(`🚫 Invitation cancelled: ${invitation.invited_email} to ${invitation.workspace_name} by ${req.user.email}`);
+
+    res.json({
+      message: 'Invitation cancelled successfully',
+      cancelled_invitation: {
+        id: invitationId,
+        email: invitation.invited_email,
+        role: invitation.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Cancel invitation error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to cancel invitation' 
+    });
   }
 });
 

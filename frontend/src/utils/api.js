@@ -58,6 +58,7 @@ export const workspaceAPI = {
   acceptInvite: (token) => api.post(`/workspaces/accept-invite/${token}`), // Keep for backward compatibility
   getMembers: (id) => api.get(`/workspaces/${id}/members`),
   removeMember: (workspaceId, userId) => api.delete(`/workspaces/${workspaceId}/members/${userId}`),
+  cancelInvitation: (workspaceId, invitationId) => api.delete(`/workspaces/${workspaceId}/invitations/${invitationId}`),
   getNotifications: (params = {}) => api.get('/workspaces/notifications', { params }),
   markNotificationRead: (id) => api.put(`/workspaces/notifications/${id}/read`),
 };

@@ -15,7 +15,7 @@ import {
 import { threadAPI, notificationAPI } from '../../utils/api';
 import socketManager from '../../utils/socket';
 
-const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddChannel, isOpen, onClose }) => {
+const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddChannel, onWorkspaceSettings, isOpen, onClose }) => {
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [directMessagesExpanded, setDirectMessagesExpanded] = useState(true);
   const [directMessages, setDirectMessages] = useState([]);
@@ -371,7 +371,10 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
           <MessageSquare className="w-4 h-4 flex-shrink-0" />
           <span className="truncate">Threads</span>
         </button>
-        <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200">
+        <button 
+          className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200"
+          onClick={onWorkspaceSettings}
+        >
           <Users className="w-4 h-4 flex-shrink-0" />
           <span className="truncate">People & user groups</span>
         </button>
@@ -386,6 +389,7 @@ Sidebar.propTypes = {
   currentChannel: PropTypes.object,
   onChannelSelect: PropTypes.func.isRequired,
   onAddChannel: PropTypes.func,
+  onWorkspaceSettings: PropTypes.func,
   isOpen: PropTypes.bool,
   onClose: PropTypes.func,
 };

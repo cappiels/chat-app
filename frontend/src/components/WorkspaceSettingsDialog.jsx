@@ -71,6 +71,26 @@ const WorkspaceSettingsDialog = ({
     }
   };
 
+  const handleCancelInvitation = async (invitationId) => {
+    try {
+      setLoading(true);
+      await workspaceAPI.cancelInvitation(workspace.id, invitationId);
+      toast.success('Invitation cancelled successfully');
+      setConfirmAction(null);
+      // Force a refresh by closing and reopening the dialog
+      onClose();
+      setTimeout(() => {
+        // This will cause the parent to refetch workspace data
+        window.location.reload();
+      }, 100);
+    } catch (error) {
+      console.error('Cancel invitation error:', error);
+      toast.error(error.response?.data?.message || 'Failed to cancel invitation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const ConfirmationDialog = ({ action, onConfirm, onCancel }) => {
     const isDelete = action?.type === 'delete';
     const isArchive = action?.type === 'archive';
@@ -419,6 +439,8 @@ const WorkspaceSettingsDialog = ({
               handleDeleteWorkspace(true);
             } else if (confirmAction.type === 'removeMember') {
               handleRemoveMember(confirmAction.memberId);
+            } else if (confirmAction.type === 'cancelInvitation') {
+              handleCancelInvitation(confirmAction.invitationId);
             }
           }}
           onCancel={() => {

@@ -15,6 +15,7 @@ import {
 import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import { logAbsoluteTiming, logTiming } from '../utils/timing.js';
+import WorkspaceSettingsDialog from './WorkspaceSettingsDialog';
 
 // Beautiful workspace selection screen
 const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
@@ -26,6 +27,8 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [selectedWorkspaceForSettings, setSelectedWorkspaceForSettings] = useState(null);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
 
   useEffect(() => {
     loadWorkspaces();
@@ -198,6 +201,26 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
       } else {
         toast.error('An unexpected error occurred');
       }
+    }
+  };
+
+  const handleWorkspaceDeleted = (workspaceId, archived) => {
+    setWorkspaces(workspaces.filter(w => w.id !== workspaceId));
+    setShowSettingsDialog(false);
+    setSelectedWorkspaceForSettings(null);
+  };
+
+  const handleMemberRemoved = (memberId) => {
+    // Update the workspace in the list to reflect member removal
+    if (selectedWorkspaceForSettings) {
+      const updatedWorkspace = {
+        ...selectedWorkspaceForSettings,
+        member_count: Math.max(0, (selectedWorkspaceForSettings.member_count || 1) - 1)
+      };
+      setSelectedWorkspaceForSettings(updatedWorkspace);
+      setWorkspaces(workspaces.map(w => 
+        w.id === updatedWorkspace.id ? { ...w, member_count: updatedWorkspace.member_count } : w
+      ));
     }
   };
 
@@ -379,7 +402,8 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(null);
-                            toast.info('Workspace settings coming soon!');
+                            setSelectedWorkspaceForSettings(workspace);
+                            setShowSettingsDialog(true);
                           }}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-300 transition-colors"
                         >
@@ -483,6 +507,19 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
           </motion.div>
         </motion.div>
       </div>
+
+      {/* Workspace Settings Dialog */}
+      <WorkspaceSettingsDialog
+        workspace={selectedWorkspaceForSettings}
+        user={user}
+        isOpen={showSettingsDialog}
+        onClose={() => {
+          setShowSettingsDialog(false);
+          setSelectedWorkspaceForSettings(null);
+        }}
+        onWorkspaceDeleted={handleWorkspaceDeleted}
+        onMemberRemoved={handleMemberRemoved}
+      />
     </div>
   );
 };

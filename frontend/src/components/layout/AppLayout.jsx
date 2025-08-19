@@ -7,6 +7,7 @@ import MessageList from '../chat/MessageList';
 import MessageComposer from '../chat/MessageComposer';
 import Thread from '../chat/Thread';
 import InviteDialog from '../InviteDialog';
+import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 import { threadAPI, messageAPI } from '../../utils/api';
 
 const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWorkspaces }) => {
@@ -21,6 +22,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [createChannelDialogOpen, setCreateChannelDialogOpen] = useState(false);
+  const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   
   // Loading and error states
   const [channelsLoading, setChannelsLoading] = useState(false);
@@ -305,6 +307,30 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     // In a real app, you might want to refresh workspace member list
   };
 
+  const handleWorkspaceSettingsOpen = () => {
+    setShowWorkspaceSettings(true);
+  };
+
+  const handleWorkspaceDeleted = (workspaceId, archived) => {
+    // If workspace is deleted, go back to workspace selection
+    onBackToWorkspaces();
+  };
+
+  const handleMemberRemoved = (memberId) => {
+    // Member removed - could refresh channel list if needed
+    console.log('Member removed:', memberId);
+  };
+
+  const handleChannelMembers = () => {
+    // Open workspace settings dialog to show members
+    setShowWorkspaceSettings(true);
+  };
+
+  const handleChannelInfo = () => {
+    // For now, show workspace settings (could create separate ChannelInfoDialog later)
+    setShowWorkspaceSettings(true);
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       {/* Header */}
@@ -333,6 +359,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         currentChannel={currentChannel}
         onChannelSelect={handleChannelSelect}
         onAddChannel={handleAddChannelClick}
+        onWorkspaceSettings={handleWorkspaceSettingsOpen}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -346,6 +373,8 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
               messages={messages}
               onThreadClick={handleThreadOpen}
               currentUser={user}
+              onChannelMembers={handleChannelMembers}
+              onChannelInfo={handleChannelInfo}
             />
             <MessageComposer
               channel={currentChannel}
@@ -404,6 +433,16 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         isOpen={inviteDialogOpen}
         onClose={() => setInviteDialogOpen(false)}
         onInviteSuccess={handleInviteSuccess}
+      />
+
+      {/* Workspace Settings Dialog */}
+      <WorkspaceSettingsDialog
+        workspace={workspace}
+        user={user}
+        isOpen={showWorkspaceSettings}
+        onClose={() => setShowWorkspaceSettings(false)}
+        onWorkspaceDeleted={handleWorkspaceDeleted}
+        onMemberRemoved={handleMemberRemoved}
       />
     </div>
   );
