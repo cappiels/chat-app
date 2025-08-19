@@ -31,6 +31,8 @@ const WorkspaceSettingsDialog = ({
   const isOwner = workspace.owner_user_id === user?.id;
   const isAdmin = workspace.user_role === 'admin' || isOwner;
   const members = workspace.members || [];
+  const pendingInvitations = workspace.pending_invitations || [];
+  const allMembers = [...members, ...pendingInvitations];
 
   const handleDeleteWorkspace = async (archive = false) => {
     try {
@@ -249,19 +251,26 @@ const WorkspaceSettingsDialog = ({
 
               {activeTab === 'members' && isAdmin && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Workspace Members</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Workspace Members</h3>
+                    <span className="text-sm text-gray-500">
+                      {members.length} members {pendingInvitations.length > 0 && `• ${pendingInvitations.length} pending`}
+                    </span>
+                  </div>
+                  
+                  {/* Accepted Members */}
                   <div className="space-y-3">
                     {members.map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={member.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                         <div className="flex items-center gap-3">
                           {member.profile_picture_url ? (
                             <img
                               src={member.profile_picture_url}
                               alt={member.display_name}
-                              className="w-10 h-10 rounded-full"
+                              className="w-10 h-10 rounded-full border-2 border-gray-200"
                             />
                           ) : (
-                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center border-2 border-gray-200">
                               <span className="text-white font-semibold">
                                 {member.display_name?.charAt(0) || 'U'}
                               </span>
@@ -273,9 +282,14 @@ const WorkspaceSettingsDialog = ({
                               {member.id === workspace.owner_user_id && (
                                 <Crown className="w-4 h-4 text-yellow-500" title="Workspace Owner" />
                               )}
+                              <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full font-medium">
+                                {member.role}
+                              </span>
                             </div>
                             <p className="text-sm text-gray-600">{member.email}</p>
-                            <p className="text-xs text-gray-500 capitalize">{member.role}</p>
+                            <p className="text-xs text-gray-400">
+                              Joined {new Date(member.joined_at).toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
                         
@@ -294,6 +308,50 @@ const WorkspaceSettingsDialog = ({
                         )}
                       </div>
                     ))}
+
+                    {/* Pending Invitations */}
+                    {pendingInvitations.length > 0 && (
+                      <>
+                        <div className="border-t border-gray-200 pt-4 mt-6">
+                          <h4 className="text-md font-medium text-gray-700 mb-3">Pending Invitations</h4>
+                        </div>
+                        {pendingInvitations.map((invitation) => (
+                          <div key={invitation.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center border-2 border-yellow-300">
+                                <span className="text-gray-600 font-semibold">
+                                  {invitation.email.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{invitation.email}</p>
+                                  <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full font-medium animate-pulse">
+                                    invited
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600">Role: {invitation.role}</p>
+                                <p className="text-xs text-gray-400">
+                                  Invited by {invitation.invited_by_name} • Expires {new Date(invitation.expires_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <button
+                              onClick={() => setConfirmAction({
+                                type: 'cancelInvitation',
+                                invitationId: invitation.id,
+                                memberName: invitation.email
+                              })}
+                              className="p-2 text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                              title="Cancel invitation"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               )}

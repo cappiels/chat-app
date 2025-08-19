@@ -260,7 +260,8 @@ router.get('/:workspaceId', authenticateUser, requireWorkspaceMembership, async 
               'profile_picture_url', um.profile_picture_url,
               'role', wm.role,
               'joined_at', wm.joined_at,
-              'last_login', um.last_login
+              'last_login', um.last_login,
+              'status', 'member'
             )
             ORDER BY wm.role DESC, wm.joined_at ASC
           )
@@ -268,6 +269,27 @@ router.get('/:workspaceId', authenticateUser, requireWorkspaceMembership, async 
           JOIN users um ON wm.user_id = um.id
           WHERE wm.workspace_id = w.id
         ) as members,
+        (
+          SELECT JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id', wi.id,
+              'email', wi.invited_email,
+              'display_name', wi.invited_email,
+              'profile_picture_url', null,
+              'role', wi.role,
+              'invited_at', wi.created_at,
+              'expires_at', wi.expires_at,
+              'status', 'invited',
+              'invited_by_name', u.display_name
+            )
+            ORDER BY wi.created_at DESC
+          )
+          FROM workspace_invitations wi
+          JOIN users u ON wi.invited_by = u.id
+          WHERE wi.workspace_id = w.id 
+          AND wi.accepted_at IS NULL 
+          AND wi.expires_at > NOW()
+        ) as pending_invitations,
         (
           SELECT JSON_AGG(
             JSON_BUILD_OBJECT(
@@ -497,7 +519,20 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
     `, [workspaceId]);
     
     try {
-      await emailService.sendWorkspaceInvitation({
+      console.log(`🔄 Attempting to send invitation email to ${email} for workspace ${workspace.name}`);
+      console.log(`📊 Email params:`, {
+        to: email,
+        workspaceName: workspace.name,
+        workspaceDescription: workspace.description,
+        inviterName: req.user.display_name,
+        inviterEmail: req.user.email,
+        inviteUrl,
+        userRole: role,
+        memberCount: memberCountResult.rows[0].count,
+        expiryDate: expiresAt
+      });
+
+      const emailResult = await emailService.sendWorkspaceInvitation({
         to: email,
         workspaceName: workspace.name,
         workspaceDescription: workspace.description,
@@ -509,9 +544,12 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
         expiryDate: expiresAt
       });
       
+      console.log(`✅ Invitation email result:`, emailResult);
       console.log(`📧 Invitation email sent to ${email} for workspace ${workspace.name}`);
+      
     } catch (emailError) {
-      console.error('Email sending failed, but invitation saved:', emailError.message);
+      console.error(`❌ Email sending failed for ${email}:`, emailError.message);
+      console.error('Full email error:', emailError);
       // Don't fail the invitation if email fails - user can still use direct link
     }
 

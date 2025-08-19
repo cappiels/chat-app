@@ -292,12 +292,12 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
                           className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                         >
                           <div className="flex items-center space-x-3">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
                             <span className="text-sm font-medium text-gray-900 dark:text-white">
                               {invite.email}
                             </span>
-                            <span className="text-xs text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-full">
-                              {invite.role}
+                            <span className="text-xs text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400 px-2 py-1 rounded-full font-medium">
+                              invited
                             </span>
                           </div>
                           <span className="text-xs text-gray-500">
