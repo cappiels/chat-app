@@ -1,11 +1,16 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Hash, Reply, MoreHorizontal, Smile, Bookmark, Edit, Users, Info } from 'lucide-react';
 import Message from './Message';
 import NewMessageDivider from './NewMessageDivider';
+import TypingIndicator from './TypingIndicator';
+import socketManager from '../../utils/socket';
+import notificationManager from '../../utils/notifications';
 
 const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, onChannelMembers, onChannelInfo }) => {
   const messagesEndRef = useRef(null);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [newMessages, setNewMessages] = useState([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -14,6 +19,88 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Set up typing indicator listeners
+  useEffect(() => {
+    if (!channel?.id) return;
+
+    const handleUserTyping = (data) => {
+      if (data.threadId !== channel.id) return;
+
+      setTypingUsers(prev => {
+        // Remove this user first (to avoid duplicates)
+        const filtered = prev.filter(user => user.userId !== data.userId);
+        
+        if (data.isTyping) {
+          // Add user to typing list
+          return [...filtered, {
+            userId: data.userId,
+            user: data.user,
+            timestamp: new Date(data.timestamp)
+          }];
+        } else {
+          // User stopped typing
+          return filtered;
+        }
+      });
+    };
+
+    const handleNewMessage = (data) => {
+      if (data.threadId === channel.id) {
+        // Remove sender from typing indicators
+        setTypingUsers(prev => prev.filter(user => user.userId !== data.message.sender_id));
+        
+        // Add subtle animation for new messages
+        setNewMessages(prev => [...prev, data.message.id]);
+        
+        // Remove animation class after a short delay
+        setTimeout(() => {
+          setNewMessages(prev => prev.filter(id => id !== data.message.id));
+        }, 1000);
+      } else {
+        // Show browser notification for messages in other channels
+        const message = data.message;
+        const isMention = message.mentions && message.mentions.some(m => m.user_id === currentUser?.id);
+        const isDM = channel.type === 'dm';
+        
+        if (isMention) {
+          notificationManager.showMessageNotification(message, 'mention', channel.id);
+          notificationManager.playNotificationSound();
+        } else if (isDM) {
+          notificationManager.showMessageNotification(message, 'direct_message', channel.id);
+          notificationManager.playNotificationSound();
+        } else if (notificationManager.getSettings().allMessages) {
+          notificationManager.showMessageNotification(message, 'message', channel.id);
+        }
+      }
+    };
+
+    socketManager.on('user_typing', handleUserTyping);
+    socketManager.on('new_message', handleNewMessage);
+
+    // Clean up typing users when component unmounts or channel changes
+    return () => {
+      socketManager.off('user_typing', handleUserTyping);
+      socketManager.off('new_message', handleNewMessage);
+      setTypingUsers([]);
+      setNewMessages([]);
+    };
+  }, [channel?.id]);
+
+  // Clean up stale typing indicators (remove users who have been typing for too long)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTypingUsers(prev => {
+        const now = new Date();
+        return prev.filter(user => {
+          const timeSinceTyping = now - new Date(user.timestamp);
+          return timeSinceTyping < 10000; // Remove after 10 seconds
+        });
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Group messages by date
   const groupMessagesByDate = (messages) => {
@@ -142,6 +229,9 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
                       return currentIndex > lastReadIndex;
                     }).length : 0;
 
+                  // Check if this is a new message for animation
+                  const isNewMessage = newMessages.includes(message.id);
+
                   return (
                     <React.Fragment key={message.id}>
                       {/* Show NEW divider before first unread message */}
@@ -149,12 +239,14 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
                         <NewMessageDivider messageCount={unreadMessagesAfter} />
                       )}
                       
-                      <Message
-                        message={message}
-                        showAvatar={showAvatar}
-                        onThreadClick={() => onThreadClick(message)}
-                        currentUser={currentUser}
-                      />
+                      <div className={isNewMessage ? 'animate-fade-in-up' : ''}>
+                        <Message
+                          message={message}
+                          showAvatar={showAvatar}
+                          onThreadClick={() => onThreadClick(message)}
+                          currentUser={currentUser}
+                        />
+                      </div>
                     </React.Fragment>
                   );
                 })}
@@ -162,6 +254,10 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
             ))}
           </>
         )}
+        
+        {/* Typing Indicator */}
+        <TypingIndicator typingUsers={typingUsers} />
+        
         <div ref={messagesEndRef} />
       </div>
     </div>

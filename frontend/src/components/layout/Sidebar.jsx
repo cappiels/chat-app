@@ -38,12 +38,14 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
     loadDMs();
   }, [workspace]);
 
-  // Load unread summary and channel data
+  // Load unread summary and channel data (initial load only)
   useEffect(() => {
     const loadUnreadData = async () => {
       if (!workspace?.id) return;
       
       try {
+        console.log('📊 Loading initial unread data for workspace:', workspace.id);
+        
         // Load both unread summary and channels with unread counts
         const [summaryResponse, channelsResponse] = await Promise.all([
           notificationAPI.getUnreadSummary(workspace.id),
@@ -52,6 +54,11 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
         
         setUnreadSummary(summaryResponse.data.summary);
         setChannelsWithUnread(channelsResponse.data.channels);
+        
+        console.log('📊 Initial unread data loaded:', {
+          summary: summaryResponse.data.summary,
+          channelsCount: channelsResponse.data.channels.length
+        });
       } catch (error) {
         console.error('Failed to load unread data:', error);
       }
@@ -59,9 +66,7 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
 
     loadUnreadData();
     
-    // Set up polling for unread updates every 30 seconds
-    const interval = setInterval(loadUnreadData, 30000);
-    return () => clearInterval(interval);
+    // No more polling - rely purely on real-time updates
   }, [workspace?.id]);
 
   // Set up real-time notification listeners
@@ -70,6 +75,8 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
 
     const handleNotificationUpdate = (data) => {
       if (data.workspaceId === workspace.id) {
+        console.log('📱 Sidebar: Notification update received', data);
+        
         // Update unread count for specific channel
         setChannelsWithUnread(prev => {
           const existingIndex = prev.findIndex(ch => ch.id === data.entityId);
@@ -77,10 +84,20 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
             const updated = [...prev];
             updated[existingIndex] = {
               ...updated[existingIndex],
-              unread_count: updated[existingIndex].unread_count + data.unreadIncrement,
-              unread_mentions: updated[existingIndex].unread_mentions + data.mentionIncrement
+              unread_count: Math.max(0, updated[existingIndex].unread_count + data.unreadIncrement),
+              unread_mentions: Math.max(0, updated[existingIndex].unread_mentions + data.mentionIncrement)
             };
             return updated;
+          } else {
+            // Add new channel to unread list if it has unread messages
+            if (data.unreadIncrement > 0) {
+              return [...prev, {
+                id: data.entityId,
+                unread_count: data.unreadIncrement,
+                unread_mentions: data.mentionIncrement || 0,
+                is_muted: false
+              }];
+            }
           }
           return prev;
         });
@@ -88,32 +105,51 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
         // Update summary
         setUnreadSummary(prev => ({
           ...prev,
-          total_unread: prev.total_unread + data.unreadIncrement,
-          total_mentions: prev.total_mentions + data.mentionIncrement
+          total_unread: Math.max(0, prev.total_unread + data.unreadIncrement),
+          total_mentions: Math.max(0, prev.total_mentions + data.mentionIncrement)
         }));
       }
     };
 
     const handleReadStatusUpdate = (data) => {
       if (data.workspaceId === workspace.id) {
+        console.log('📖 Sidebar: Read status update', data);
+        
         // Update specific channel unread count
         setChannelsWithUnread(prev => 
           prev.map(ch => 
             ch.id === data.entityId 
-              ? { ...ch, unread_count: data.unreadCount }
+              ? { ...ch, unread_count: data.unreadCount || 0, unread_mentions: 0 }
               : ch
-          )
+          ).filter(ch => ch.unread_count > 0 || ch.unread_mentions > 0) // Remove channels with no unread
         );
       }
     };
 
     const handleWorkspaceNotificationUpdate = (data) => {
       if (data.workspaceId === workspace.id) {
+        console.log('🏢 Sidebar: Workspace notification update', data);
+        
         setUnreadSummary({
-          total_unread: data.totalUnread,
-          total_mentions: data.totalMentions,
+          total_unread: data.totalUnread || 0,
+          total_mentions: data.totalMentions || 0,
           unread_conversations: data.totalUnread > 0 ? 1 : 0 // Simplified count
         });
+      }
+    };
+
+    const handleNewMessage = (data) => {
+      if (data.workspaceId === workspace.id || (data.message && data.threadId)) {
+        console.log('💬 Sidebar: New message notification', data);
+        
+        // Show notification badge animation for new messages
+        const channelElement = document.querySelector(`[data-channel-id="${data.threadId}"]`);
+        if (channelElement) {
+          channelElement.classList.add('animate-notification-bounce');
+          setTimeout(() => {
+            channelElement.classList.remove('animate-notification-bounce');
+          }, 1000);
+        }
       }
     };
 
@@ -121,11 +157,13 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
     socketManager.on('notification_update', handleNotificationUpdate);
     socketManager.on('read_status_update', handleReadStatusUpdate);
     socketManager.on('workspace_notification_update', handleWorkspaceNotificationUpdate);
+    socketManager.on('new_message', handleNewMessage);
 
     return () => {
       socketManager.off('notification_update', handleNotificationUpdate);
       socketManager.off('read_status_update', handleReadStatusUpdate);
       socketManager.off('workspace_notification_update', handleWorkspaceNotificationUpdate);
+      socketManager.off('new_message', handleNewMessage);
     };
   }, [workspace?.id]);
 
@@ -271,6 +309,7 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
                   <button
                     key={channel.id}
                     onClick={() => handleChannelSelect(channel)}
+                    data-channel-id={channel.id}
                     className={`w-full flex items-center gap-2 px-2 py-2 text-sm rounded-lg transition-all duration-200 relative group ${
                       currentChannel?.id === channel.id 
                         ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-sm' 

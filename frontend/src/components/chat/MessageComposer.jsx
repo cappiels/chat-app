@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { 
   Plus, 
@@ -13,11 +13,14 @@ import {
   List,
   ListOrdered
 } from 'lucide-react';
+import socketManager from '../../utils/socket';
 
 const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const [message, setMessage] = useState('');
   const [showFormatting, setShowFormatting] = useState(false);
   const textareaRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -27,9 +30,57 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
     }
   }, [message]);
 
+  // Typing indicator handlers
+  const startTyping = useCallback(() => {
+    if (!channel?.id || isTypingRef.current) return;
+    
+    isTypingRef.current = true;
+    socketManager.startTyping(channel.id);
+    
+    // Clear any existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Stop typing after 3 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        socketManager.stopTyping(channel.id);
+      }
+    }, 3000);
+  }, [channel?.id]);
+
+  const stopTyping = useCallback(() => {
+    if (!channel?.id || !isTypingRef.current) return;
+    
+    isTypingRef.current = false;
+    socketManager.stopTyping(channel.id);
+    
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+  }, [channel?.id]);
+
+  // Clean up typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (isTypingRef.current && channel?.id) {
+        socketManager.stopTyping(channel.id);
+      }
+    };
+  }, [channel?.id]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (message.trim()) {
+      // Stop typing indicator before sending
+      stopTyping();
+      
       onSendMessage(message.trim());
       setMessage('');
       if (textareaRef.current) {
@@ -42,7 +93,33 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
+    } else if (e.key !== 'Enter') {
+      // Start typing on any other key press
+      startTyping();
     }
+  };
+
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+    
+    // Start typing indicator when user starts typing
+    if (e.target.value.trim() && !isTypingRef.current) {
+      startTyping();
+    } else if (!e.target.value.trim() && isTypingRef.current) {
+      stopTyping();
+    }
+  };
+
+  const handleInputFocus = () => {
+    // Start typing if there's content
+    if (message.trim()) {
+      startTyping();
+    }
+  };
+
+  const handleInputBlur = () => {
+    // Stop typing when input loses focus
+    stopTyping();
   };
 
   const insertFormatting = (before, after = '') => {
@@ -137,8 +214,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
               <textarea
                 ref={textareaRef}
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
                 placeholder={placeholder || `Message #${channel?.name || 'channel'}`}
                 className="w-full border-none outline-none text-[15px] font-[inherit] bg-transparent resize-none min-h-[24px] max-h-[200px] text-slate-900 placeholder:text-slate-500"
                 rows="1"

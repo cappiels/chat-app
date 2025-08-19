@@ -7,37 +7,167 @@ class SocketManager {
   constructor() {
     this.socket = null;
     this.connected = false;
+    this.connecting = false;
+    this.currentWorkspace = null;
+    this.currentThread = null;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.reconnectDelay = 1000;
+    this.listeners = new Map(); // Track event listeners for cleanup
+    this.connectionCallbacks = [];
+    this.disconnectionCallbacks = [];
   }
 
   async connect() {
-    if (this.socket?.connected) return;
+    if (this.socket?.connected || this.connecting) return;
 
     const user = auth.currentUser;
     if (!user) {
-      console.error('No authenticated user');
+      console.error('❌ No authenticated user for socket connection');
       return;
     }
 
-    const token = await user.getIdToken();
+    try {
+      this.connecting = true;
+      const token = await user.getIdToken();
 
-    this.socket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ['websocket'],
-    });
+      console.log('🔌 Connecting to socket server...');
+
+      this.socket = io(SOCKET_URL, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        timeout: 20000,
+        forceNew: true,
+      });
+
+      this.setupEventListeners();
+      
+    } catch (error) {
+      console.error('❌ Socket connection error:', error);
+      this.connecting = false;
+      this.scheduleReconnect();
+    }
+  }
+
+  setupEventListeners() {
+    if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('✅ Socket connected successfully');
       this.connected = true;
+      this.connecting = false;
+      this.reconnectAttempts = 0;
+      
+      // Rejoin workspace and thread if they were set
+      if (this.currentWorkspace) {
+        this.socket.emit('join_workspace', { workspaceId: this.currentWorkspace });
+      }
+      if (this.currentThread && this.currentWorkspace) {
+        this.socket.emit('join_thread', { 
+          workspaceId: this.currentWorkspace, 
+          threadId: this.currentThread 
+        });
+      }
+
+      // Notify connection callbacks
+      this.connectionCallbacks.forEach(callback => {
+        try {
+          callback();
+        } catch (error) {
+          console.error('Connection callback error:', error);
+        }
+      });
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+    this.socket.on('disconnect', (reason) => {
+      console.log('❌ Socket disconnected:', reason);
       this.connected = false;
+      this.connecting = false;
+
+      // Notify disconnection callbacks
+      this.disconnectionCallbacks.forEach(callback => {
+        try {
+          callback(reason);
+        } catch (error) {
+          console.error('Disconnection callback error:', error);
+        }
+      });
+
+      // Auto-reconnect for certain disconnect reasons
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect, don't auto-reconnect
+        console.log('Server disconnected client, not auto-reconnecting');
+      } else {
+        // Client-side disconnect or network issue, attempt to reconnect
+        this.scheduleReconnect();
+      }
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('❌ Socket connection error:', error);
+      this.connected = false;
+      this.connecting = false;
+      this.scheduleReconnect();
     });
 
     this.socket.on('error', (error) => {
-      console.error('Socket error:', error);
+      console.error('❌ Socket error:', error);
     });
+
+    // Enhanced real-time event logging
+    this.socket.on('new_message', (data) => {
+      console.log('📩 New message received:', data);
+    });
+
+    this.socket.on('user_typing', (data) => {
+      console.log('⌨️ Typing event:', data);
+    });
+
+    this.socket.on('notification_update', (data) => {
+      console.log('🔔 Notification update:', data);
+    });
+
+    this.socket.on('workspace_notification_update', (data) => {
+      console.log('🏢 Workspace notification update:', data);
+    });
+  }
+
+  scheduleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('❌ Max reconnection attempts reached');
+      return;
+    }
+
+    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+    this.reconnectAttempts++;
+
+    console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
+
+    setTimeout(() => {
+      if (!this.connected && !this.connecting) {
+        console.log(`🔄 Reconnect attempt ${this.reconnectAttempts}`);
+        this.connect();
+      }
+    }, delay);
+  }
+
+  // Connection status methods
+  onConnect(callback) {
+    this.connectionCallbacks.push(callback);
+  }
+
+  onDisconnect(callback) {
+    this.disconnectionCallbacks.push(callback);
+  }
+
+  getConnectionStatus() {
+    return {
+      connected: this.connected,
+      connecting: this.connecting,
+      reconnectAttempts: this.reconnectAttempts,
+      currentWorkspace: this.currentWorkspace,
+      currentThread: this.currentThread,
+    };
   }
 
   disconnect() {
@@ -45,90 +175,170 @@ class SocketManager {
       this.socket.disconnect();
       this.socket = null;
       this.connected = false;
+      this.connecting = false;
+      this.currentWorkspace = null;
+      this.currentThread = null;
     }
   }
 
-  // Workspace events
+  // Enhanced workspace events
   joinWorkspace(workspaceId) {
-    if (!this.socket) return;
+    console.log('🏢 Joining workspace:', workspaceId);
+    if (!this.socket?.connected) {
+      console.warn('⚠️ Socket not connected, queueing workspace join');
+      this.currentWorkspace = workspaceId;
+      return;
+    }
+    
+    this.currentWorkspace = workspaceId;
     this.socket.emit('join_workspace', { workspaceId });
   }
 
-  // Thread events
+  // Enhanced thread events
   joinThread(workspaceId, threadId) {
-    if (!this.socket) return;
+    console.log('💬 Joining thread:', threadId, 'in workspace:', workspaceId);
+    if (!this.socket?.connected) {
+      console.warn('⚠️ Socket not connected, queueing thread join');
+      this.currentWorkspace = workspaceId;
+      this.currentThread = threadId;
+      return;
+    }
+
+    this.currentWorkspace = workspaceId;
+    this.currentThread = threadId;
     this.socket.emit('join_thread', { workspaceId, threadId });
   }
 
   leaveThread(threadId) {
-    if (!this.socket) return;
+    console.log('🚪 Leaving thread:', threadId);
+    if (!this.socket?.connected) return;
+    
+    this.currentThread = null;
     this.socket.emit('leave_thread', { threadId });
   }
 
-  // Message events
+  // Enhanced message events
   sendMessage(data) {
-    if (!this.socket) return;
+    if (!this.socket?.connected) {
+      console.warn('⚠️ Cannot send message: socket not connected');
+      return false;
+    }
+    console.log('📤 Sending message:', data);
     this.socket.emit('send_message', data);
+    return true;
   }
 
-  editMessage(messageId, content) {
-    if (!this.socket) return;
-    this.socket.emit('edit_message', { message_id: messageId, content });
+  editMessage(messageId, content, threadId) {
+    if (!this.socket?.connected) return false;
+    console.log('✏️ Editing message:', messageId);
+    this.socket.emit('edit_message', { messageId, content, threadId });
+    return true;
   }
 
-  deleteMessage(messageId) {
-    if (!this.socket) return;
-    this.socket.emit('delete_message', { message_id: messageId });
+  deleteMessage(messageId, threadId) {
+    if (!this.socket?.connected) return false;
+    console.log('🗑️ Deleting message:', messageId);
+    this.socket.emit('delete_message', { messageId, threadId });
+    return true;
   }
 
-  // Reaction events
-  addReaction(messageId, emoji) {
-    if (!this.socket) return;
-    this.socket.emit('add_reaction', { message_id: messageId, emoji });
+  // Enhanced reaction events
+  addReaction(messageId, emoji, threadId) {
+    if (!this.socket?.connected) return false;
+    console.log('😀 Adding reaction:', emoji, 'to message:', messageId);
+    this.socket.emit('add_reaction', { messageId, emoji, threadId });
+    return true;
   }
 
-  removeReaction(messageId, emoji) {
-    if (!this.socket) return;
-    this.socket.emit('remove_reaction', { message_id: messageId, emoji });
+  removeReaction(messageId, emoji, threadId) {
+    if (!this.socket?.connected) return false;
+    console.log('😐 Removing reaction:', emoji, 'from message:', messageId);
+    this.socket.emit('remove_reaction', { messageId, emoji, threadId });
+    return true;
   }
 
-  // Typing events
+  // Enhanced typing events
   startTyping(threadId) {
-    if (!this.socket) return;
+    if (!this.socket?.connected || !threadId) return false;
     this.socket.emit('typing_start', { threadId });
+    return true;
   }
 
   stopTyping(threadId) {
-    if (!this.socket) return;
+    if (!this.socket?.connected || !threadId) return false;
     this.socket.emit('typing_stop', { threadId });
+    return true;
   }
 
-  // Notification events
+  // Enhanced notification events
   markAsRead(workspaceId, entityType, entityId, messageId) {
-    if (!this.socket) return;
+    if (!this.socket?.connected) return false;
+    console.log('📖 Marking as read:', entityType, entityId);
     this.socket.emit('mark_as_read', { workspaceId, entityType, entityId, messageId });
+    return true;
   }
 
   clearNotifications(workspaceId, entityType, entityId) {
-    if (!this.socket) return;
+    if (!this.socket?.connected) return false;
+    console.log('🔕 Clearing notifications:', entityType, entityId);
     this.socket.emit('notification_read', { workspaceId, entityType, entityId });
+    return true;
   }
 
-  // Presence events
+  // Enhanced presence events
   updatePresence(status) {
-    if (!this.socket) return;
+    if (!this.socket?.connected) return false;
+    console.log('👋 Updating presence:', status);
     this.socket.emit('update_presence', { status });
+    return true;
   }
 
-  // Event listeners
+  // Enhanced event listener management
   on(event, callback) {
-    if (!this.socket) return;
+    if (!this.socket) {
+      console.warn('⚠️ Cannot add listener: socket not initialized');
+      return;
+    }
+    
+    // Track listeners for cleanup
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event).add(callback);
+    
     this.socket.on(event, callback);
   }
 
   off(event, callback) {
     if (!this.socket) return;
+    
+    // Remove from tracking
+    if (this.listeners.has(event)) {
+      this.listeners.get(event).delete(callback);
+      if (this.listeners.get(event).size === 0) {
+        this.listeners.delete(event);
+      }
+    }
+    
     this.socket.off(event, callback);
+  }
+
+  // Remove all listeners for an event
+  removeAllListeners(event) {
+    if (!this.socket) return;
+    
+    if (event) {
+      this.socket.removeAllListeners(event);
+      this.listeners.delete(event);
+    } else {
+      this.socket.removeAllListeners();
+      this.listeners.clear();
+    }
+  }
+
+  // Get active listeners (for debugging)
+  getActiveListeners() {
+    return Array.from(this.listeners.keys());
   }
 }
 

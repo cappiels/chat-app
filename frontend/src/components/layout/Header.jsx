@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefcase, Settings } from 'lucide-react';
 import { workspaceAPI, notificationAPI } from '../../utils/api';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
+import ConnectionStatus from '../ui/ConnectionStatus';
 
 const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces }) => {
   const [searchFocused, setSearchFocused] = useState(false);
@@ -288,6 +289,9 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
             <span className="hidden sm:inline text-sm font-medium">Invite</span>
           </button>
         )}
+
+        {/* Connection Status */}
+        <ConnectionStatus className="text-white" />
 
         {/* Help */}
         <button className="btn-icon btn-ghost text-white hidden md:flex">
