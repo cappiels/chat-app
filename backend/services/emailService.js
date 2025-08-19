@@ -72,14 +72,20 @@ class EmailService {
       
       if (missingVars.length > 0) {
         console.warn(`⚠️ Email service disabled - missing service account variables: ${missingVars.join(', ')}`);
-        console.log('📧 Email service will use console fallback mode');
-        this.transporter = null;
-        this.initialized = true;
-        await this.loadTemplates();
-        return;
+        console.log('📧 Falling back to OAuth2 if available...');
+        return this.initializeOAuth2Fallback();
       }
 
       console.log('🔧 Setting up Gmail Service Account authentication...');
+
+      // Validate service account email format
+      const serviceAccountEmail = process.env.GMAIL_SERVICE_ACCOUNT_EMAIL;
+      if (!serviceAccountEmail.endsWith('.iam.gserviceaccount.com') && 
+          !serviceAccountEmail.includes('gserviceaccount.com')) {
+        console.warn(`⚠️ Service account email doesn't follow proper format: ${serviceAccountEmail}`);
+        console.log('🔄 Attempting OAuth2 fallback with regular Gmail account...');
+        return this.initializeOAuth2Fallback();
+      }
 
       // Create JWT client for service account
       const jwtClient = new google.auth.JWT(
@@ -109,11 +115,12 @@ class EmailService {
         
       } catch (authError) {
         console.error('❌ SERVICE ACCOUNT VALIDATION FAILED:', authError.message);
-        throw new Error(`Invalid service account credentials: ${authError.message}`);
+        console.log('🔄 Falling back to OAuth2...');
+        return this.initializeOAuth2Fallback();
       }
 
       // Create enterprise-grade nodemailer transporter 
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           type: 'OAuth2',
@@ -136,10 +143,94 @@ class EmailService {
       
     } catch (error) {
       console.error('❌ Email service initialization failed:', error);
+      console.log('🔄 Attempting OAuth2 fallback...');
+      return this.initializeOAuth2Fallback();
+    }
+  }
+
+  /**
+   * OAuth2 Fallback for when Service Account is not properly configured
+   */
+  async initializeOAuth2Fallback() {
+    try {
+      // Check for OAuth2 credentials
+      const requiredOAuthVars = [
+        'GMAIL_OAUTH_CLIENT_ID',
+        'GMAIL_OAUTH_CLIENT_SECRET', 
+        'GMAIL_REFRESH_TOKEN'
+      ];
+      
+      console.log('📧 EMAIL SERVICE - OAuth2 Fallback Initialization');
+      const missingOAuthVars = requiredOAuthVars.filter(varName => !process.env[varName]);
+      
+      if (missingOAuthVars.length > 0) {
+        console.warn(`⚠️ OAuth2 fallback also missing variables: ${missingOAuthVars.join(', ')}`);
+        console.log('📧 Email service will use console fallback mode');
+        this.transporter = null;
+        this.initialized = true;
+        await this.loadTemplates();
+        return;
+      }
+
+      console.log('🔧 Setting up OAuth2 fallback authentication...');
+
+      // Create OAuth2 client
+      this.oauth2Client = new google.auth.OAuth2(
+        process.env.GMAIL_OAUTH_CLIENT_ID,
+        process.env.GMAIL_OAUTH_CLIENT_SECRET,
+        'https://developers.google.com/oauthplayground'
+      );
+
+      // Set refresh token
+      this.oauth2Client.setCredentials({
+        refresh_token: process.env.GMAIL_REFRESH_TOKEN
+      });
+
+      // Test OAuth2 access
+      console.log('🧪 Testing OAuth2 fallback credentials...');
+      
+      const { token } = await this.oauth2Client.getAccessToken();
+      console.log('✅ OAuth2 access token obtained successfully!');
+      
+      // Test Gmail API access
+      const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
+      const profile = await gmail.users.getProfile({ userId: 'me' });
+      console.log(`✅ Gmail API access successful! Email: ${profile.data.emailAddress}`);
+      
+      // Store auth client for later use
+      this.authClient = this.oauth2Client;
+
+      // Create nodemailer transporter with OAuth2
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          type: 'OAuth2',
+          user: profile.data.emailAddress, // Use the actual Gmail account
+          clientId: process.env.GMAIL_OAUTH_CLIENT_ID,
+          clientSecret: process.env.GMAIL_OAUTH_CLIENT_SECRET,
+          refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+          accessToken: token // Use the fresh access token we just got
+        },
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        rateDelta: 1000,
+        rateLimit: 5
+      });
+
+      // Load email templates
+      await this.loadTemplates();
+      
+      this.initialized = true;
+      console.log('📧 Email service initialized successfully with OAuth2 fallback');
+      
+    } catch (error) {
+      console.error('❌ OAuth2 fallback initialization failed:', error);
       console.log('📧 Falling back to console logging mode');
       // Fallback to console logging if email fails
       this.transporter = null;
       this.initialized = true; // Mark as initialized even if failed, to prevent hanging
+      await this.loadTemplates();
     }
   }
 
@@ -445,34 +536,39 @@ class EmailService {
         };
       }
 
-      console.log(`🏢 Sending enterprise email via Gmail Service Account to ${to}...`);
+      console.log(`📧 Sending email via ${this.oauth2Client ? 'OAuth2' : 'Service Account'} to ${to}...`);
 
-      // Refresh service account access token
-      await this.authClient.authorize();
-      const accessToken = await this.authClient.getAccessToken();
+      // Handle different auth types
+      if (this.oauth2Client) {
+        // OAuth2 flow - refresh token automatically handled
+        await this.authClient.getAccessToken();
+      } else {
+        // Service Account JWT flow
+        await this.authClient.authorize();
+      }
       
-      // Use Gmail API directly with service account
+      // Use Gmail API directly since SMTP OAuth2 has issues with personal Gmail
       const gmail = google.gmail({ version: 'v1', auth: this.authClient });
 
-      // Create professional email message
-      const emailContent = [
+      // Create email message in RFC2822 format
+      const emailLines = [
         `To: ${to}`,
-        `From: ChatFlow <${process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>`,
+        `From: ChatFlow <${this.oauth2Client ? 'cappiels@gmail.com' : process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>`,
         `Subject: ${subject}`,
         'MIME-Version: 1.0',
         'Content-Type: text/html; charset=utf-8',
         '',
         html
-      ].join('\r\n');
+      ];
 
       // Encode email as base64url for Gmail API
-      const encodedEmail = Buffer.from(emailContent)
+      const encodedEmail = Buffer.from(emailLines.join('\r\n'))
         .toString('base64')
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/, '');
 
-      // Send via Gmail API with service account
+      // Send via Gmail API
       const result = await gmail.users.messages.send({
         userId: 'me',
         requestBody: {
