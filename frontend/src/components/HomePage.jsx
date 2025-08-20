@@ -14,6 +14,7 @@ import {
   Star
 } from 'lucide-react';
 import PublicKnowledgeShowcase from './knowledge/PublicKnowledgeShowcase';
+import { getVersionString } from '../utils/version';
 
 // Beautiful loading component
 const LoadingSpinner = ({ message = "Loading...", showProgress = false }) => (
@@ -168,7 +169,7 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
               Trusted by over 10,000+ teams worldwide • Enterprise-grade security • 99.9% uptime
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-              ChatFlow v1.5.0 • Advanced Knowledge Management System
+              {getVersionString()} • Advanced Knowledge Management System
             </p>
           </motion.div>
         </motion.div>

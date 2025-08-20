@@ -4,6 +4,7 @@ import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefca
 import { workspaceAPI, notificationAPI } from '../../utils/api';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 import ConnectionStatus from '../ui/ConnectionStatus';
+import { getVersionString } from '../../utils/version';
 
 const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces }) => {
   const [searchFocused, setSearchFocused] = useState(false);
@@ -134,7 +135,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
 
         {/* Version and Workspace Switcher - Always Visible */}
         <div className="relative flex flex-col">
-            <div className="text-xs text-white/70 mb-1 px-1">ChatFlow 1.5.0</div>
+            <div className="text-xs text-white/70 mb-1 px-1">{getVersionString()}</div>
             <button
               onClick={handleWorkspaceSwitcherToggle}
               className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/15 rounded-lg transition-all bg-white/10 border-2 border-white/40 backdrop-blur-sm"

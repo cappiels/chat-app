@@ -244,14 +244,14 @@ const BookmarkDialog = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4"
+        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
         <motion.div
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-[20px] border border-blue-200 dark:border-blue-600 shadow-[0_25px_50px_-12px_rgba(37,99,235,0.2)] max-w-4xl w-full max-h-[90vh] overflow-hidden ring-1 ring-blue-100 dark:ring-blue-500/20"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -283,7 +283,7 @@ const BookmarkDialog = ({
             </button>
           </div>
 
-          <div className="p-6 max-h-[70vh] overflow-y-auto">
+          <div className="p-8 max-h-[70vh] overflow-y-auto">
             {/* Step 1: Choose Locations */}
             {step === 1 && (
               <div className="space-y-6">
@@ -555,7 +555,7 @@ const BookmarkDialog = ({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-8 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
               <AlertCircle className="w-4 h-4" />
               <span>Knowledge will be saved with your current permissions</span>
@@ -565,7 +565,7 @@ const BookmarkDialog = ({
               {step > 1 && (
                 <button
                   onClick={() => setStep(step - 1)}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="px-6 py-3 text-gray-600 hover:text-blue-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all font-medium"
                 >
                   Back
                 </button>
@@ -575,7 +575,7 @@ const BookmarkDialog = ({
                 <button
                   onClick={() => setStep(step + 1)}
                   disabled={step === 1 && !saveToMyBookmarks && selectedLocations.length === 0}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md"
                 >
                   Next
                 </button>
@@ -583,7 +583,7 @@ const BookmarkDialog = ({
                 <button
                   onClick={handleSaveBookmark}
                   disabled={isLoading}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md flex items-center space-x-2"
                 >
                   {isLoading ? (
                     <>

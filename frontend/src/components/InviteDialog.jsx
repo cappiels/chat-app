@@ -122,14 +122,14 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-100"
+          className="bg-white rounded-[20px] border border-blue-200 shadow-[0_25px_50px_-12px_rgba(37,99,235,0.2)] max-w-2xl w-full max-h-[90vh] overflow-hidden ring-1 ring-blue-100"
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -162,7 +162,7 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
             </div>
           </div>
 
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+          <div className="p-8 overflow-y-auto max-h-[calc(90vh-140px)]">
             {/* Invite Method Toggle */}
             <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-6">
               <button
@@ -330,17 +330,7 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
                       </div>
                       <button
                         onClick={copyInviteLink}
-                        className="p-3 text-white rounded-lg transition-colors"
-                        style={{
-                          background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-                          border: 'none'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = 'linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
-                        }}
+                        className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-md"
                       >
                         {linkCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </button>
@@ -376,7 +366,7 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-gray-200 dark:border-gray-700 p-6">
+          <div className="border-t border-gray-200 dark:border-gray-700 p-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
                 <Shield className="w-4 h-4" />
@@ -385,32 +375,16 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
               <div className="flex items-center space-x-3">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 font-medium transition-colors"
+                  className="px-6 py-3 text-gray-600 hover:text-blue-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all font-medium"
                 >
                   Cancel
                 </button>
                 {inviteMethod === 'email' && (
-                  <button
-                    onClick={handleSendInvites}
-                    disabled={isLoading || emails.every(email => !email.trim())}
-                    className="px-6 py-2 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl font-medium transition-colors flex items-center space-x-2"
-                    style={{
-                      background: isLoading || emails.every(email => !email.trim()) 
-                        ? undefined 
-                        : 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-                      border: 'none'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isLoading && !emails.every(email => !email.trim())) {
-                        e.target.style.background = 'linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isLoading && !emails.every(email => !email.trim())) {
-                        e.target.style.background = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
-                      }
-                    }}
-                  >
+                    <button
+                      onClick={handleSendInvites}
+                      disabled={isLoading || emails.every(email => !email.trim())}
+                      className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md flex items-center space-x-2"
+                    >
                     {isLoading ? (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (

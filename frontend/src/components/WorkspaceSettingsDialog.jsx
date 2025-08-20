@@ -97,8 +97,8 @@ const WorkspaceSettingsDialog = ({
     const isRemoveMember = action?.type === 'removeMember';
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-60">
+        <div className="bg-white rounded-[20px] border border-blue-200 shadow-[0_25px_50px_-12px_rgba(37,99,235,0.2)] p-8 w-full max-w-md mx-4 ring-1 ring-blue-100">
           <div className="flex items-center gap-3 mb-4">
             <AlertTriangle className="w-6 h-6 text-red-500" />
             <h3 className="text-lg font-semibold">
@@ -132,7 +132,7 @@ const WorkspaceSettingsDialog = ({
           <div className="flex gap-3 justify-end">
             <button
               onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-6 py-3 text-gray-600 hover:text-blue-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all font-medium"
               disabled={loading}
             >
               Cancel
@@ -143,13 +143,13 @@ const WorkspaceSettingsDialog = ({
                 loading || 
                 ((isDelete || isArchive) && confirmInput !== workspace.name)
               }
-              className={`px-4 py-2 rounded-md text-white transition-colors ${
+              className={`px-6 py-3 rounded-lg text-white transition-all font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${
                 isRemoveMember 
-                  ? 'bg-orange-600 hover:bg-orange-700' 
+                  ? 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700' 
                   : isArchive 
-                  ? 'bg-yellow-600 hover:bg-yellow-700'
-                  : 'bg-red-600 hover:bg-red-700'
-              } disabled:opacity-50`}
+                  ? 'bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700'
+                  : 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700'
+              }`}
             >
               {loading ? 'Processing...' : 
                 isDelete ? 'Delete Forever' : 
@@ -164,10 +164,10 @@ const WorkspaceSettingsDialog = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white rounded-[20px] border border-blue-200 shadow-[0_25px_50px_-12px_rgba(37,99,235,0.2)] w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col ring-1 ring-blue-100">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center justify-between p-8 border-b">
             <div className="flex items-center gap-3">
               <Settings className="w-6 h-6 text-gray-700" />
               <div>
@@ -225,7 +225,7 @@ const WorkspaceSettingsDialog = ({
             </div>
 
             {/* Content */}
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className="flex-1 p-8 overflow-y-auto">
               {activeTab === 'general' && (
                 <div className="space-y-6">
                   <div>
@@ -396,7 +396,7 @@ const WorkspaceSettingsDialog = ({
                           </p>
                           <button
                             onClick={() => setConfirmAction({ type: 'archive' })}
-                            className="mt-3 px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+                            className="mt-3 px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all font-medium shadow-md"
                           >
                             Archive Workspace
                           </button>
@@ -414,7 +414,7 @@ const WorkspaceSettingsDialog = ({
                           </p>
                           <button
                             onClick={() => setConfirmAction({ type: 'delete' })}
-                            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                            className="mt-3 px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-lg hover:from-red-700 hover:to-pink-700 transition-all font-medium shadow-md"
                           >
                             Delete Workspace
                           </button>
