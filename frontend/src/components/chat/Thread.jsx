@@ -50,16 +50,18 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply }) => {
           </div>
         </div>
 
-        {/* Thread Replies */}
-        {replies.map((reply) => (
-          <Message
-            key={reply.id}
-            message={reply}
-            showAvatar={true}
-            onThreadClick={() => {}}
-            currentUser={currentUser}
-          />
-        ))}
+        {/* Thread Replies - sorted by timestamp to ensure chronological order */}
+        {[...replies]
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          .map((reply) => (
+            <Message
+              key={reply.id}
+              message={reply}
+              showAvatar={true}
+              onThreadClick={() => {}}
+              currentUser={currentUser}
+            />
+          ))}
       </div>
 
       {/* Thread Reply Input */}

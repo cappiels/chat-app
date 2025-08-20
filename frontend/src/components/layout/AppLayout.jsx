@@ -514,6 +514,8 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
               timestamp: new Date()
             };
             
+            // Add the new reply to the thread's messages
+            // The Thread component will handle sorting these by timestamp
             const updatedThread = {
               ...selectedThread,
               messages: [...selectedThread.messages, newReply]
@@ -521,6 +523,12 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
             
             setSelectedThread(updatedThread);
             setThreads(threads.map(t => t.id === selectedThread.id ? updatedThread : t));
+            
+            // In a real implementation, you would also send this reply to the server
+            // messageAPI.sendThreadReply(workspace.id, selectedThread.parentMessage.id, {
+            //   content: content.trim(),
+            //   message_type: 'text'
+            // });
           }}
         />
       )}
