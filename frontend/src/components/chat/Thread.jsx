@@ -3,8 +3,9 @@ import PropTypes from 'prop-types';
 import { X, ChevronRight } from 'lucide-react';
 import Message from './Message';
 import MessageComposer from './MessageComposer';
+import TypingIndicator from './TypingIndicator';
 
-const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply }) => {
+const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers = [] }) => {
   if (!isOpen || !thread) return null;
 
   const originalMessage = thread.parentMessage;
@@ -62,6 +63,9 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply }) => {
               currentUser={currentUser}
             />
           ))}
+          
+        {/* Typing Indicator */}
+        <TypingIndicator typingUsers={typingUsers} />
       </div>
 
       {/* Thread Reply Input */}
@@ -80,6 +84,7 @@ Thread.propTypes = {
   onClose: PropTypes.func.isRequired,
   currentUser: PropTypes.object.isRequired,
   onSendReply: PropTypes.func.isRequired,
+  typingUsers: PropTypes.array,
 };
 
 export default Thread;

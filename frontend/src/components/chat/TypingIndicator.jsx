@@ -18,8 +18,8 @@ const TypingIndicator = ({ typingUsers = [] }) => {
   };
 
   return (
-    <div className="px-5 py-2 animate-fade-in">
-      <div className="flex items-center gap-3">
+    <div className="px-5 py-3 animate-fade-in sticky bottom-0 bg-gradient-to-b from-transparent to-white z-10">
+      <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 shadow-sm border border-blue-100">
         <div className="flex items-center -space-x-2">
           {typingUsers.slice(0, 3).map((typingUser) => (
             <div
@@ -37,13 +37,13 @@ const TypingIndicator = ({ typingUsers = [] }) => {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-600 font-medium">
+          <span className="text-sm text-blue-700 font-medium">
             {renderTypingText()}
           </span>
-          <div className="flex gap-1">
-            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="flex gap-1 ml-1">
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         </div>
       </div>

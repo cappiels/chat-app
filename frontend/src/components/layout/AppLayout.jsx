@@ -120,10 +120,16 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           const filtered = prev.filter(user => user.userId !== data.userId);
           
           if (data.isTyping) {
-            // Add user to typing list
+            // Add user to typing list with compatible naming
             return [...filtered, {
               userId: data.userId,
-              user: data.user,
+              user: {
+                // Map user properties ensuring they match what TypingIndicator expects
+                display_name: data.user.name || data.user.display_name || 'User',
+                profile_picture_url: data.user.avatar || data.user.profile_picture_url,
+                // Keep original data for reference
+                ...data.user
+              },
               timestamp: new Date(data.timestamp)
             }];
           } else {
@@ -501,6 +507,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           isOpen={threadOpen}
           onClose={() => setThreadOpen(false)}
           currentUser={user}
+          typingUsers={typingUsers} 
           onSendReply={(content) => {
             const newReply = {
               id: `${selectedThread.id}-reply-${Date.now()}`,
