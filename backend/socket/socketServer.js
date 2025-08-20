@@ -26,15 +26,17 @@ class SocketServer {
         credentials: true
       },
       transports: ['websocket', 'polling'], // WebSocket first for best performance
-      pingTimeout: 30000, // Reduced from 60s to save memory
-      pingInterval: 15000, // Reduced from 25s to save memory  
-      connectTimeout: 20000, // Reduced from 45s
+      pingTimeout: 20000, // Fast connection detection
+      pingInterval: 10000, // Frequent pings for instant disconnect detection
+      connectTimeout: 15000, // Quick connection timeout
       allowEIO3: true,
       path: '/socket.io/',
       allowUpgrades: true,
       cookie: false,
-      maxHttpBufferSize: 100000, // Limit buffer size to 100KB
-      perMessageDeflate: false // Disable compression to save CPU/memory
+      maxHttpBufferSize: 1000000, // 1MB for better throughput
+      perMessageDeflate: true, // Enable compression for speed (now that routing works)
+      compression: true,
+      serveClient: false // Don't serve client files for speed
     });
 
     // Store active connections and user presence

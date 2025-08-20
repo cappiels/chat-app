@@ -42,17 +42,20 @@ class SocketManager {
 
       this.socket = io(SOCKET_URL, {
         auth: { token },
-        transports: ['websocket', 'polling'], // WebSocket first, polling fallback
-        timeout: 20000,
-        reconnection: false, // Handle reconnection manually for better control
+        transports: ['websocket', 'polling'], // WebSocket first for maximum speed
+        timeout: 15000, // Fast connection timeout  
+        reconnection: false, // Manual reconnection for better control
         forceNew: false,
-        upgrade: true, // Allow upgrade to WebSocket for best performance
+        upgrade: true, // Enable WebSocket upgrades for speed
         autoConnect: true,
-        pingTimeout: 60000,
-        pingInterval: 25000,
-        maxHttpBufferSize: 1e6,
-        withCredentials: false, // Disable for WebSocket compatibility
-        path: '/socket.io/'
+        pingTimeout: 20000, // Match backend for fast disconnect detection
+        pingInterval: 10000, // Frequent pings for instant status updates
+        maxHttpBufferSize: 1000000, // 1MB buffer for high throughput
+        withCredentials: false,
+        path: '/socket.io/',
+        rememberUpgrade: true, // Remember WebSocket upgrade for future connections
+        compression: true, // Enable compression for speed
+        perMessageDeflate: true // Enable message compression
       });
 
       this.setupEventListeners();
