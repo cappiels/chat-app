@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { auth } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // In production, use the same domain with /api routing
 // In development, use localhost:8080
@@ -12,22 +13,73 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 second timeout
+  timeout: 15000, // 15 second timeout for better reliability
 });
 
-// Add auth token to requests
+// Auth state management
+let authStateRestored = false;
+let authStatePromise = null;
+
+// Wait for auth state to be restored
+const waitForAuthState = () => {
+  if (authStateRestored) {
+    return Promise.resolve();
+  }
+  
+  if (!authStatePromise) {
+    authStatePromise = new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        authStateRestored = true;
+        unsubscribe();
+        resolve(user);
+      });
+    });
+  }
+  
+  return authStatePromise;
+};
+
+// Add auth token to requests with better error handling
 api.interceptors.request.use(async (config) => {
   try {
+    // Wait for auth state to be restored before making requests
+    await waitForAuthState();
+    
     const user = auth.currentUser;
     if (user) {
-      const token = await user.getIdToken(true); // Force refresh
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+      // Try to get token with retry logic
+      let token = null;
+      let retries = 2;
+      
+      while (retries > 0) {
+        try {
+          token = await user.getIdToken(true); // Force refresh
+          break;
+        } catch (tokenError) {
+          console.warn(`Token refresh failed, retries left: ${retries - 1}`, tokenError);
+          retries--;
+          if (retries === 0) {
+            throw tokenError;
+          }
+          // Wait 500ms before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+      } else {
+        console.error('Failed to get authentication token');
+        throw new Error('Authentication failed - no token');
+      }
     } else {
       console.log('No authenticated user for API request');
+      // Don't throw error here - let the backend handle the 401
     }
   } catch (error) {
-    console.error('Error getting auth token:', error);
+    console.error('Error in auth interceptor:', error);
+    // Don't block the request, let it proceed and handle 401s in response interceptor
   }
   return config;
 });

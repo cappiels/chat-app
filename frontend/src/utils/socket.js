@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
 import { auth } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8080';
 
@@ -16,20 +17,67 @@ class SocketManager {
     this.listeners = new Map(); // Track event listeners for cleanup
     this.connectionCallbacks = [];
     this.disconnectionCallbacks = [];
+    this.authStateRestored = false;
+    this.authStatePromise = null;
+  }
+
+  // Wait for auth state to be restored
+  async waitForAuthState() {
+    if (this.authStateRestored) {
+      return Promise.resolve();
+    }
+    
+    if (!this.authStatePromise) {
+      this.authStatePromise = new Promise((resolve) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          this.authStateRestored = true;
+          unsubscribe();
+          resolve(user);
+        });
+      });
+    }
+    
+    return this.authStatePromise;
   }
 
   async connect() {
     if (this.socket?.connected || this.connecting) return;
 
-    const user = auth.currentUser;
-    if (!user) {
-      console.error('❌ No authenticated user for socket connection');
-      return;
-    }
-
     try {
       this.connecting = true;
-      const token = await user.getIdToken();
+      
+      // Wait for auth state to be restored
+      await this.waitForAuthState();
+      
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('❌ No authenticated user for socket connection');
+        this.connecting = false;
+        return;
+      }
+
+      // Get token with retry logic
+      let token = null;
+      let retries = 2;
+      
+      while (retries > 0) {
+        try {
+          token = await user.getIdToken(true); // Force refresh
+          break;
+        } catch (tokenError) {
+          console.warn(`Socket token refresh failed, retries left: ${retries - 1}`, tokenError);
+          retries--;
+          if (retries === 0) {
+            throw tokenError;
+          }
+          // Wait 500ms before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      if (!token) {
+        throw new Error('Failed to get authentication token for socket connection');
+      }
 
       console.log('🔌 Connecting to socket server:', SOCKET_URL);
 
