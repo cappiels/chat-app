@@ -42,17 +42,17 @@ class SocketManager {
 
       this.socket = io(SOCKET_URL, {
         auth: { token },
-        transports: ['websocket', 'polling'], // Start with websocket, fallback to polling
+        transports: ['polling'], // Use only polling for DigitalOcean compatibility
         timeout: 30000,
         reconnection: false, // Handle reconnection manually for better control
-        forceNew: false, // Allow reusing existing connection if available
-        upgrade: true,
-        rememberUpgrade: false, // Don't remember upgrades in production
+        forceNew: false,
+        upgrade: false, // Don't upgrade to websocket on DigitalOcean
         autoConnect: true,
         pingTimeout: 60000,
         pingInterval: 25000,
         maxHttpBufferSize: 1e6,
-        withCredentials: true
+        withCredentials: true,
+        path: '/socket.io/' // Explicitly set the path
       });
 
       this.setupEventListeners();

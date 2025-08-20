@@ -25,11 +25,14 @@ class SocketServer {
         methods: ['GET', 'POST'],
         credentials: true
       },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // Prioritize polling for DigitalOcean
       pingTimeout: 60000,
       pingInterval: 25000,
       connectTimeout: 45000,
-      allowEIO3: true
+      allowEIO3: true,
+      path: '/socket.io/', // Explicit path
+      allowUpgrades: false, // Don't allow upgrades to WebSocket in production
+      cookie: false // Disable cookies for DigitalOcean compatibility
     });
 
     // Store active connections and user presence
