@@ -1,7 +1,7 @@
 {
   "name": "chat-app-backend",
-  "version": "1.4.0",
-  "description": "Backend API for bleeding-edge chat application with real-time messaging and knowledge base",
+  "version": "1.5.0",
+  "description": "Backend API for bleeding-edge chat application with real-time messaging and advanced knowledge base",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

@@ -10,7 +10,9 @@ import {
   MoreVertical,
   X,
   Bell,
-  BellOff
+  BellOff,
+  BookOpen,
+  Star
 } from 'lucide-react';
 import { threadAPI, notificationAPI } from '../../utils/api';
 import socketManager from '../../utils/socket';
@@ -391,6 +393,35 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
               </button>
             </div>
           )}
+        </div>
+
+        {/* Knowledge Base Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+            <span>Knowledge Base</span>
+            <button className="p-1 hover:bg-slate-200 rounded transition-colors duration-200">
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="mt-2 space-y-0.5">
+            <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200">
+              <BookOpen className="w-4 h-4 flex-shrink-0 text-blue-600" />
+              <span className="truncate">Browse Knowledge</span>
+            </button>
+            <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200">
+              <Star className="w-4 h-4 flex-shrink-0 text-yellow-600" />
+              <span className="truncate">My Bookmarks</span>
+              {unreadSummary.total_unread > 0 && (
+                <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium shadow-sm flex-shrink-0">
+                  {unreadSummary.total_unread > 99 ? '99+' : unreadSummary.total_unread}
+                </span>
+              )}
+            </button>
+            <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200">
+              <Hash className="w-4 h-4 flex-shrink-0 text-purple-600" />
+              <span className="truncate">Categories</span>
+            </button>
+          </div>
         </div>
 
         {/* Apps Section */}

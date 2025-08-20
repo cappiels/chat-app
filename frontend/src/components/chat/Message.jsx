@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
-import { Reply, MoreHorizontal, Smile, Bookmark, Edit, MessageSquare, Download, FileText, Image, Film, Music, File } from 'lucide-react';
+import { Reply, MoreHorizontal, Smile, Bookmark, Edit, MessageSquare, Download, FileText, Image, Film, Music, File, Play, Pause } from 'lucide-react';
+import { messageAPI, threadAPI } from '../../utils/api';
+import ImageModal from '../ui/ImageModal';
+import BookmarkDialog from './BookmarkDialog';
 
-const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
+const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId, threadId, onMessageUpdate, workspace, thread }) => {
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [imageError, setImageError] = useState({});
+  const [imageModal, setImageModal] = useState({ isOpen: false, src: '', alt: '', fileName: '' });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(message.content || '');
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [audioStates, setAudioStates] = useState({});
+  const [showBookmarkDialog, setShowBookmarkDialog] = useState(false);
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -37,10 +46,86 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
   // Common emojis for quick reactions
   const quickEmojis = ['👍', '❤️', '😂', '🎉', '👀', '🔥'];
 
-  const handleAddReaction = (emoji) => {
-    // Handle adding reaction
-    console.log('Adding reaction:', emoji);
-    setShowEmojiPicker(false);
+  const handleAddReaction = async (emoji) => {
+    try {
+      await messageAPI.addReaction(workspaceId, threadId, message.id, emoji);
+      setShowEmojiPicker(false);
+      if (onMessageUpdate) {
+        onMessageUpdate(message.id, 'reaction_added', emoji);
+      }
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+    }
+  };
+
+  const handleRemoveReaction = async (emoji) => {
+    try {
+      await messageAPI.removeReaction(workspaceId, threadId, message.id, emoji);
+      if (onMessageUpdate) {
+        onMessageUpdate(message.id, 'reaction_removed', emoji);
+      }
+    } catch (error) {
+      console.error('Error removing reaction:', error);
+    }
+  };
+
+  const handleEditMessage = async () => {
+    if (editContent.trim() === message.content) {
+      setIsEditing(false);
+      return;
+    }
+
+    try {
+      await messageAPI.updateMessage(workspaceId, threadId, message.id, {
+        content: editContent.trim(),
+        edit_reason: 'User edit'
+      });
+      setIsEditing(false);
+      if (onMessageUpdate) {
+        onMessageUpdate(message.id, 'edited', editContent.trim());
+      }
+    } catch (error) {
+      console.error('Error editing message:', error);
+    }
+  };
+
+  const handleBookmarkClick = () => {
+    setShowBookmarkDialog(true);
+  };
+
+  const openImageModal = (src, alt, fileName) => {
+    setImageModal({ isOpen: true, src, alt, fileName });
+  };
+
+  const closeImageModal = () => {
+    setImageModal({ isOpen: false, src: '', alt: '', fileName: '' });
+  };
+
+  // YouTube URL detection and embed
+  const getYouTubeId = (url) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const renderYouTubeEmbed = (url) => {
+    const videoId = getYouTubeId(url);
+    if (!videoId) return null;
+
+    return (
+      <div className="mt-2 max-w-md">
+        <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+          <iframe
+            className="absolute top-0 left-0 w-full h-full rounded-lg"
+            src={`https://www.youtube.com/embed/${videoId}`}
+            title="YouTube video player"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    );
   };
 
   const handleImageError = (attachmentId) => {
@@ -53,13 +138,14 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
     // Handle images
     if (attachment.type.startsWith('image/') && !imageError[attachment.id]) {
       return (
-        <div key={attachment.id} className="mt-2 max-w-md">
+        <div key={attachment.id} className="mt-2 max-w-sm">
           <img
             src={attachment.url}
             alt={attachment.name}
             className="rounded-lg shadow-sm max-w-full h-auto cursor-pointer hover:shadow-md transition-shadow"
+            style={{ maxHeight: '300px', objectFit: 'cover' }}
             onError={() => handleImageError(attachment.id)}
-            onClick={() => window.open(attachment.url, '_blank')}
+            onClick={() => openImageModal(attachment.url, attachment.name, attachment.name)}
           />
           <div className="flex items-center justify-between text-xs text-gray-500 mt-1 px-1">
             <span>{attachment.name}</span>
@@ -170,25 +256,56 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
           </div>
         )}
         {/* Message Content with Markdown */}
-        <div className="text-slate-900 leading-relaxed prose prose-sm max-w-none">
-          <ReactMarkdown
-            components={{
-              // Custom styling for markdown elements
-              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-              strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
-              em: ({ children }) => <em className="italic text-slate-800">{children}</em>,
-              code: ({ children }) => <code className="px-1 py-0.5 bg-gray-100 rounded text-sm font-mono text-red-600">{children}</code>,
-              pre: ({ children }) => <pre className="p-3 bg-gray-100 rounded-lg overflow-x-auto my-2">{children}</pre>,
-              blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-2">{children}</blockquote>,
-              a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">{children}</a>,
-              ul: ({ children }) => <ul className="list-disc ml-4 my-2">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal ml-4 my-2">{children}</ol>,
-              li: ({ children }) => <li className="mb-1">{children}</li>,
-            }}
-          >
-            {message.content || ''}
-          </ReactMarkdown>
-        </div>
+        {isEditing ? (
+          <div className="mt-2">
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg resize-none"
+              rows={3}
+              autoFocus
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleEditMessage}
+                className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="text-slate-900 leading-relaxed prose prose-sm max-w-none">
+              <ReactMarkdown
+                components={{
+                  // Custom styling for markdown elements
+                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                  strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
+                  em: ({ children }) => <em className="italic text-slate-800">{children}</em>,
+                  code: ({ children }) => <code className="px-1 py-0.5 bg-gray-100 rounded text-sm font-mono text-red-600">{children}</code>,
+                  pre: ({ children }) => <pre className="p-3 bg-gray-100 rounded-lg overflow-x-auto my-2">{children}</pre>,
+                  blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-2">{children}</blockquote>,
+                  a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">{children}</a>,
+                  ul: ({ children }) => <ul className="list-disc ml-4 my-2">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal ml-4 my-2">{children}</ol>,
+                  li: ({ children }) => <li className="mb-1">{children}</li>,
+                }}
+              >
+                {message.content || ''}
+              </ReactMarkdown>
+            </div>
+            
+            {/* YouTube Link Detection and Embed */}
+            {message.content && getYouTubeId(message.content) && renderYouTubeEmbed(message.content)}
+          </>
+        )}
 
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
@@ -244,17 +361,33 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
       {/* Message Actions */}
       {showActions && (
         <div className="absolute -top-2 right-4 bg-white border border-slate-300 rounded-lg p-1 shadow-lg backdrop-blur-sm flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-          <button className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" title="Add reaction">
+          <button 
+            className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" 
+            title="Add reaction"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          >
             <Smile className="w-4 h-4" />
           </button>
-          <button className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" title="Reply in thread" onClick={onThreadClick}>
+          <button 
+            className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" 
+            title="Reply in thread" 
+            onClick={onThreadClick}
+          >
             <Reply className="w-4 h-4" />
           </button>
-          <button className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" title="Bookmark">
+          <button 
+            className={`p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110 ${isBookmarked ? 'text-yellow-500' : ''}`}
+            title="Save to Knowledge Base"
+            onClick={handleBookmarkClick}
+          >
             <Bookmark className="w-4 h-4" />
           </button>
           {isCurrentUser && (
-            <button className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" title="Edit message">
+            <button 
+              className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" 
+              title="Edit message"
+              onClick={() => setIsEditing(true)}
+            >
               <Edit className="w-4 h-4" />
             </button>
           )}
@@ -280,6 +413,25 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
           </div>
         </div>
       )}
+
+      {/* Image Modal */}
+      <ImageModal
+        isOpen={imageModal.isOpen}
+        onClose={closeImageModal}
+        src={imageModal.src}
+        alt={imageModal.alt}
+        fileName={imageModal.fileName}
+      />
+      
+      {/* Bookmark Dialog */}
+      <BookmarkDialog
+        isOpen={showBookmarkDialog}
+        onClose={() => setShowBookmarkDialog(false)}
+        message={message}
+        thread={thread}
+        workspace={workspace}
+        currentUser={currentUser}
+      />
     </div>
   );
 };

@@ -756,4 +756,195 @@ router.delete('/:messageId', authenticateUser, requireWorkspaceMembership, async
   }
 });
 
+/**
+ * POST /api/workspaces/:workspaceId/threads/:threadId/messages/:messageId/reactions
+ * Add reaction to message
+ */
+router.post('/:messageId/reactions', authenticateUser, requireWorkspaceMembership, async (req, res) => {
+  try {
+    const { workspaceId, threadId, messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user.id;
+
+    // Validation
+    if (!emoji || typeof emoji !== 'string' || emoji.trim().length === 0) {
+      return res.status(400).json({ 
+        error: 'Validation Error', 
+        message: 'Emoji is required' 
+      });
+    }
+
+    // Verify message exists and user has access
+    const messageQuery = `
+      SELECT m.id FROM messages m
+      JOIN threads t ON m.thread_id = t.id
+      WHERE m.id = $1 AND t.id = $2 AND t.workspace_id = $3 AND m.is_deleted = false;
+    `;
+
+    const messageResult = await pool.query(messageQuery, [messageId, threadId, workspaceId]);
+
+    if (messageResult.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Message Not Found', 
+        message: 'Message not found or access denied' 
+      });
+    }
+
+    // Add or toggle reaction
+    const reactionQuery = `
+      INSERT INTO message_reactions (message_id, user_id, emoji)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (message_id, user_id, emoji) 
+      DO NOTHING
+      RETURNING *;
+    `;
+
+    const reactionResult = await pool.query(reactionQuery, [messageId, userId, emoji.trim()]);
+
+    // Get updated reaction counts
+    const reactionsQuery = `
+      SELECT 
+        emoji,
+        COUNT(*) as count,
+        ARRAY_AGG(DISTINCT u.display_name) as users,
+        BOOL_OR(r.user_id = $2) as user_reacted
+      FROM message_reactions r
+      JOIN users u ON r.user_id = u.id
+      WHERE r.message_id = $1
+      GROUP BY emoji;
+    `;
+
+    const reactions = await pool.query(reactionsQuery, [messageId, userId]);
+
+    // Emit socket event for real-time updates
+    if (socketServer && socketServer.io) {
+      socketServer.io.to(`thread:${threadId}`).emit('message_reaction_updated', {
+        messageId,
+        threadId,
+        reactions: reactions.rows,
+        timestamp: new Date()
+      });
+    }
+
+    res.json({
+      message: 'Reaction added successfully',
+      added: reactionResult.rows.length > 0,
+      reactions: reactions.rows
+    });
+
+  } catch (error) {
+    console.error('Add reaction error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to add reaction' 
+    });
+  }
+});
+
+/**
+ * DELETE /api/workspaces/:workspaceId/threads/:threadId/messages/:messageId/reactions/:emoji
+ * Remove reaction from message
+ */
+router.delete('/:messageId/reactions/:emoji', authenticateUser, requireWorkspaceMembership, async (req, res) => {
+  try {
+    const { workspaceId, threadId, messageId, emoji } = req.params;
+    const userId = req.user.id;
+
+    // Remove reaction
+    const deleteQuery = `
+      DELETE FROM message_reactions 
+      WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+      RETURNING *;
+    `;
+
+    const deleteResult = await pool.query(deleteQuery, [messageId, userId, decodeURIComponent(emoji)]);
+
+    // Get updated reaction counts
+    const reactionsQuery = `
+      SELECT 
+        emoji,
+        COUNT(*) as count,
+        ARRAY_AGG(DISTINCT u.display_name) as users,
+        BOOL_OR(r.user_id = $2) as user_reacted
+      FROM message_reactions r
+      JOIN users u ON r.user_id = u.id
+      WHERE r.message_id = $1
+      GROUP BY emoji;
+    `;
+
+    const reactions = await pool.query(reactionsQuery, [messageId, userId]);
+
+    // Emit socket event for real-time updates
+    if (socketServer && socketServer.io) {
+      socketServer.io.to(`thread:${threadId}`).emit('message_reaction_updated', {
+        messageId,
+        threadId,
+        reactions: reactions.rows,
+        timestamp: new Date()
+      });
+    }
+
+    res.json({
+      message: 'Reaction removed successfully',
+      removed: deleteResult.rows.length > 0,
+      reactions: reactions.rows
+    });
+
+  } catch (error) {
+    console.error('Remove reaction error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to remove reaction' 
+    });
+  }
+});
+
+/**
+ * POST /api/workspaces/:workspaceId/threads/:threadId/bookmarks
+ * Bookmark/unbookmark a thread
+ */
+router.post('/:threadId/bookmarks', authenticateUser, requireWorkspaceMembership, async (req, res) => {
+  try {
+    const { workspaceId, threadId } = req.params;
+    const userId = req.user.id;
+
+    // Check if bookmark exists
+    const existingBookmark = await pool.query(
+      'SELECT id FROM thread_bookmarks WHERE user_id = $1 AND thread_id = $2',
+      [userId, threadId]
+    );
+
+    if (existingBookmark.rows.length > 0) {
+      // Remove bookmark
+      await pool.query(
+        'DELETE FROM thread_bookmarks WHERE user_id = $1 AND thread_id = $2',
+        [userId, threadId]
+      );
+
+      res.json({
+        message: 'Thread unbookmarked successfully',
+        bookmarked: false
+      });
+    } else {
+      // Add bookmark
+      await pool.query(
+        'INSERT INTO thread_bookmarks (user_id, thread_id, workspace_id) VALUES ($1, $2, $3)',
+        [userId, threadId, workspaceId]
+      );
+
+      res.json({
+        message: 'Thread bookmarked successfully',
+        bookmarked: true
+      });
+    }
+
+  } catch (error) {
+    console.error('Toggle bookmark error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to toggle bookmark' 
+    });
+  }
+});
+
 module.exports = router;

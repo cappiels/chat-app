@@ -506,6 +506,8 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
               onChannelInfo={handleChannelInfo}
               typingUsers={typingUsers}
               lastReadMessageId={currentChannel.last_read_id}
+              workspace={workspace}
+              workspaceId={workspace.id}
             />
             <MessageComposer
               channel={currentChannel}
@@ -526,7 +528,9 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           isOpen={threadOpen}
           onClose={() => setThreadOpen(false)}
           currentUser={user}
-          typingUsers={typingUsers} 
+          typingUsers={typingUsers}
+          workspace={workspace}
+          workspaceId={workspace.id}
           onSendReply={(content) => {
             const newReply = {
               id: `${selectedThread.id}-reply-${Date.now()}`,

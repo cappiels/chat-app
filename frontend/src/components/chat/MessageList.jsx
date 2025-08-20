@@ -7,7 +7,7 @@ import TypingIndicator from './TypingIndicator';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
 
-const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, onChannelMembers, onChannelInfo, typingUsers: externalTypingUsers }) => {
+const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, onChannelMembers, onChannelInfo, typingUsers: externalTypingUsers, workspace, workspaceId }) => {
   const messagesEndRef = useRef(null);
   const [internalTypingUsers, setInternalTypingUsers] = useState([]);
   const [newMessages, setNewMessages] = useState([]);
@@ -268,6 +268,11 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
                               showAvatar={showAvatar}
                               onThreadClick={() => onThreadClick(message)}
                               currentUser={currentUser}
+                              workspaceId={workspaceId || workspace?.id}
+                              threadId={channel.id}
+                              workspace={workspace}
+                              thread={channel}
+                              onMessageUpdate={() => {}}
                             />
                           </div>
                         </React.Fragment>
@@ -302,6 +307,8 @@ MessageList.propTypes = {
   lastReadMessageId: PropTypes.string,
   onChannelMembers: PropTypes.func,
   onChannelInfo: PropTypes.func,
+  workspace: PropTypes.object,
+  workspaceId: PropTypes.string,
   typingUsers: PropTypes.arrayOf(
     PropTypes.shape({
       userId: PropTypes.string.isRequired,

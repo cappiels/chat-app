@@ -7,8 +7,13 @@ import {
   Zap, 
   Shield,
   ChevronRight,
-  Globe
+  Globe,
+  BookOpen,
+  Brain,
+  TrendingUp,
+  Star
 } from 'lucide-react';
+import PublicKnowledgeShowcase from './knowledge/PublicKnowledgeShowcase';
 
 // Beautiful loading component
 const LoadingSpinner = ({ message = "Loading...", showProgress = false }) => (
@@ -153,14 +158,19 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
           </motion.div>
 
           {/* Trust indicators */}
-          <motion.p
-            className="text-sm text-gray-500 dark:text-gray-400 mt-6"
+          <motion.div
+            className="text-center mt-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.8 }}
           >
-            Trusted by over 10,000+ teams worldwide • Enterprise-grade security • 99.9% uptime
-          </motion.p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Trusted by over 10,000+ teams worldwide • Enterprise-grade security • 99.9% uptime
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+              ChatFlow v1.5.0 • Advanced Knowledge Management System
+            </p>
+          </motion.div>
         </motion.div>
 
         {/* Feature showcase */}
@@ -177,9 +187,14 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
               icon: MessageCircle,
             },
             {
-              title: "Smart Workspaces", 
-              description: "Organize your team with channels, direct messages, and powerful search",
-              icon: Users,
+              title: "Smart Knowledge Base", 
+              description: "Save to multiple locations, organize with categories, and find knowledge instantly with AI-powered bookmarks",
+              icon: BookOpen,
+            },
+            {
+              title: "Multi-Location Bookmarks",
+              description: "Save messages to personal bookmarks and multiple knowledge bases simultaneously",
+              icon: Star,
             },
             {
               title: "Enterprise Ready",
@@ -207,6 +222,9 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
           ))}
         </motion.div>
       </div>
+
+      {/* Knowledge Base Showcase */}
+      <PublicKnowledgeShowcase showPublicContent={false} />
     </div>
   );
 };

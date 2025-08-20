@@ -34,6 +34,154 @@ const checkKnowledgePermission = (requiredPermission) => {
   };
 };
 
+// Get or create personal bookmarks folder for a user
+router.post('/workspaces/:workspaceId/personal-bookmarks', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { workspaceId } = req.params;
+    const { userId } = req.body;
+    const authenticatedUserId = req.user?.uid;
+    
+    // Only allow users to create their own personal bookmarks
+    if (userId !== authenticatedUserId) {
+      return res.status(403).json({ error: 'Can only access your own personal bookmarks' });
+    }
+    
+    await client.query('BEGIN');
+    
+    // Check if personal bookmarks scope already exists
+    let personalScopeQuery = `
+      SELECT * FROM knowledge_scopes 
+      WHERE workspace_id = $1 AND scope_type = 'personal' AND created_by = $2
+    `;
+    let existingScope = await client.query(personalScopeQuery, [workspaceId, userId]);
+    
+    if (existingScope.rows.length > 0) {
+      await client.query('COMMIT');
+      return res.json({ scope: existingScope.rows[0] });
+    }
+    
+    // Create personal bookmarks scope
+    const createScopeQuery = `
+      INSERT INTO knowledge_scopes (
+        workspace_id, name, description, scope_type, created_by, settings
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `;
+    
+    const scopeResult = await client.query(createScopeQuery, [
+      workspaceId,
+      'My Bookmarks',
+      'Personal bookmark collection - private to you',
+      'personal',
+      userId,
+      JSON.stringify({ is_personal: true, private_access: true })
+    ]);
+    
+    const newScope = scopeResult.rows[0];
+    
+    // Add user as owner of their personal bookmarks
+    const ownerRoleQuery = 'SELECT id FROM knowledge_roles WHERE name = $1 AND scope_level = $2';
+    const ownerRoleResult = await client.query(ownerRoleQuery, ['Scope Admin', 'scope']);
+    
+    if (ownerRoleResult.rows.length > 0) {
+      const addMemberQuery = `
+        INSERT INTO knowledge_scope_members (scope_id, user_id, role_id, granted_by)
+        VALUES ($1, $2, $3, $4)
+      `;
+      await client.query(addMemberQuery, [newScope.id, userId, ownerRoleResult.rows[0].id, userId]);
+    }
+    
+    await client.query('COMMIT');
+    
+    res.json({ scope: newScope });
+    
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating personal bookmarks:', error);
+    res.status(500).json({ error: 'Failed to create personal bookmarks' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get user permissions for a workspace
+router.get('/workspaces/:workspaceId/permissions/:userId', async (req, res) => {
+  try {
+    const { workspaceId, userId } = req.params;
+    const authenticatedUserId = req.user?.uid;
+    
+    // Users can only check their own permissions (or admins can check others)
+    if (userId !== authenticatedUserId) {
+      // TODO: Add admin check here
+      return res.status(403).json({ error: 'Can only access your own permissions' });
+    }
+    
+    const query = `
+      SELECT 
+        ksm.scope_id,
+        kr.name as role_name,
+        kr.permissions,
+        kr.scope_level,
+        ws.is_admin as workspace_admin,
+        CASE WHEN ws.created_by = $1 THEN true ELSE false END as is_workspace_owner
+      FROM knowledge_scope_members ksm
+      JOIN knowledge_roles kr ON ksm.role_id = kr.id
+      LEFT JOIN workspace_members ws ON ws.workspace_id = $2 AND ws.user_id = $1
+      WHERE ksm.user_id = $1 AND ksm.is_active = true
+    `;
+    
+    const result = await pool.query(query, [userId, workspaceId]);
+    const permissions = result.rows;
+    
+    // Process permissions into a more usable format
+    const processedPermissions = {
+      workspace_admin: permissions.some(p => p.workspace_admin),
+      global_admin: permissions.some(p => p.role_name === 'Global Admin'),
+      is_workspace_owner: permissions.some(p => p.is_workspace_owner)
+    };
+    
+    // Add scope-specific permissions
+    permissions.forEach(perm => {
+      if (perm.scope_id) {
+        processedPermissions[perm.scope_id] = {
+          role: perm.role_name,
+          permissions: perm.permissions,
+          scope_level: perm.scope_level
+        };
+      }
+    });
+    
+    res.json({ permissions: processedPermissions });
+  } catch (error) {
+    console.error('Error fetching user permissions:', error);
+    res.status(500).json({ error: 'Failed to fetch user permissions' });
+  }
+});
+
+// Generate AI suggestions for categorization
+router.post('/workspaces/:workspaceId/ai-suggestions', async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const { content, thread_context, message_type } = req.body;
+    
+    // Mock AI suggestions for now - can be replaced with actual AI service
+    const suggestions = {
+      recommended_scope: thread_context || 'General',
+      recommended_category: message_type === 'code' ? 'Technical' : 'General Discussion',
+      confidence: 0.85,
+      suggested_title: content.length > 50 ? content.substring(0, 50) + '...' : content,
+      suggested_summary: `Knowledge from ${thread_context || 'chat conversation'}`,
+      suggested_tags: ['chat', 'bookmark', message_type].filter(Boolean)
+    };
+    
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Error generating AI suggestions:', error);
+    res.status(500).json({ error: 'Failed to generate AI suggestions' });
+  }
+});
+
 // Get knowledge scopes for a workspace
 router.get('/workspaces/:workspaceId/scopes', async (req, res) => {
   try {
@@ -450,6 +598,63 @@ router.get('/workspaces/:workspaceId/scopes/:scopeId/collections', checkKnowledg
   } catch (error) {
     console.error('Error fetching knowledge collections:', error);
     res.status(500).json({ error: 'Failed to fetch knowledge collections' });
+  }
+});
+
+// Get categories for a workspace
+router.get('/workspaces/:workspaceId/categories', async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    
+    const query = `
+      SELECT 
+        kc.*,
+        COUNT(ki.id) as item_count,
+        u.display_name as creator_name
+      FROM knowledge_categories kc
+      LEFT JOIN knowledge_items ki ON kc.id = ki.category_id AND ki.is_archived = false
+      LEFT JOIN users u ON kc.created_by = u.id
+      WHERE kc.workspace_id = $1 AND kc.is_active = true
+      GROUP BY kc.id, u.display_name
+      ORDER BY kc.name ASC
+    `;
+    
+    const result = await pool.query(query, [workspaceId]);
+    const categories = result.rows;
+    
+    res.json({ data: categories });
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// Get tags for a workspace
+router.get('/workspaces/:workspaceId/tags', async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    
+    const query = `
+      SELECT 
+        kt.*,
+        COUNT(kit.knowledge_item_id) as item_count,
+        u.display_name as creator_name
+      FROM knowledge_tags kt
+      LEFT JOIN knowledge_item_tags kit ON kt.id = kit.tag_id
+      LEFT JOIN knowledge_items ki ON kit.knowledge_item_id = ki.id AND ki.is_archived = false
+      LEFT JOIN users u ON kt.created_by = u.id
+      WHERE kt.workspace_id = $1 AND kt.is_active = true
+      GROUP BY kt.id, u.display_name
+      ORDER BY kt.name ASC
+    `;
+    
+    const result = await pool.query(query, [workspaceId]);
+    const tags = result.rows;
+    
+    res.json({ data: tags });
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    res.status(500).json({ error: 'Failed to fetch tags' });
   }
 });
 

@@ -125,6 +125,7 @@ export const threadAPI = {
   updateThread: (workspaceId, threadId, data) => api.put(`/workspaces/${workspaceId}/threads/${threadId}`, data),
   deleteThread: (workspaceId, threadId) => api.delete(`/workspaces/${workspaceId}/threads/${threadId}`),
   getMembers: (workspaceId, threadId) => api.get(`/workspaces/${workspaceId}/threads/${threadId}/members`),
+  toggleBookmark: (workspaceId, threadId) => api.post(`/workspaces/${workspaceId}/threads/${threadId}/bookmarks`),
 };
 
 export const messageAPI = {
@@ -132,8 +133,8 @@ export const messageAPI = {
   sendMessage: (workspaceId, threadId, data) => api.post(`/workspaces/${workspaceId}/threads/${threadId}/messages`, data),
   updateMessage: (workspaceId, threadId, messageId, data) => api.put(`/workspaces/${workspaceId}/threads/${threadId}/messages/${messageId}`, data),
   deleteMessage: (workspaceId, threadId, messageId) => api.delete(`/workspaces/${workspaceId}/threads/${threadId}/messages/${messageId}`),
-  addReaction: (id, emoji) => api.post(`/messages/${id}/reactions`, { emoji }),
-  removeReaction: (id, emoji) => api.delete(`/messages/${id}/reactions`, { data: { emoji } }),
+  addReaction: (workspaceId, threadId, messageId, emoji) => api.post(`/workspaces/${workspaceId}/threads/${threadId}/messages/${messageId}/reactions`, { emoji }),
+  removeReaction: (workspaceId, threadId, messageId, emoji) => api.delete(`/workspaces/${workspaceId}/threads/${threadId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`),
   pinMessage: (id) => api.post(`/messages/${id}/pin`),
   unpinMessage: (id) => api.delete(`/messages/${id}/pin`),
   getTemplates: () => api.get('/messages/templates'),
@@ -147,13 +148,42 @@ export const userAPI = {
 };
 
 export const knowledgeAPI = {
-  getKnowledgeItems: (workspaceId, params = {}) => api.get(`/knowledge/workspace/${workspaceId}`, { params }),
-  createKnowledgeItem: (workspaceId, data) => api.post(`/knowledge/workspace/${workspaceId}`, data),
-  updateKnowledgeItem: (id, data) => api.put(`/knowledge/${id}`, data),
-  deleteKnowledgeItem: (id) => api.delete(`/knowledge/${id}`),
-  recordView: (id, userId) => api.post(`/knowledge/${id}/view`, { userId }),
-  getCategories: (workspaceId) => api.get(`/knowledge/workspace/${workspaceId}/categories`),
-  getTags: (workspaceId) => api.get(`/knowledge/workspace/${workspaceId}/tags`),
+  // Knowledge scopes
+  getScopes: (workspaceId) => api.get(`/knowledge/workspaces/${workspaceId}/scopes`),
+  createScope: (workspaceId, data) => api.post(`/knowledge/workspaces/${workspaceId}/scopes`, data),
+  
+  // User permissions
+  getUserPermissions: (workspaceId, userId) => api.get(`/knowledge/workspaces/${workspaceId}/permissions/${userId}`),
+  
+  // AI suggestions
+  generateAISuggestions: (workspaceId, data) => api.post(`/knowledge/workspaces/${workspaceId}/ai-suggestions`, data),
+  
+  // Personal bookmarks
+  getOrCreatePersonalBookmarks: (workspaceId, userId) => api.post(`/knowledge/workspaces/${workspaceId}/personal-bookmarks`, { userId }),
+  
+  // Multi-location support - Knowledge items in scopes
+  getScopeItems: (workspaceId, scopeId, params = {}) => api.get(`/knowledge/workspaces/${workspaceId}/scopes/${scopeId}/items`, { params }),
+  createKnowledgeItem: (workspaceId, data) => {
+    // Use the primary scope or first selected location for the API call
+    const primaryScopeId = data.primary_scope_id || data.additional_scope_ids?.[0];
+    if (!primaryScopeId) {
+      return Promise.reject(new Error('No scope specified for knowledge item creation'));
+    }
+    return api.post(`/knowledge/workspaces/${workspaceId}/scopes/${primaryScopeId}/items`, data);
+  },
+  updateKnowledgeItem: (workspaceId, scopeId, id, data) => api.put(`/knowledge/workspaces/${workspaceId}/scopes/${scopeId}/items/${id}`, data),
+  deleteKnowledgeItem: (workspaceId, scopeId, id) => api.delete(`/knowledge/workspaces/${workspaceId}/scopes/${scopeId}/items/${id}`),
+  
+  // Collections
+  getCollections: (workspaceId, scopeId) => api.get(`/knowledge/workspaces/${workspaceId}/scopes/${scopeId}/collections`),
+  
+  // Categories and tags - simplified for now
+  getCategories: (workspaceId) => api.get(`/knowledge/workspaces/${workspaceId}/categories`),
+  getTags: (workspaceId) => api.get(`/knowledge/workspaces/${workspaceId}/tags`),
+  
+  // Analytics
+  getAnalytics: (workspaceId, params = {}) => api.get(`/knowledge/workspaces/${workspaceId}/analytics`, { params }),
+  recordAnalytics: (itemId, data) => api.post(`/knowledge/items/${itemId}/analytics`, data),
 };
 
 export const notificationAPI = {

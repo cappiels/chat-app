@@ -5,7 +5,7 @@ import Message from './Message';
 import MessageComposer from './MessageComposer';
 import TypingIndicator from './TypingIndicator';
 
-const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers = [] }) => {
+const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers = [], workspace, workspaceId }) => {
   if (!isOpen || !thread) return null;
 
   const messagesEndRef = useRef(null);
@@ -39,6 +39,11 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
             showAvatar={true}
             onThreadClick={() => {}}
             currentUser={currentUser}
+            workspaceId={workspaceId || workspace?.id}
+            threadId={thread.id}
+            workspace={workspace}
+            thread={thread}
+            onMessageUpdate={() => {}}
           />
           <div className="flex items-center gap-2 mt-3 text-sm">
             <span className="font-medium text-blue">{replies.length} replies</span>
@@ -81,6 +86,11 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
                         showAvatar={true}
                         onThreadClick={() => {}}
                         currentUser={currentUser}
+                        workspaceId={workspaceId || workspace?.id}
+                        threadId={thread.id}
+                        workspace={workspace}
+                        thread={thread}
+                        onMessageUpdate={() => {}}
                       />
                     ))}
                 </div>
