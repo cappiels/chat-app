@@ -9,6 +9,7 @@ import Thread from '../chat/Thread';
 import InviteDialog from '../InviteDialog';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 import { threadAPI, messageAPI } from '../../utils/api';
+import socketManager from '../../utils/socket';
 
 const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWorkspaces }) => {
   const [channels, setChannels] = useState([]);
@@ -43,10 +44,21 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Load channels based on workspace
+  // Initialize socket connection and load channels when workspace changes
   useEffect(() => {
-    const loadChannels = async () => {
-      if (workspace) {
+    const initializeWorkspace = async () => {
+      if (workspace && user) {
+        console.log('🚀 Initializing workspace:', workspace.name);
+        
+        // Initialize socket connection
+        try {
+          await socketManager.connect();
+          socketManager.joinWorkspace(workspace.id);
+        } catch (error) {
+          console.error('Failed to initialize socket for workspace:', error);
+        }
+        
+        // Load channels
         const realChannels = await loadWorkspaceChannels(workspace);
         setChannels(realChannels);
         setCurrentChannel(realChannels[0] || null);
@@ -54,8 +66,17 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         setThreads([]);
       }
     };
-    loadChannels();
-  }, [workspace]);
+    
+    initializeWorkspace();
+  }, [workspace, user]);
+
+  // Join thread when current channel changes  
+  useEffect(() => {
+    if (currentChannel && workspace) {
+      console.log('💬 Joining thread for channel:', currentChannel.name);
+      socketManager.joinThread(workspace.id, currentChannel.id);
+    }
+  }, [currentChannel, workspace]);
 
   const loadWorkspaceChannels = async (workspace) => {
     try {
