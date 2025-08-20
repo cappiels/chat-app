@@ -31,13 +31,28 @@ class SocketManager {
       this.connecting = true;
       const token = await user.getIdToken();
 
-      console.log('🔌 Connecting to socket server...');
+      console.log('🔌 Connecting to socket server:', SOCKET_URL);
+
+      // Disconnect existing socket if any
+      if (this.socket) {
+        this.socket.removeAllListeners();
+        this.socket.disconnect();
+        this.socket = null;
+      }
 
       this.socket = io(SOCKET_URL, {
         auth: { token },
-        transports: ['websocket', 'polling'],
-        timeout: 20000,
-        forceNew: true,
+        transports: ['websocket', 'polling'], // Start with websocket, fallback to polling
+        timeout: 30000,
+        reconnection: false, // Handle reconnection manually for better control
+        forceNew: false, // Allow reusing existing connection if available
+        upgrade: true,
+        rememberUpgrade: false, // Don't remember upgrades in production
+        autoConnect: true,
+        pingTimeout: 60000,
+        pingInterval: 25000,
+        maxHttpBufferSize: 1e6,
+        withCredentials: true
       });
 
       this.setupEventListeners();
@@ -135,9 +150,18 @@ class SocketManager {
   scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('❌ Max reconnection attempts reached');
+      // Notify disconnection callbacks about failed reconnection
+      this.disconnectionCallbacks.forEach(callback => {
+        try {
+          callback('max_reconnect_attempts_reached');
+        } catch (error) {
+          console.error('Disconnection callback error:', error);
+        }
+      });
       return;
     }
 
+    // Progressive backoff: 1s, 2s, 4s, 8s, 16s
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
     this.reconnectAttempts++;
 
@@ -149,6 +173,12 @@ class SocketManager {
         this.connect();
       }
     }, delay);
+  }
+
+  // Reset reconnection state (useful for manual retries)
+  resetReconnection() {
+    this.reconnectAttempts = 0;
+    console.log('🔄 Reconnection state reset');
   }
 
   // Connection status methods

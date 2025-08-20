@@ -15,12 +15,21 @@ class SocketServer {
     // Initialize Socket.IO with CORS support
     this.io = new Server(httpServer, {
       cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+        origin: [
+          'http://localhost:5173',
+          'http://localhost:5174', 
+          'http://localhost:5175',
+          'https://coral-app-rgki8.ondigitalocean.app',
+          process.env.FRONTEND_URL
+        ].filter(Boolean),
         methods: ['GET', 'POST'],
         credentials: true
       },
+      transports: ['websocket', 'polling'],
       pingTimeout: 60000,
-      pingInterval: 25000
+      pingInterval: 25000,
+      connectTimeout: 45000,
+      allowEIO3: true
     });
 
     // Store active connections and user presence
