@@ -4,33 +4,73 @@ import {
   Plus, 
   Send, 
   Smile, 
-  Paperclip, 
   AtSign, 
-  Bold, 
-  Italic, 
-  Code,
+  Mic,
+  Edit3,
+  Hash,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
   Link2,
   List,
-  ListOrdered
+  ListOrdered,
+  Code,
+  X,
+  MicOff
 } from 'lucide-react';
 import socketManager from '../../utils/socket';
 
 const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const [message, setMessage] = useState('');
-  const [showFormatting, setShowFormatting] = useState(false);
-  const textareaRef = useRef(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [showFormatToolbar, setShowFormatToolbar] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
+  
+  const editorRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
+  const recordingIntervalRef = useRef(null);
+  const selectionRef = useRef(null);
 
-  // Auto-resize textarea
+  // Auto-resize editor
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+    if (editorRef.current && isExpanded) {
+      const maxHeight = 120;
+      editorRef.current.style.height = 'auto';
+      editorRef.current.style.height = Math.min(editorRef.current.scrollHeight, maxHeight) + 'px';
     }
-  }, [message]);
+  }, [message, isExpanded]);
 
-  // Typing indicator handlers with enhanced debugging
+  // Handle text selection for formatting toolbar
+  useEffect(() => {
+    const handleSelection = () => {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0 && selection.toString().length > 0) {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        if (editorRef.current && editorRef.current.contains(selection.anchorNode)) {
+          setToolbarPosition({
+            top: rect.top - 50,
+            left: rect.left + rect.width / 2
+          });
+          setShowFormatToolbar(true);
+          selectionRef.current = { range, selection };
+        }
+      } else {
+        setShowFormatToolbar(false);
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelection);
+    return () => document.removeEventListener('selectionchange', handleSelection);
+  }, []);
+
+  // Typing indicator handlers
   const startTyping = useCallback(() => {
     if (!channel?.id || isTypingRef.current) return;
     
@@ -39,12 +79,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
     const success = socketManager.startTyping(channel.id);
     console.log('🔤 startTyping result:', success);
     
-    // Clear any existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     
-    // Stop typing after 3 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
       if (isTypingRef.current) {
         console.log('🔤 Auto-stopping typing due to timeout');
@@ -83,13 +121,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (message.trim()) {
-      // Stop typing indicator before sending
       stopTyping();
-      
       onSendMessage(message.trim());
       setMessage('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
+      setIsExpanded(false);
+      setIsFocused(false);
+      if (editorRef.current) {
+        editorRef.current.style.height = 'auto';
+        editorRef.current.blur();
       }
     }
   };
@@ -99,7 +138,6 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
       e.preventDefault();
       handleSubmit(e);
     } else if (e.key !== 'Enter') {
-      // Start typing on any other key press
       startTyping();
     }
   };
@@ -107,7 +145,6 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const handleInputChange = (e) => {
     setMessage(e.target.value);
     
-    // Start typing indicator when user starts typing
     if (e.target.value.trim() && !isTypingRef.current) {
       startTyping();
     } else if (!e.target.value.trim() && isTypingRef.current) {
@@ -116,177 +153,461 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   };
 
   const handleInputFocus = () => {
-    // Start typing if there's content
+    setIsExpanded(true);
+    setIsFocused(true);
     if (message.trim()) {
       startTyping();
     }
   };
 
-  const handleInputBlur = () => {
-    // Stop typing when input loses focus
-    stopTyping();
+  const handleInputBlur = (e) => {
+    // Only collapse if clicking outside the composer area
+    if (!e.relatedTarget || !e.relatedTarget.closest('.composer-container')) {
+      setIsExpanded(false);
+      setIsFocused(false);
+      stopTyping();
+    }
   };
 
-  const insertFormatting = (before, after = '') => {
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = message.substring(start, end);
-    const newText = message.substring(0, start) + before + selectedText + after + message.substring(end);
-    
-    setMessage(newText);
-    
-    // Set cursor position after formatting
+  const handleAttachment = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.heic,.heif';
+    input.onchange = async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+      
+      console.log('Selected files:', files);
+      
+      try {
+        // Upload files
+        const formData = new FormData();
+        files.forEach(file => {
+          formData.append('files', file);
+        });
+        
+        const response = await fetch('/api/upload/files', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+        
+        const result = await response.json();
+        console.log('Upload successful:', result.files);
+        
+        // Add uploaded files to message as attachments
+        const attachmentText = result.files.map(file => 
+          `📎 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`
+        ).join('\n');
+        
+        setMessage(prev => {
+          const newMessage = prev ? `${prev}\n\n${attachmentText}` : attachmentText;
+          return newMessage;
+        });
+        
+        // Store attachment metadata for sending with message
+        // TODO: We'll need to modify the message sending to include attachments
+        window.pendingAttachments = result.files;
+        
+      } catch (error) {
+        console.error('File upload error:', error);
+        alert('Failed to upload files. Please try again.');
+      }
+    };
+    input.click();
+  };
+
+  const handleMention = () => {
+    const inputRef = isExpanded ? editorRef : editorRef;
+    if (!inputRef.current) return;
+    const cursorPos = inputRef.current.selectionStart;
+    const newMessage = message.slice(0, cursorPos) + '@' + message.slice(cursorPos);
+    setMessage(newMessage);
     setTimeout(() => {
-      textarea.focus();
-      const newCursorPos = start + before.length + selectedText.length;
-      textarea.setSelectionRange(newCursorPos, newCursorPos);
+      inputRef.current.focus();
+      inputRef.current.setSelectionRange(cursorPos + 1, cursorPos + 1);
     }, 0);
   };
 
-  return (
-    <div className="p-4 bg-gradient-to-t from-slate-50/30 to-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
-      <form onSubmit={handleSubmit}>
-        <div className="bg-white border-2 border-slate-200 rounded-lg p-3 transition-all duration-200 shadow-sm focus-within:border-blue-500 focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.1)] focus-within:shadow-md focus-within:-translate-y-px">
-          {/* Formatting toolbar */}
-          {showFormatting && (
-            <div className="flex items-center gap-1 pb-2 mb-2 border-b border-slate-200">
-              <button
-                type="button"
-                onClick={() => insertFormatting('**', '**')}
-                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Bold"
-              >
-                <Bold className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertFormatting('_', '_')}
-                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Italic"
-              >
-                <Italic className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertFormatting('`', '`')}
-                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Code"
-              >
-                <Code className="w-4 h-4" />
-              </button>
-              <div className="w-px h-5 bg-slate-200 mx-1" />
-              <button
-                type="button"
-                onClick={() => insertFormatting('[', '](url)')}
-                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Link"
-              >
-                <Link2 className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertFormatting('• ')}
-                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Bulleted list"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertFormatting('1. ')}
-                className="p-1 rounded-md transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Numbered list"
-              >
-                <ListOrdered className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+  const handleEmoji = () => {
+    // Common emojis for quick access
+    const commonEmojis = ['😀', '😊', '😂', '❤️', '👍', '👎', '😢', '😮', '😡', '🎉'];
+    const emoji = commonEmojis[Math.floor(Math.random() * commonEmojis.length)];
+    
+    const inputRef = isExpanded ? editorRef : editorRef;
+    if (!inputRef.current) return;
+    const cursorPos = inputRef.current.selectionStart;
+    const newMessage = message.slice(0, cursorPos) + emoji + message.slice(cursorPos);
+    setMessage(newMessage);
+    setTimeout(() => {
+      inputRef.current.focus();
+      inputRef.current.setSelectionRange(cursorPos + emoji.length, cursorPos + emoji.length);
+    }, 0);
+  };
 
-          {/* Input area */}
-          <div className="flex items-end gap-2">
-            {/* Plus button for attachments */}
+  const handleFormatting = () => {
+    // Toggle between common formatting options
+    const formats = [
+      { before: '**', after: '**', placeholder: 'bold text' },
+      { before: '_', after: '_', placeholder: 'italic text' },
+      { before: '`', after: '`', placeholder: 'code' },
+      { before: '~', after: '~', placeholder: 'strikethrough' }
+    ];
+    
+    const format = formats[0]; // Default to bold
+    
+    const inputRef = isExpanded ? editorRef : editorRef;
+    if (!inputRef.current) return;
+    const start = inputRef.current.selectionStart;
+    const end = inputRef.current.selectionEnd;
+    const selectedText = message.substring(start, end);
+    const textToInsert = selectedText || format.placeholder;
+    const newMessage = message.substring(0, start) + format.before + textToInsert + format.after + message.substring(end);
+    
+    setMessage(newMessage);
+    setTimeout(() => {
+      inputRef.current.focus();
+      const newStart = start + format.before.length;
+      const newEnd = newStart + textToInsert.length;
+      inputRef.current.setSelectionRange(newStart, newEnd);
+    }, 0);
+  };
+
+  // Enhanced voice recording functionality
+  const startRecording = () => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          const recorder = new MediaRecorder(stream);
+          const chunks = [];
+          
+          recorder.ondataavailable = (e) => chunks.push(e.data);
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            console.log('Voice recording completed:', blob);
+            // TODO: Send voice message
+            stream.getTracks().forEach(track => track.stop());
+          };
+          
+          recorder.start();
+          setMediaRecorder(recorder);
+          setIsRecording(true);
+          setRecordingTime(0);
+          
+          recordingIntervalRef.current = setInterval(() => {
+            setRecordingTime(prev => prev + 1);
+          }, 1000);
+        })
+        .catch(err => {
+          console.error('Error accessing microphone:', err);
+          alert('Microphone access denied. Please allow microphone access to send voice messages.');
+        });
+    } else {
+      alert('Voice messaging is not supported in this browser.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setMediaRecorder(null);
+      setIsRecording(false);
+      setRecordingTime(0);
+      
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+    }
+  };
+
+  const handleVoiceMessage = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  // Rich text formatting functions
+  const applyFormatting = (type, value = '') => {
+    if (!selectionRef.current) return;
+    
+    const { range, selection } = selectionRef.current;
+    const selectedText = selection.toString();
+    
+    let formattedText = '';
+    switch (type) {
+      case 'bold':
+        formattedText = `**${selectedText}**`;
+        break;
+      case 'italic':
+        formattedText = `*${selectedText}*`;
+        break;
+      case 'underline':
+        formattedText = `_${selectedText}_`;
+        break;
+      case 'strikethrough':
+        formattedText = `~${selectedText}~`;
+        break;
+      case 'code':
+        formattedText = `\`${selectedText}\``;
+        break;
+      case 'link':
+        const url = prompt('Enter URL:') || '#';
+        formattedText = `[${selectedText}](${url})`;
+        break;
+      default:
+        formattedText = selectedText;
+    }
+    
+    range.deleteContents();
+    range.insertNode(document.createTextNode(formattedText));
+    
+    setShowFormatToolbar(false);
+    selection.removeAllRanges();
+    
+    // Update message state
+    if (editorRef.current) {
+      setMessage(editorRef.current.textContent || '');
+    }
+  };
+
+  // Clean up intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Collapsed state (Slack-like minimal input)
+  if (!isExpanded && !isFocused) {
+    return (
+      <div className="px-4 py-3 bg-white border-t border-gray-200">
+        <div className="composer-container">
+          <div 
+            className="flex items-center bg-white border-2 border-gray-300 rounded-lg px-3 py-2 cursor-text hover:border-gray-400 transition-colors"
+            onClick={() => editorRef.current?.focus()}
+          >
             <button
               type="button"
-              className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700 flex-shrink-0 mb-1"
+              onClick={handleAttachment}
+              className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full mr-3 transition-colors"
               title="Add attachments"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-5 h-5 text-gray-600" />
             </button>
-
-            {/* Textarea */}
-            <div className="flex-1">
-              <textarea
-                ref={textareaRef}
+            
+            <div className="flex-1 flex items-center">
+              <Hash className="w-4 h-4 text-gray-500 mr-1" />
+              <input
+                ref={editorRef}
                 value={message}
                 onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
-                placeholder={placeholder || `Message #${channel?.name || 'channel'}`}
-                className="w-full border-none outline-none text-[15px] font-[inherit] bg-transparent resize-none min-h-[24px] max-h-[200px] text-slate-900 placeholder:text-slate-500"
-                rows="1"
+                placeholder={placeholder || `Message #${channel?.name || 'general_chat'}`}
+                className="flex-1 bg-transparent text-gray-900 text-sm placeholder-gray-500 border-none outline-none"
               />
             </div>
-
-            {/* Right side actions */}
-            <div className="flex items-center gap-1 mb-1">
-              <button
-                type="button"
-                onClick={() => setShowFormatting(!showFormatting)}
-                className={`p-2 rounded-lg transition-colors text-slate-500 hover:text-slate-700 ${showFormatting ? 'bg-slate-100' : 'hover:bg-slate-100'}`}
-                title="Show formatting"
-              >
-                <Bold className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Mention someone"
-              >
-                <AtSign className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Add emoji"
-              >
-                <Smile className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-lg transition-colors hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                title="Attach file"
-              >
-                <Paperclip className="w-4 h-4" />
-              </button>
-              
-              {/* Send button */}
-              <button
-                type="submit"
-                disabled={!message.trim()}
-                className={`p-2 ml-1 rounded-lg transition-all duration-200 ${
-                  message.trim() 
-                    ? 'bg-gradient-to-br from-blue-600 to-purple-700 text-white shadow-sm hover:-translate-y-px hover:shadow-md' 
-                    : 'text-slate-400 hover:bg-slate-100 opacity-50'
-                }`}
-                title="Send message"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Helper text */}
-          <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
-            <span>
-              Press <kbd className="px-1 py-0.5 bg-slate-100 rounded text-xs border border-slate-200">Enter</kbd> to send, 
-              <kbd className="px-1 py-0.5 bg-slate-100 rounded text-xs ml-1 border border-slate-200">Shift + Enter</kbd> for new line
-            </span>
+            
+            <button
+              type="button"
+              onClick={handleVoiceMessage}
+              className={`flex items-center justify-center w-8 h-8 rounded-full ml-3 transition-colors ${
+                isRecording
+                  ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+              }`}
+              title={isRecording ? 'Stop recording' : 'Send voice message'}
+            >
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
           </div>
         </div>
-      </form>
-    </div>
+      </div>
+    );
+  }
+
+  // Expanded state (All buttons visible)
+  return (
+    <>
+      {/* Recording State Overlay */}
+      {isRecording && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-xl flex flex-col items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse"></div>
+              <span className="text-lg font-medium">Recording</span>
+            </div>
+            <div className="text-2xl font-mono">
+              {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+            </div>
+            <button
+              onClick={handleVoiceMessage}
+              className="flex items-center justify-center w-12 h-12 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+              title="Stop recording"
+            >
+              <MicOff className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Format Toolbar */}
+      {showFormatToolbar && (
+        <div 
+          className="fixed z-40 bg-gray-800 text-white rounded-lg shadow-lg px-2 py-1 flex items-center gap-1"
+          style={{ 
+            top: `${toolbarPosition.top}px`, 
+            left: `${toolbarPosition.left}px`,
+            transform: 'translateX(-50%)'
+          }}
+        >
+          <button
+            onClick={() => applyFormatting('bold')}
+            className="p-2 hover:bg-gray-700 rounded transition-colors"
+            title="Bold"
+          >
+            <Bold className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => applyFormatting('italic')}
+            className="p-2 hover:bg-gray-700 rounded transition-colors"
+            title="Italic"
+          >
+            <Italic className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => applyFormatting('strikethrough')}
+            className="p-2 hover:bg-gray-700 rounded transition-colors"
+            title="Strikethrough"
+          >
+            <Strikethrough className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => applyFormatting('code')}
+            className="p-2 hover:bg-gray-700 rounded transition-colors"
+            title="Code"
+          >
+            <Code className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => applyFormatting('link')}
+            className="p-2 hover:bg-gray-700 rounded transition-colors"
+            title="Link"
+          >
+            <Link2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setShowFormatToolbar(false)}
+            className="p-2 hover:bg-gray-700 rounded transition-colors ml-1"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="px-4 py-3 bg-white border-t border-gray-200">
+        <form onSubmit={handleSubmit}>
+          <div className="composer-container bg-white border-2 border-gray-300 rounded-lg overflow-hidden focus-within:border-blue-500 transition-colors">
+            {/* Blue accent bar */}
+            <div className="h-1 bg-blue-500" />
+            
+            <div className="p-3">
+              {/* Top row with buttons */}
+              <div className="flex items-center gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={handleAttachment}
+                  className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  title="Add attachments"
+                >
+                  <Plus className="w-5 h-5 text-gray-600" />
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={handleFormatting}
+                  className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  title="Text formatting"
+                >
+                  <Edit3 className="w-4 h-4 text-gray-600" />
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={handleEmoji}
+                  className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  title="Add emoji"
+                >
+                  <Smile className="w-5 h-5 text-gray-600" />
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={handleMention}
+                  className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  title="Mention someone"
+                >
+                  <AtSign className="w-5 h-5 text-gray-600" />
+                </button>
+                
+                <div className="flex-1" />
+                
+                <button
+                  type="button"
+                  onClick={handleVoiceMessage}
+                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-all mr-2 ${
+                    isRecording
+                      ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                  }`}
+                  title={isRecording ? 'Stop recording' : 'Start voice recording'}
+                >
+                  {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
+                
+                <button
+                  type="submit"
+                  disabled={!message.trim()}
+                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-all ${
+                    message.trim()
+                      ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                  title="Send message"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Message input area */}
+              <div className="relative">
+                <textarea
+                  ref={editorRef}
+                  value={message}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                  placeholder={placeholder || `Message #${channel?.name || 'general_chat'}`}
+                  className="w-full bg-transparent text-gray-900 text-sm placeholder-gray-500 border-none outline-none resize-none min-h-[20px] max-h-[120px]"
+                  rows="1"
+                />
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </>
   );
 };
 

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Reply, MoreHorizontal, Smile, Bookmark, Edit, MessageSquare } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { Reply, MoreHorizontal, Smile, Bookmark, Edit, MessageSquare, Download, FileText, Image, Film, Music, File } from 'lucide-react';
 
 const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [imageError, setImageError] = useState({});
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -12,6 +14,22 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
       minute: '2-digit',
       hour12: true
     });
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (fileType) => {
+    if (fileType.startsWith('image/')) return Image;
+    if (fileType.startsWith('video/')) return Film;
+    if (fileType.startsWith('audio/')) return Music;
+    if (fileType.includes('pdf') || fileType.includes('document')) return FileText;
+    return File;
   };
 
   const isCurrentUser = message.user.name === currentUser?.displayName;
@@ -23,6 +41,92 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
     // Handle adding reaction
     console.log('Adding reaction:', emoji);
     setShowEmojiPicker(false);
+  };
+
+  const handleImageError = (attachmentId) => {
+    setImageError(prev => ({ ...prev, [attachmentId]: true }));
+  };
+
+  const renderAttachment = (attachment) => {
+    const FileIcon = getFileIcon(attachment.type);
+    
+    // Handle images
+    if (attachment.type.startsWith('image/') && !imageError[attachment.id]) {
+      return (
+        <div key={attachment.id} className="mt-2 max-w-md">
+          <img
+            src={attachment.url}
+            alt={attachment.name}
+            className="rounded-lg shadow-sm max-w-full h-auto cursor-pointer hover:shadow-md transition-shadow"
+            onError={() => handleImageError(attachment.id)}
+            onClick={() => window.open(attachment.url, '_blank')}
+          />
+          <div className="flex items-center justify-between text-xs text-gray-500 mt-1 px-1">
+            <span>{attachment.name}</span>
+            <span>{formatFileSize(attachment.size)}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Handle videos
+    if (attachment.type.startsWith('video/')) {
+      return (
+        <div key={attachment.id} className="mt-2 max-w-md">
+          <video
+            controls
+            className="rounded-lg shadow-sm max-w-full h-auto"
+            preload="metadata"
+          >
+            <source src={attachment.url} type={attachment.type} />
+            Your browser does not support the video tag.
+          </video>
+          <div className="flex items-center justify-between text-xs text-gray-500 mt-1 px-1">
+            <span>{attachment.name}</span>
+            <span>{formatFileSize(attachment.size)}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Handle audio
+    if (attachment.type.startsWith('audio/')) {
+      return (
+        <div key={attachment.id} className="mt-2 max-w-md bg-gray-50 rounded-lg p-3">
+          <audio controls className="w-full">
+            <source src={attachment.url} type={attachment.type} />
+            Your browser does not support the audio element.
+          </audio>
+          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+            <span className="flex items-center gap-1">
+              <Music className="w-3 h-3" />
+              {attachment.name}
+            </span>
+            <span>{formatFileSize(attachment.size)}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Handle other files
+    return (
+      <div key={attachment.id} className="mt-2">
+        <a
+          href={attachment.url}
+          download={attachment.name}
+          className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors group max-w-md"
+        >
+          <div className="p-2 bg-white rounded-lg border">
+            <FileIcon className="w-5 h-5 text-gray-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-gray-900 truncate">{attachment.name}</div>
+            <div className="text-sm text-gray-500">{formatFileSize(attachment.size)}</div>
+          </div>
+          <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+        </a>
+      </div>
+    );
   };
 
   return (
@@ -65,7 +169,33 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser }) => {
             )}
           </div>
         )}
-        <div className="text-slate-900 leading-relaxed">{message.content}</div>
+        {/* Message Content with Markdown */}
+        <div className="text-slate-900 leading-relaxed prose prose-sm max-w-none">
+          <ReactMarkdown
+            components={{
+              // Custom styling for markdown elements
+              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+              strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
+              em: ({ children }) => <em className="italic text-slate-800">{children}</em>,
+              code: ({ children }) => <code className="px-1 py-0.5 bg-gray-100 rounded text-sm font-mono text-red-600">{children}</code>,
+              pre: ({ children }) => <pre className="p-3 bg-gray-100 rounded-lg overflow-x-auto my-2">{children}</pre>,
+              blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-2">{children}</blockquote>,
+              a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">{children}</a>,
+              ul: ({ children }) => <ul className="list-disc ml-4 my-2">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal ml-4 my-2">{children}</ol>,
+              li: ({ children }) => <li className="mb-1">{children}</li>,
+            }}
+          >
+            {message.content || ''}
+          </ReactMarkdown>
+        </div>
+
+        {/* Attachments */}
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="mt-2">
+            {message.attachments.map(renderAttachment)}
+          </div>
+        )}
 
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (

@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "1.3.3",
+  "version": "1.4.0",
   "type": "module",
   "scripts": {
     "dev": "lsof -ti:5173 | xargs kill -9 2>/dev/null || true && vite",
@@ -26,6 +26,7 @@
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.62.0",
     "react-hot-toast": "^2.5.2",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.7.1",
     "socket.io-client": "^4.8.1",
     "yup": "^1.7.0",
