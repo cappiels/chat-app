@@ -15,13 +15,10 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
   // Use external typing users if provided, otherwise use internal state
   const typingUsers = externalTypingUsers || internalTypingUsers;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Scroll to bottom when messages or typing indicators change
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, typingUsers.length]);
 
   // Set up event listeners only if external typing users are not provided
   useEffect(() => {
@@ -190,7 +187,7 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
       </div>
 
       {/* Messages */}
-      <div className="px-5 py-4">
+      <div className="px-5 py-4 flex flex-col min-h-[200px]">
         {messages.length === 0 ? (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl mb-6 shadow-lg">
@@ -262,10 +259,15 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
           </>
         )}
         
-        {/* Typing Indicator */}
-        <TypingIndicator typingUsers={typingUsers} />
+        {/* Typing Indicator - positioned at the bottom, pushing content up */}
+        {typingUsers.length > 0 && (
+          <div className="mt-auto">
+            <TypingIndicator typingUsers={typingUsers} />
+          </div>
+        )}
         
-        <div ref={messagesEndRef} />
+        {/* Invisible element for scrolling to bottom */}
+        <div ref={messagesEndRef} className="h-1" />
       </div>
     </div>
   );

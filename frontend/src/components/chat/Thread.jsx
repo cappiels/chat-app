@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { X, ChevronRight } from 'lucide-react';
 import Message from './Message';
@@ -8,8 +8,14 @@ import TypingIndicator from './TypingIndicator';
 const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers = [] }) => {
   if (!isOpen || !thread) return null;
 
+  const messagesEndRef = useRef(null);
   const originalMessage = thread.parentMessage;
   const replies = thread.messages || [];
+
+  // Scroll to bottom when new messages arrive or typing status changes
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [replies.length, typingUsers.length]);
 
   return (
     <aside className={`thread-sidebar ${isOpen ? 'open' : ''}`}>
@@ -51,21 +57,35 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
           </div>
         </div>
 
-        {/* Thread Replies - sorted by timestamp to ensure chronological order */}
-        {[...replies]
-          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-          .map((reply) => (
-            <Message
-              key={reply.id}
-              message={reply}
-              showAvatar={true}
-              onThreadClick={() => {}}
-              currentUser={currentUser}
-            />
-          ))}
+        {/* Thread Messages Container - ensures proper message flow */}
+        <div className="flex flex-col space-y-4 relative min-h-[200px]">
+          {/* Main message container - ensures newest messages are at the bottom */}
+          <div className="flex-1 flex flex-col justify-start">
+            {/* Replies sorted chronologically with oldest at top, newest at bottom */}
+            {[...replies]
+              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+              .map((reply) => (
+                <Message
+                  key={reply.id}
+                  message={reply}
+                  showAvatar={true}
+                  onThreadClick={() => {}}
+                  currentUser={currentUser}
+                  className="mb-4"
+                />
+              ))}
+          </div>
           
-        {/* Typing Indicator */}
-        <TypingIndicator typingUsers={typingUsers} />
+          {/* Typing Indicator - positioned at the bottom, pushing content up */}
+          {typingUsers.length > 0 && (
+            <div className="mt-auto">
+              <TypingIndicator typingUsers={typingUsers} />
+            </div>
+          )}
+          
+          {/* Invisible element for scrolling to bottom */}
+          <div ref={messagesEndRef} className="h-1" />
+        </div>
       </div>
 
       {/* Thread Reply Input */}
