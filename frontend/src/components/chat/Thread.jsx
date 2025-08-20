@@ -31,9 +31,9 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
       </div>
 
       {/* Thread Messages */}
-      <div className="flex-1 overflow-y-auto p-5">
+      <div className="flex-1 overflow-y-auto p-5 flex flex-col">
         {/* Original Message */}
-        <div className="mb-4 pb-4 border-b border-border">
+        <div className="mb-4 pb-4 border-b border-border flex-shrink-0">
           <Message
             message={originalMessage}
             showAvatar={true}
@@ -57,34 +57,45 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
           </div>
         </div>
 
-        {/* Thread Messages Container - ensures proper message flow */}
-        <div className="flex flex-col space-y-4 relative min-h-[200px]">
-          {/* Main message container - ensures newest messages are at the bottom */}
-          <div className="flex-1 flex flex-col justify-start">
-            {/* Replies sorted chronologically with oldest at top, newest at bottom */}
-            {[...replies]
-              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-              .map((reply) => (
-                <Message
-                  key={reply.id}
-                  message={reply}
-                  showAvatar={true}
-                  onThreadClick={() => {}}
-                  currentUser={currentUser}
-                  className="mb-4"
-                />
-              ))}
-          </div>
-          
-          {/* Typing Indicator - positioned at the bottom, pushing content up */}
-          {typingUsers.length > 0 && (
-            <div className="mt-auto">
-              <TypingIndicator typingUsers={typingUsers} />
+        {/* Thread Messages Container - proper flex layout for message positioning */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {replies.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center py-8">
+                <p className="text-slate-500 text-sm">No replies yet. Start the conversation!</p>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* Messages container - grows to fill space, messages stick to bottom */}
+              <div className="flex-1 flex flex-col justify-end min-h-0">
+                <div className="flex flex-col space-y-4">
+                  {/* Replies sorted chronologically with oldest at top, newest at bottom */}
+                  {[...replies]
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                    .map((reply) => (
+                      <Message
+                        key={reply.id}
+                        message={reply}
+                        showAvatar={true}
+                        onThreadClick={() => {}}
+                        currentUser={currentUser}
+                      />
+                    ))}
+                </div>
+              </div>
+              
+              {/* Typing Indicator - positioned at the bottom, always visible */}
+              {typingUsers.length > 0 && (
+                <div className="flex-shrink-0 pt-2">
+                  <TypingIndicator typingUsers={typingUsers} />
+                </div>
+              )}
+              
+              {/* Invisible element for scrolling to bottom */}
+              <div ref={messagesEndRef} className="h-1 flex-shrink-0" />
+            </>
           )}
-          
-          {/* Invisible element for scrolling to bottom */}
-          <div ref={messagesEndRef} className="h-1" />
         </div>
       </div>
 

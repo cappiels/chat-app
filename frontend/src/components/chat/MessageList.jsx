@@ -28,19 +28,24 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
     const handleUserTyping = (data) => {
       if (data.threadId !== channel.id) return;
 
+      console.log('💬 Typing event received:', data); // Debug log
+
       setInternalTypingUsers(prev => {
         // Remove this user first (to avoid duplicates)
         const filtered = prev.filter(user => user.userId !== data.userId);
         
         if (data.isTyping) {
-          // Add user to typing list
-          return [...filtered, {
+          // Add user to typing list with current timestamp
+          const newTypingUser = {
             userId: data.userId,
             user: data.user,
-            timestamp: new Date(data.timestamp)
-          }];
+            timestamp: new Date() // Use current time for better staleness detection
+          };
+          console.log('➕ Adding typing user:', newTypingUser);
+          return [...filtered, newTypingUser];
         } else {
           // User stopped typing
+          console.log('➖ Removing typing user:', data.userId);
           return filtered;
         }
       });
@@ -186,94 +191,101 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="px-5 py-4 flex flex-col min-h-[200px]">
+      {/* Messages Container with proper flex layout */}
+      <div className="px-5 py-4 flex flex-col flex-1 min-h-0">
         {messages.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl mb-6 shadow-lg">
-              <Hash className="w-10 h-10 text-blue-600" />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl mb-6 shadow-lg">
+                <Hash className="w-10 h-10 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-slate-900">
+                This is the beginning of #{channel.name}
+              </h3>
+              <p className="text-slate-600 max-w-md mx-auto">
+                Start the conversation! Share ideas, ask questions, or just say hello to get things going.
+              </p>
             </div>
-            <h3 className="text-xl font-bold mb-2 text-slate-900">
-              This is the beginning of #{channel.name}
-            </h3>
-            <p className="text-slate-600 max-w-md mx-auto">
-              Start the conversation! Share ideas, ask questions, or just say hello to get things going.
-            </p>
           </div>
         ) : (
           <>
-            {messageGroups.map((group, groupIndex) => (
-              <div key={groupIndex}>
-                {/* Date Divider */}
-                <div className="flex items-center my-4">
-                  <div className="flex-1 h-px bg-slate-200" />
-                  <span className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                    {formatDate(group.date)}
-                  </span>
-                  <div className="flex-1 h-px bg-slate-200" />
-                </div>
+            {/* Messages - flex grow to fill available space */}
+            <div className="flex-1 flex flex-col justify-end min-h-0">
+              <div className="flex flex-col">
+                {messageGroups.map((group, groupIndex) => (
+                  <div key={groupIndex}>
+                    {/* Date Divider */}
+                    <div className="flex items-center my-4">
+                      <div className="flex-1 h-px bg-slate-200" />
+                      <span className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        {formatDate(group.date)}
+                      </span>
+                      <div className="flex-1 h-px bg-slate-200" />
+                    </div>
 
-                {/* Messages for this date - sorted by timestamp with oldest at top, newest at bottom */}
-                {(() => {
-                  // Sort messages first, then operate on the sorted array
-                  const sortedMessages = [...group.messages]
-                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                    
-                  return sortedMessages.map((message, index) => {
-                  // Now prevMessage refers to the previous message in the sorted array
-                  const prevMessage = index > 0 ? sortedMessages[index - 1] : null;
-                  const showAvatar = !prevMessage || 
-                    prevMessage.user.name !== message.user.name ||
-                    (message.timestamp - prevMessage.timestamp) > 300000; // 5 minutes
+                    {/* Messages for this date - sorted by timestamp with oldest at top, newest at bottom */}
+                    {(() => {
+                      // Sort messages first, then operate on the sorted array
+                      const sortedMessages = [...group.messages]
+                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                        
+                      return sortedMessages.map((message, index) => {
+                      // Now prevMessage refers to the previous message in the sorted array
+                      const prevMessage = index > 0 ? sortedMessages[index - 1] : null;
+                      const showAvatar = !prevMessage || 
+                        prevMessage.user.name !== message.user.name ||
+                        (message.timestamp - prevMessage.timestamp) > 300000; // 5 minutes
 
-                  // Check if this is the first unread message
-                  const isFirstUnreadMessage = lastReadMessageId && 
-                    prevMessage?.id === lastReadMessageId && 
-                    message.id !== lastReadMessageId;
+                      // Check if this is the first unread message
+                      const isFirstUnreadMessage = lastReadMessageId && 
+                        prevMessage?.id === lastReadMessageId && 
+                        message.id !== lastReadMessageId;
 
-                  // Count unread messages after this point
-                  const unreadMessagesAfter = lastReadMessageId ? 
-                    messages.filter(m => {
-                      const lastReadIndex = messages.findIndex(msg => msg.id === lastReadMessageId);
-                      const currentIndex = messages.findIndex(msg => msg.id === message.id);
-                      return currentIndex > lastReadIndex;
-                    }).length : 0;
+                      // Count unread messages after this point
+                      const unreadMessagesAfter = lastReadMessageId ? 
+                        messages.filter(m => {
+                          const lastReadIndex = messages.findIndex(msg => msg.id === lastReadMessageId);
+                          const currentIndex = messages.findIndex(msg => msg.id === message.id);
+                          return currentIndex > lastReadIndex;
+                        }).length : 0;
 
-                  // Check if this is a new message for animation
-                  const isNewMessage = newMessages.includes(message.id);
+                      // Check if this is a new message for animation
+                      const isNewMessage = newMessages.includes(message.id);
 
-                  return (
-                    <React.Fragment key={message.id}>
-                      {/* Show NEW divider before first unread message */}
-                      {isFirstUnreadMessage && unreadMessagesAfter > 0 && (
-                        <NewMessageDivider messageCount={unreadMessagesAfter} />
-                      )}
-                      
-                      <div className={isNewMessage ? 'animate-fade-in-up' : ''}>
-                        <Message
-                          message={message}
-                          showAvatar={showAvatar}
-                          onThreadClick={() => onThreadClick(message)}
-                          currentUser={currentUser}
-                        />
-                      </div>
-                    </React.Fragment>
-                  );
-                  })})()}
+                      return (
+                        <React.Fragment key={message.id}>
+                          {/* Show NEW divider before first unread message */}
+                          {isFirstUnreadMessage && unreadMessagesAfter > 0 && (
+                            <NewMessageDivider messageCount={unreadMessagesAfter} />
+                          )}
+                          
+                          <div className={isNewMessage ? 'animate-fade-in-up' : ''}>
+                            <Message
+                              message={message}
+                              showAvatar={showAvatar}
+                              onThreadClick={() => onThreadClick(message)}
+                              currentUser={currentUser}
+                            />
+                          </div>
+                        </React.Fragment>
+                      );
+                      })})()}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            
+            {/* Typing Indicator - positioned at the bottom, always visible */}
+            {typingUsers.length > 0 && (
+              <div className="flex-shrink-0 pb-2">
+                <TypingIndicator typingUsers={typingUsers} />
+              </div>
+            )}
+            
+            {/* Invisible element for scrolling to bottom */}
+            <div ref={messagesEndRef} className="h-1 flex-shrink-0" />
           </>
         )}
-        
-        {/* Typing Indicator - positioned at the bottom, pushing content up */}
-        {typingUsers.length > 0 && (
-          <div className="mt-auto">
-            <TypingIndicator typingUsers={typingUsers} />
-          </div>
-        )}
-        
-        {/* Invisible element for scrolling to bottom */}
-        <div ref={messagesEndRef} className="h-1" />
       </div>
     </div>
   );

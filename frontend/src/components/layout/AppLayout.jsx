@@ -315,11 +315,18 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       if (message.thread_count > 0) {
         // Load thread replies via API
         const threadReplies = await loadThreadReplies(message.id);
-        const thread = {
-          id: `thread-${message.id}`,
-          parentMessage: message,
-          messages: threadReplies
-        };
+      // Log the threadReplies to verify sort order
+      console.log('Thread replies before setting state:', threadReplies.map(r => ({ 
+        id: r.id, 
+        timestamp: r.timestamp, 
+        content: r.content.substring(0, 30) 
+      })));
+      
+      const thread = {
+        id: `thread-${message.id}`,
+        parentMessage: message,
+        messages: threadReplies
+      };
         setSelectedThread(thread);
         setThreadOpen(true);
       } else {
@@ -522,10 +529,19 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
             };
             
             // Add the new reply to the thread's messages
+            const newMessages = [...selectedThread.messages, newReply];
+            
+            // Log the messages to check order
+            console.log('Thread messages after adding reply:', newMessages.map(m => ({
+              id: m.id, 
+              timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
+              content: m.content.substring(0, 30)
+            })));
+            
             // The Thread component will handle sorting these by timestamp
             const updatedThread = {
               ...selectedThread,
-              messages: [...selectedThread.messages, newReply]
+              messages: newMessages
             };
             
             setSelectedThread(updatedThread);

@@ -344,12 +344,15 @@ class SocketServer {
     try {
       // This would typically call the messages API
       // For now, we'll broadcast the message to the thread
-      const { threadId, content, message_type, mentions, attachments } = messageData;
+      const { threadId, content, message_type, mentions, attachments, messageId } = messageData;
       
       // Verify user is in thread
       const connection = this.activeConnections.get(socket.id);
       if (!connection || connection.currentThread !== threadId) {
-        socket.emit('error', { message: 'Not in this thread' });
+        socket.emit('message_error', { 
+          messageId: messageId || `temp-${Date.now()}`,
+          error: 'Not in this thread' 
+        });
         return;
       }
 
@@ -358,7 +361,7 @@ class SocketServer {
 
       // Create message object (in real implementation, this would come from the API)
       const message = {
-        id: `temp-${Date.now()}`, // Temporary ID
+        id: messageId || `temp-${Date.now()}`, // Use provided ID or temporary ID
         content,
         message_type: message_type || 'text',
         sender_id: socket.userId,
@@ -371,11 +374,21 @@ class SocketServer {
         reactions: []
       };
 
-      // Broadcast to all users in thread
-      this.io.to(`thread:${threadId}`).emit('new_message', {
+      // Broadcast to all users in thread with acknowledgment tracking
+      const broadcastData = {
         message,
         threadId,
-        timestamp: new Date()
+        timestamp: new Date(),
+        messageId: message.id
+      };
+
+      this.io.to(`thread:${threadId}`).emit('new_message', broadcastData);
+
+      // Send acknowledgment to sender
+      socket.emit('message_sent', {
+        messageId: message.id,
+        timestamp: new Date(),
+        success: true
       });
 
       // Update unread counts for users not currently viewing this thread
@@ -392,7 +405,10 @@ class SocketServer {
 
     } catch (error) {
       console.error('Send message error:', error);
-      socket.emit('error', { message: 'Failed to send message' });
+      socket.emit('message_error', { 
+        messageId: messageData.messageId || `temp-${Date.now()}`,
+        error: 'Failed to send message' 
+      });
     }
   }
 

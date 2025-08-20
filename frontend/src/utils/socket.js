@@ -250,15 +250,58 @@ class SocketManager {
     this.socket.emit('leave_thread', { threadId });
   }
 
-  // Enhanced message events
+  // Enhanced message events with retry and acknowledgment
   sendMessage(data) {
     if (!this.socket?.connected) {
       console.warn('⚠️ Cannot send message: socket not connected');
       return false;
     }
-    console.log('📤 Sending message:', data);
-    this.socket.emit('send_message', data);
-    return true;
+    
+    // Generate unique message ID for tracking
+    const messageId = data.messageId || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const messageData = { ...data, messageId };
+    
+    console.log('📤 Sending message:', messageData);
+    
+    // Set up timeout for message acknowledgment
+    const timeoutId = setTimeout(() => {
+      console.warn('⚠️ Message send timeout:', messageId);
+      // Emit timeout event that components can listen for
+      if (this.socket) {
+        this.socket.emit('internal_message_timeout', { messageId, data: messageData });
+      }
+    }, 10000); // 10 second timeout
+
+    // Listen for acknowledgment
+    const handleMessageSent = (ackData) => {
+      if (ackData.messageId === messageId) {
+        clearTimeout(timeoutId);
+        console.log('✅ Message sent successfully:', messageId);
+        this.socket.off('message_sent', handleMessageSent);
+      }
+    };
+
+    const handleMessageError = (errorData) => {
+      if (errorData.messageId === messageId) {
+        clearTimeout(timeoutId);
+        console.error('❌ Message send failed:', messageId, errorData.error);
+        this.socket.off('message_error', handleMessageError);
+        
+        // Retry once after 2 seconds
+        setTimeout(() => {
+          if (this.socket?.connected) {
+            console.log('🔄 Retrying message send:', messageId);
+            this.socket.emit('send_message', messageData);
+          }
+        }, 2000);
+      }
+    };
+
+    this.socket.on('message_sent', handleMessageSent);
+    this.socket.on('message_error', handleMessageError);
+    this.socket.emit('send_message', messageData);
+    
+    return messageId;
   }
 
   editMessage(messageId, content, threadId) {

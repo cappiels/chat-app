@@ -18,7 +18,7 @@ const TypingIndicator = ({ typingUsers = [] }) => {
   };
 
   return (
-    <div className="px-5 py-3 animate-fade-in sticky bottom-0 bg-gradient-to-b from-transparent to-white z-10">
+    <div className="px-5 py-2 animate-fade-in">
       <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 shadow-sm border border-blue-100">
         <div className="flex items-center -space-x-2">
           {typingUsers.slice(0, 3).map((typingUser) => (
