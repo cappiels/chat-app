@@ -34,6 +34,25 @@ router.use('/:workspaceId/threads', threadRoutes);
 const notificationRoutes = require('./notifications');
 router.use('/:workspaceId/notifications', notificationRoutes);
 
+// Socket server instance - will be set by the main app
+let socketServer = null;
+
+// Function to set the socket server instance and pass it down the chain
+router.setSocketServer = (server) => {
+  socketServer = server;
+  console.log('🔌 Socket server connected to workspace routes');
+  
+  // Pass socket server to nested routes
+  if (threadRoutes.setSocketServer) {
+    threadRoutes.setSocketServer(server);
+    console.log('🔌 Socket server passed to thread routes');
+  }
+  if (notificationRoutes.setSocketServer) {
+    notificationRoutes.setSocketServer(server);
+    console.log('🔌 Socket server passed to notification routes');
+  }
+};
+
 /**
  * GET /api/workspaces
  * Get all workspaces for current user

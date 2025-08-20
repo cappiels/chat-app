@@ -15,6 +15,14 @@ const pool = new Pool({
   }
 });
 
+// Socket server instance - will be set by the main app
+let socketServer = null;
+
+// Function to set the socket server instance
+router.setSocketServer = (server) => {
+  socketServer = server;
+};
+
 /**
  * GET /api/workspaces/:workspaceId/threads/:threadId/messages
  * Get messages in a thread with enterprise features
@@ -467,12 +475,108 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
     `;
 
     const completeMessage = await client.query(completeMessageQuery, [message.id]);
+    const messageData = completeMessage.rows[0];
 
     console.log(`💬 Message created in thread ${threadId} by ${req.user.display_name}`);
 
+    // 🔥 EMIT SOCKET EVENT FOR REAL-TIME UPDATES
+    if (socketServer && socketServer.io) {
+      const socketMessage = {
+        id: messageData.id,
+        content: messageData.content,
+        message_type: messageData.message_type,
+        sender_id: messageData.sender_id,
+        sender_name: messageData.sender_name,
+        sender_avatar: messageData.sender_avatar,
+        thread_id: threadId,
+        created_at: messageData.created_at,
+        mentions: messageData.mentions || [],
+        attachments: messageData.attachments || [],
+        reactions: []
+      };
+
+      // Broadcast to all users in this thread
+      socketServer.io.to(`thread:${threadId}`).emit('new_message', {
+        message: socketMessage,
+        threadId,
+        timestamp: new Date()
+      });
+
+      console.log(`🚀 Socket event emitted for new message in thread ${threadId}`);
+
+      // Handle notification updates for users not currently viewing this thread
+      try {
+        // Get thread info to determine entity type
+        const threadResult = await pool.query(
+          'SELECT type FROM threads WHERE id = $1',
+          [threadId]
+        );
+
+        if (threadResult.rows.length > 0) {
+          const entityType = threadResult.rows[0].type;
+
+          // Get all workspace members except the sender
+          const membersResult = await pool.query(`
+            SELECT user_id FROM workspace_members 
+            WHERE workspace_id = $1 AND user_id != $2
+          `, [workspaceId, userId]);
+
+          // Update unread counts and broadcast notifications for each member
+          for (const member of membersResult.rows) {
+            const memberId = member.user_id;
+
+            // Check if user is currently viewing this thread via active socket connections
+            const isCurrentlyViewing = Array.from(socketServer.activeConnections.values())
+              .some(conn => conn.userId === memberId && conn.currentThread === threadId);
+
+            if (!isCurrentlyViewing) {
+              // Increment unread count for users not currently viewing
+              await pool.query(`
+                INSERT INTO user_read_status (user_id, workspace_id, entity_type, entity_id, unread_count, unread_mentions)
+                VALUES ($1, $2, $3, $4, 1, $5)
+                ON CONFLICT (user_id, workspace_id, entity_type, entity_id)
+                DO UPDATE SET 
+                  unread_count = user_read_status.unread_count + 1,
+                  unread_mentions = user_read_status.unread_mentions + $5
+              `, [
+                memberId, 
+                workspaceId, 
+                entityType, 
+                threadId, 
+                messageData.mentions?.some(m => m.user_id === memberId) ? 1 : 0
+              ]);
+
+              // Broadcast notification update to user's devices
+              socketServer.io.emit('notification_update', {
+                userId: memberId,
+                workspaceId,
+                entityType,
+                entityId: threadId,
+                messageId: messageData.id,
+                unreadIncrement: 1,
+                mentionIncrement: messageData.mentions?.some(m => m.user_id === memberId) ? 1 : 0,
+                message: {
+                  id: messageData.id,
+                  content: messageData.content,
+                  senderName: messageData.sender_name,
+                  createdAt: messageData.created_at
+                },
+                timestamp: new Date()
+              });
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error('Notification update error:', notificationError);
+        // Don't fail the request for notification errors
+      }
+    } else {
+      console.warn('⚠️ Socket server not available for real-time events');
+    }
+
     res.status(201).json({
       message: 'Message created successfully',
-      data: completeMessage.rows[0]
+      data: messageData
     });
 
   } catch (error) {

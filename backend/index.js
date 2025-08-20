@@ -192,10 +192,12 @@ app.get('/socket.io/*', (req, res) => {
 // Mount route modules with /api prefix for Digital Ocean routing
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authLimiter, userRoutes);
-app.use('/api/workspaces', workspaceRoutes);
-// Note: threadRoutes are already mounted within workspaceRoutes at /:workspaceId/threads
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/version', versionRoutes);
+
+// Special handling for workspace routes to inject socket server
+// Mount workspace routes AFTER socket server is initialized
+let workspaceRoutesWithSocket = null;
 
 
 // Legacy workspace endpoint (for backward compatibility)
@@ -308,4 +310,9 @@ httpServer.listen(port, () => {
   console.log(`⏰ Started at: ${new Date().toISOString()}`);
   console.log(`🔌 Socket.IO server initialized and ready for real-time connections`);
   console.log(`📧 Gmail service account configured: ${!!process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}`);
+  
+  // 🔥 Now mount workspace routes with socket server injection
+  workspaceRoutes.setSocketServer && workspaceRoutes.setSocketServer(socketServer);
+  app.use('/api/workspaces', workspaceRoutes);
+  console.log(`🔌 Socket server connected to workspace routes for real-time messaging`);
 });

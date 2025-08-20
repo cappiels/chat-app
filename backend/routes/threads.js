@@ -617,4 +617,19 @@ router.put('/:threadId/read', authenticateUser, requireWorkspaceMembership, asyn
 const messageRoutes = require('./messages');
 router.use('/:threadId/messages', messageRoutes);
 
+// Socket server instance - will be set by the parent route
+let socketServer = null;
+
+// Function to set the socket server instance and pass it down the chain
+router.setSocketServer = (server) => {
+  socketServer = server;
+  console.log('🔌 Socket server connected to thread routes');
+  
+  // Pass socket server to nested routes
+  if (messageRoutes.setSocketServer) {
+    messageRoutes.setSocketServer(server);
+    console.log('🔌 Socket server passed to message routes');
+  }
+};
+
 module.exports = router;
