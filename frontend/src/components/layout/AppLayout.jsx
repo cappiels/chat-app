@@ -111,17 +111,21 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
 
     // Handler for typing indicators
     const handleUserTyping = (data) => {
-      console.log('⌨️ Typing event in AppLayout:', data);
+      console.log('⌨️ Typing event received in AppLayout:', data);
+      console.log('⌨️ Current channel ID:', currentChannel?.id);
+      console.log('⌨️ Event thread ID:', data.threadId);
       
       // Only process typing events for the current channel
-      if (data.threadId === currentChannel.id) {
+      if (data.threadId === currentChannel?.id) {
+        console.log('⌨️ Processing typing event for current channel');
         setTypingUsers(prev => {
+          console.log('⌨️ Previous typing users:', prev);
+          
           // Remove this user first (to avoid duplicates)
           const filtered = prev.filter(user => user.userId !== data.userId);
           
           if (data.isTyping) {
-            // Add user to typing list with compatible naming
-            return [...filtered, {
+            const newTypingUser = {
               userId: data.userId,
               user: {
                 // Map user properties ensuring they match what TypingIndicator expects
@@ -131,12 +135,20 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
                 ...data.user
               },
               timestamp: new Date(data.timestamp)
-            }];
+            };
+            console.log('⌨️ Adding typing user:', newTypingUser);
+            const newList = [...filtered, newTypingUser];
+            console.log('⌨️ New typing users list:', newList);
+            return newList;
           } else {
             // User stopped typing
+            console.log('⌨️ Removing typing user:', data.userId);
+            console.log('⌨️ Filtered typing users:', filtered);
             return filtered;
           }
         });
+      } else {
+        console.log('⌨️ Ignoring typing event for different channel');
       }
     };
 

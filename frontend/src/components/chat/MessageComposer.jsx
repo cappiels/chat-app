@@ -30,12 +30,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
     }
   }, [message]);
 
-  // Typing indicator handlers
+  // Typing indicator handlers with enhanced debugging
   const startTyping = useCallback(() => {
     if (!channel?.id || isTypingRef.current) return;
     
+    console.log('🔤 Starting typing for channel:', channel.id, channel.name);
     isTypingRef.current = true;
-    socketManager.startTyping(channel.id);
+    const success = socketManager.startTyping(channel.id);
+    console.log('🔤 startTyping result:', success);
     
     // Clear any existing timeout
     if (typingTimeoutRef.current) {
@@ -45,6 +47,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
     // Stop typing after 3 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
       if (isTypingRef.current) {
+        console.log('🔤 Auto-stopping typing due to timeout');
         isTypingRef.current = false;
         socketManager.stopTyping(channel.id);
       }
@@ -54,8 +57,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const stopTyping = useCallback(() => {
     if (!channel?.id || !isTypingRef.current) return;
     
+    console.log('🔤 Stopping typing for channel:', channel.id, channel.name);
     isTypingRef.current = false;
-    socketManager.stopTyping(channel.id);
+    const success = socketManager.stopTyping(channel.id);
+    console.log('🔤 stopTyping result:', success);
     
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
