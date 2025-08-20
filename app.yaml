@@ -8,6 +8,7 @@ services:
   http_port: 8080
   routes:
   - path: /api
+  - path: /socket.io
 - name: frontend
   source_dir: /frontend
   build_command: npm run build
