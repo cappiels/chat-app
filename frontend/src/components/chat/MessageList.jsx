@@ -7,10 +7,13 @@ import TypingIndicator from './TypingIndicator';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
 
-const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, onChannelMembers, onChannelInfo }) => {
+const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, onChannelMembers, onChannelInfo, typingUsers: externalTypingUsers }) => {
   const messagesEndRef = useRef(null);
-  const [typingUsers, setTypingUsers] = useState([]);
+  const [internalTypingUsers, setInternalTypingUsers] = useState([]);
   const [newMessages, setNewMessages] = useState([]);
+  
+  // Use external typing users if provided, otherwise use internal state
+  const typingUsers = externalTypingUsers || internalTypingUsers;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -20,14 +23,15 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
     scrollToBottom();
   }, [messages]);
 
-  // Set up typing indicator listeners
+  // Set up event listeners only if external typing users are not provided
   useEffect(() => {
-    if (!channel?.id) return;
+    // Skip setting up listeners if external typing users are provided
+    if (!channel?.id || externalTypingUsers !== undefined) return;
 
     const handleUserTyping = (data) => {
       if (data.threadId !== channel.id) return;
 
-      setTypingUsers(prev => {
+      setInternalTypingUsers(prev => {
         // Remove this user first (to avoid duplicates)
         const filtered = prev.filter(user => user.userId !== data.userId);
         
@@ -48,7 +52,7 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
     const handleNewMessage = (data) => {
       if (data.threadId === channel.id) {
         // Remove sender from typing indicators
-        setTypingUsers(prev => prev.filter(user => user.userId !== data.message.sender_id));
+        setInternalTypingUsers(prev => prev.filter(user => user.userId !== data.message.sender_id));
         
         // Add subtle animation for new messages
         setNewMessages(prev => [...prev, data.message.id]);
@@ -82,15 +86,18 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
     return () => {
       socketManager.off('user_typing', handleUserTyping);
       socketManager.off('new_message', handleNewMessage);
-      setTypingUsers([]);
+      setInternalTypingUsers([]);
       setNewMessages([]);
     };
-  }, [channel?.id]);
+  }, [channel?.id, externalTypingUsers]);
 
   // Clean up stale typing indicators (remove users who have been typing for too long)
+  // Only do this for internal typing users, not for externally provided ones
   useEffect(() => {
+    if (externalTypingUsers !== undefined) return; // Skip if external typing users are provided
+    
     const interval = setInterval(() => {
-      setTypingUsers(prev => {
+      setInternalTypingUsers(prev => {
         const now = new Date();
         return prev.filter(user => {
           const timeSinceTyping = now - new Date(user.timestamp);
@@ -100,7 +107,7 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [externalTypingUsers]);
 
   // Group messages by date
   const groupMessagesByDate = (messages) => {
@@ -272,6 +279,13 @@ MessageList.propTypes = {
   lastReadMessageId: PropTypes.string,
   onChannelMembers: PropTypes.func,
   onChannelInfo: PropTypes.func,
+  typingUsers: PropTypes.arrayOf(
+    PropTypes.shape({
+      userId: PropTypes.string.isRequired,
+      user: PropTypes.object.isRequired,
+      timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.object, PropTypes.instanceOf(Date)]),
+    })
+  ),
 };
 
 export default MessageList;

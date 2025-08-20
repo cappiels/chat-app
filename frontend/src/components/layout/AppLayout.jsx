@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -30,6 +30,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [error, setError] = useState(null);
+  const [typingUsers, setTypingUsers] = useState([]);
 
   // Handle responsive behavior
   useEffect(() => {
@@ -77,6 +78,88 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       socketManager.joinThread(workspace.id, currentChannel.id);
     }
   }, [currentChannel, workspace]);
+
+  // Socket event listeners for real-time updates
+  useEffect(() => {
+    if (!currentChannel) return;
+
+    // Handler for new messages
+    const handleNewMessage = (data) => {
+      console.log('📩 New message received in AppLayout:', data);
+      
+      // Only process messages for the current channel
+      if (data.threadId === currentChannel.id) {
+        const newMessage = {
+          id: data.message.id,
+          user: {
+            name: data.message.sender_name || 'User',
+            avatar: data.message.sender_avatar,
+            initials: data.message.sender_name ? data.message.sender_name.split(' ').map(n => n[0]).join('') : 'U',
+            status: 'online'
+          },
+          content: data.message.content,
+          timestamp: new Date(data.timestamp || data.message.created_at),
+          thread_count: data.message.reply_count || 0,
+          thread_participants: [],
+          reactions: data.message.reactions || []
+        };
+        
+        // Update messages array with the new message
+        setMessages(prevMessages => [...prevMessages, newMessage]);
+      }
+    };
+
+    // Handler for typing indicators
+    const handleUserTyping = (data) => {
+      console.log('⌨️ Typing event in AppLayout:', data);
+      
+      // Only process typing events for the current channel
+      if (data.threadId === currentChannel.id) {
+        setTypingUsers(prev => {
+          // Remove this user first (to avoid duplicates)
+          const filtered = prev.filter(user => user.userId !== data.userId);
+          
+          if (data.isTyping) {
+            // Add user to typing list
+            return [...filtered, {
+              userId: data.userId,
+              user: data.user,
+              timestamp: new Date(data.timestamp)
+            }];
+          } else {
+            // User stopped typing
+            return filtered;
+          }
+        });
+      }
+    };
+
+    // Register event listeners
+    socketManager.on('new_message', handleNewMessage);
+    socketManager.on('user_typing', handleUserTyping);
+    
+    // Clean up
+    return () => {
+      socketManager.off('new_message', handleNewMessage);
+      socketManager.off('user_typing', handleUserTyping);
+      setTypingUsers([]);
+    };
+  }, [currentChannel]);
+
+  // Clean up stale typing indicators
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTypingUsers(prev => {
+        const now = new Date();
+        return prev.filter(user => {
+          const timeSinceTyping = now - new Date(user.timestamp);
+          return timeSinceTyping < 10000; // Remove after 10 seconds
+        });
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const loadWorkspaceChannels = async (workspace) => {
     try {
@@ -396,6 +479,8 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
               currentUser={user}
               onChannelMembers={handleChannelMembers}
               onChannelInfo={handleChannelInfo}
+              typingUsers={typingUsers}
+              lastReadMessageId={currentChannel.last_read_id}
             />
             <MessageComposer
               channel={currentChannel}
