@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
+const { authenticateUser, requireWorkspaceMembership } = require('../middleware/auth');
 
 // Use the same database pool as the main app
 const pool = new Pool({
@@ -13,9 +14,8 @@ const pool = new Pool({
 // Permission checking middleware (simplified for now - full RBAC can be added later)
 const checkKnowledgePermission = (requiredPermission) => {
   return (req, res, next) => {
-    // For now, just check if user is authenticated
-    // TODO: Implement full RBAC when knowledge tables are created in PostgreSQL
-    const userId = req.user?.uid;
+    // User is already authenticated by authenticateUser middleware
+    const userId = req.user?.id;
     
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -34,13 +34,17 @@ const checkKnowledgePermission = (requiredPermission) => {
   };
 };
 
+// Apply authentication to all knowledge routes
+router.use(authenticateUser);
+router.use('/workspaces/:workspaceId/*', requireWorkspaceMembership);
+
 // Get or create personal bookmarks folder for a user
 router.post('/workspaces/:workspaceId/personal-bookmarks', async (req, res) => {
   const client = await pool.connect();
   try {
     const { workspaceId } = req.params;
     const { userId } = req.body;
-    const authenticatedUserId = req.user?.uid;
+    const authenticatedUserId = req.user?.id;
     
     // Only allow users to create their own personal bookmarks
     if (userId !== authenticatedUserId) {
@@ -109,7 +113,7 @@ router.post('/workspaces/:workspaceId/personal-bookmarks', async (req, res) => {
 router.get('/workspaces/:workspaceId/permissions/:userId', async (req, res) => {
   try {
     const { workspaceId, userId } = req.params;
-    const authenticatedUserId = req.user?.uid;
+    const authenticatedUserId = req.user?.id;
     
     // Users can only check their own permissions (or admins can check others)
     if (userId !== authenticatedUserId) {
@@ -186,7 +190,7 @@ router.post('/workspaces/:workspaceId/ai-suggestions', async (req, res) => {
 router.get('/workspaces/:workspaceId/scopes', async (req, res) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user?.uid;
+    const userId = req.user?.id;
     
     const query = `
       SELECT 
@@ -228,7 +232,7 @@ router.post('/workspaces/:workspaceId/scopes', checkKnowledgePermission('manage_
   try {
     const { workspaceId } = req.params;
     const { name, description, scope_type, source_thread_id, settings } = req.body;
-    const userId = req.user?.uid;
+    const userId = req.user?.id;
     
     if (!name || !scope_type) {
       return res.status(400).json({ error: 'Name and scope_type are required' });
@@ -428,7 +432,7 @@ router.post('/workspaces/:workspaceId/scopes/:scopeId/items', checkKnowledgePerm
       approval_status = 'approved',
       additional_scopes = [] // Other scopes to add this to
     } = req.body;
-    const userId = req.user?.uid;
+    const userId = req.user?.id;
     
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content are required' });
@@ -540,7 +544,7 @@ router.post('/items/:itemId/analytics', async (req, res) => {
   try {
     const { itemId } = req.params;
     const { action_type, scope_id, metadata } = req.body;
-    const userId = req.user?.uid;
+    const userId = req.user?.id;
     
     if (!action_type || !userId) {
       return res.status(400).json({ error: 'Action type and user ID are required' });

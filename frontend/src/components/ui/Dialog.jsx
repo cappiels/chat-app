@@ -23,13 +23,16 @@ const DialogContent = ({ children, className = '' }) => {
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50" 
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm" 
         onClick={() => setIsOpen(false)}
       />
-      <div className={`relative bg-white rounded-lg shadow-lg p-6 w-full max-w-md mx-4 ${className}`}>
-        {children}
+      <div className={`relative bg-white rounded-xl border border-gray-200 shadow-2xl p-6 w-full max-w-md mx-4 transform transition-all duration-200 scale-100 ${className}`}>
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-50/50 to-white rounded-xl"></div>
+        <div className="relative">
+          {children}
+        </div>
       </div>
     </div>
   );

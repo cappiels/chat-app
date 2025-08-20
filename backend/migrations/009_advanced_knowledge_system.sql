@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS knowledge_scopes (
     workspace_id UUID NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
-    scope_type TEXT CHECK(scope_type IN ('channel', 'workspace', 'collection', 'cross-channel', 'custom')) NOT NULL,
+    scope_type TEXT CHECK(scope_type IN ('channel', 'workspace', 'collection', 'cross-channel', 'custom', 'personal')) NOT NULL,
     source_thread_id UUID, -- For channel-scoped knowledge
     parent_scope_id UUID, -- For hierarchical scopes
     is_active BOOLEAN DEFAULT TRUE,
