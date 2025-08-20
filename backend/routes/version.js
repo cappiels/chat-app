@@ -6,19 +6,20 @@ const path = require('path');
 // Get version from package.json or git commit
 const getAppVersion = () => {
   try {
-    // Try to get git commit hash first
+    // Prioritize package.json version for cache busting
+    const packagePath = path.join(__dirname, '../package.json');
+    const packageData = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    if (packageData.version) {
+      return packageData.version;
+    }
+    
+    // Fall back to git commit hash if no package version
     const { execSync } = require('child_process');
     const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
     return gitHash;
   } catch (error) {
-    // Fallback to package.json version
-    try {
-      const packagePath = path.join(__dirname, '../package.json');
-      const packageData = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-      return packageData.version || 'unknown';
-    } catch (err) {
-      return 'development';
-    }
+    // Last resort fallback
+    return 'development';
   }
 };
 
