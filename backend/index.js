@@ -100,9 +100,9 @@ const authLimiter = rateLimit({
 // Set to 1 since DigitalOcean App Platform uses 1 proxy hop
 app.set('trust proxy', 1);
 
-// --- Standard Middleware ---
-app.use(express.json({ limit: '10mb' })); // Support larger payloads for file uploads
-app.use(express.urlencoded({ extended: true }));
+// --- Memory-Optimized Middleware ---
+app.use(express.json({ limit: '2mb' })); // Reduced from 10mb to save memory
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {

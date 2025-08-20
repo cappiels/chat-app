@@ -25,14 +25,16 @@ class SocketServer {
         methods: ['GET', 'POST'],
         credentials: true
       },
-      transports: ['polling', 'websocket'], // Prioritize polling for DigitalOcean
-      pingTimeout: 60000,
-      pingInterval: 25000,
-      connectTimeout: 45000,
+      transports: ['websocket', 'polling'], // WebSocket first for best performance
+      pingTimeout: 30000, // Reduced from 60s to save memory
+      pingInterval: 15000, // Reduced from 25s to save memory  
+      connectTimeout: 20000, // Reduced from 45s
       allowEIO3: true,
-      path: '/socket.io/', // Explicit path
-      allowUpgrades: false, // Don't allow upgrades to WebSocket in production
-      cookie: false // Disable cookies for DigitalOcean compatibility
+      path: '/socket.io/',
+      allowUpgrades: true,
+      cookie: false,
+      maxHttpBufferSize: 100000, // Limit buffer size to 100KB
+      perMessageDeflate: false // Disable compression to save CPU/memory
     });
 
     // Store active connections and user presence
