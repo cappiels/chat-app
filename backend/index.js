@@ -184,6 +184,11 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Socket.IO endpoint fallback (for debugging)
+app.get('/socket.io/*', (req, res) => {
+  res.status(200).send('Socket.IO endpoint reached - WebSocket upgrade should happen here');
+});
+
 // Mount route modules with /api prefix for Digital Ocean routing
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authLimiter, userRoutes);
