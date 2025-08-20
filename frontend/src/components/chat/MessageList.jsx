@@ -213,9 +213,15 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
                   <div className="flex-1 h-px bg-slate-200" />
                 </div>
 
-                {/* Messages for this date */}
-                {group.messages.map((message, index) => {
-                  const prevMessage = index > 0 ? group.messages[index - 1] : null;
+                {/* Messages for this date - sorted by timestamp with oldest at top, newest at bottom */}
+                {(() => {
+                  // Sort messages first, then operate on the sorted array
+                  const sortedMessages = [...group.messages]
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    
+                  return sortedMessages.map((message, index) => {
+                  // Now prevMessage refers to the previous message in the sorted array
+                  const prevMessage = index > 0 ? sortedMessages[index - 1] : null;
                   const showAvatar = !prevMessage || 
                     prevMessage.user.name !== message.user.name ||
                     (message.timestamp - prevMessage.timestamp) > 300000; // 5 minutes
@@ -253,7 +259,7 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
                       </div>
                     </React.Fragment>
                   );
-                })}
+                  })})()}
               </div>
             ))}
           </>
