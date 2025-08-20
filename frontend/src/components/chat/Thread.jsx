@@ -71,7 +71,8 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
               <div className="flex-1 flex flex-col justify-end min-h-0">
                 <div className="flex flex-col space-y-4">
                   {/* Replies sorted chronologically with oldest at top, newest at bottom */}
-                  {[...replies]
+                  {replies
+                    .slice() // Create a copy to avoid mutating the original array
                     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
                     .map((reply) => (
                       <Message

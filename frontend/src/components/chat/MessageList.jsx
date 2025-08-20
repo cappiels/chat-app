@@ -111,12 +111,15 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
     return () => clearInterval(interval);
   }, [externalTypingUsers]);
 
-  // Group messages by date
+  // Group messages by date - ensure messages are sorted chronologically first
   const groupMessagesByDate = (messages) => {
+    // First, sort all messages chronologically (oldest to newest)
+    const sortedMessages = [...messages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    
     const groups = [];
     let currentDate = null;
 
-    messages.forEach((message) => {
+    sortedMessages.forEach((message) => {
       const messageDate = new Date(message.timestamp).toDateString();
       
       if (messageDate !== currentDate) {
