@@ -20,6 +20,9 @@ class VersionManager {
       // Set a default current version
       this.currentVersion = storedVersion || '1.0.0';
       
+      // Report current version to server for tracking
+      await this.reportVersionToServer();
+      
       // Check for updates from server immediately and aggressively
       await this.checkForUpdates();
       
@@ -31,6 +34,26 @@ class VersionManager {
       console.warn('⚠️ Version manager initialization failed:', error);
       // Even if init fails, still start checking
       this.startPeriodicCheck();
+    }
+  }
+
+  async reportVersionToServer() {
+    try {
+      await fetch(`${this.apiUrl}/version-tracking/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          version: this.currentVersion,
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString(),
+          userId: localStorage.getItem('firebase:authUser:uid') || null
+        })
+      });
+      console.log('📊 Version reported to server:', this.currentVersion);
+    } catch (error) {
+      console.warn('Failed to report version:', error);
     }
   }
 

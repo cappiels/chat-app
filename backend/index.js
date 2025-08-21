@@ -17,6 +17,7 @@ const versionRoutes = require('./routes/version');
 const uploadRoutes = require('./routes/upload');
 const emailNotificationRoutes = require('./routes/emailNotifications');
 const nuclearCacheBusterRoutes = require('./routes/nuclear-cache-buster');
+const versionTrackingRoutes = require('./routes/version-tracking');
 
 // Import Socket.IO server
 const SocketServer = require('./socket/socketServer');
@@ -202,6 +203,7 @@ app.use('/api/version', versionRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/email-notifications', emailNotificationRoutes);
 app.use('/api/nuke-cache', nuclearCacheBusterRoutes);
+app.use('/api/version-tracking', versionTrackingRoutes);
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {
