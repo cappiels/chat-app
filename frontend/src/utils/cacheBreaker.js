@@ -1,5 +1,5 @@
 // Immediate cache breaker - forces refresh if version mismatch detected
-const CURRENT_VERSION = '1.8.0'; // This will be updated by bumpv.sh
+const CURRENT_VERSION = '1.8.1'; // This will be updated by bumpv.sh
 
 class CacheBreaker {
   constructor() {
