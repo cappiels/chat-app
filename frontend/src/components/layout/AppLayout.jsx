@@ -10,6 +10,7 @@ import InviteDialog from '../InviteDialog';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 import { threadAPI, messageAPI } from '../../utils/api';
 import socketManager from '../../utils/socket';
+import notificationManager from '../../utils/notifications';
 
 const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWorkspaces }) => {
   const [channels, setChannels] = useState([]);
@@ -57,6 +58,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           socketManager.joinWorkspace(workspace.id);
         } catch (error) {
           console.error('Failed to initialize socket for workspace:', error);
+          notificationManager.playErrorSound();
         }
         
         // Load channels
@@ -70,6 +72,26 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     
     initializeWorkspace();
   }, [workspace, user]);
+
+  // Socket connection status listeners
+  useEffect(() => {
+    const handleConnection = () => {
+      console.log('🔗 Socket connected');
+      notificationManager.playConnectionSound(true);
+    };
+
+    const handleDisconnection = (reason) => {
+      console.log('🔌 Socket disconnected:', reason);
+      notificationManager.playConnectionSound(false);
+    };
+
+    socketManager.onConnect(handleConnection);
+    socketManager.onDisconnect(handleDisconnection);
+
+    return () => {
+      // Cleanup is handled by socketManager internally
+    };
+  }, []);
 
   // Join thread when current channel changes  
   useEffect(() => {
@@ -87,8 +109,12 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     const handleNewMessage = (data) => {
       console.log('📩 New message received in AppLayout:', data);
       
-      // Only process messages for the current channel
-      if (data.threadId === currentChannel.id) {
+      const isCurrentUser = data.message.sender_id === user?.uid;
+      const isCurrentThread = data.threadId === currentChannel?.id;
+      const isCurrentWorkspace = data.workspaceId === workspace?.id;
+      
+      // Process message for current channel display
+      if (isCurrentThread) {
         const newMessage = {
           id: data.message.id,
           user: {
@@ -106,6 +132,43 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         
         // Update messages array with the new message
         setMessages(prevMessages => [...prevMessages, newMessage]);
+      }
+      
+      // Play notification sounds (but not for messages sent by current user)
+      if (!isCurrentUser) {
+        // Determine the type of notification based on message context
+        let notificationType = 'message';
+        const messageContent = data.message.content || '';
+        
+        // Check if user is mentioned in the message
+        const userDisplayName = user?.displayName || '';
+        const userEmail = user?.email || '';
+        const isMentioned = messageContent.includes(`@${userDisplayName}`) || 
+                           messageContent.includes(`@${userEmail}`) ||
+                           messageContent.includes('@everyone') ||
+                           messageContent.includes('@here');
+        
+        if (isMentioned) {
+          notificationType = 'mention';
+        } else if (data.message.is_direct_message) {
+          notificationType = 'direct_message';
+        }
+        
+        // Create message object for notification
+        const messageForNotification = {
+          ...data.message,
+          sender_name: data.message.sender_name || 'Someone',
+          thread_name: data.threadName || currentChannel?.name || 'channel',
+          content: data.message.content || 'sent a message'
+        };
+        
+        // Show desktop notification and play sound
+        notificationManager.showMessageNotification(
+          messageForNotification, 
+          notificationType, 
+          currentChannel?.id, 
+          workspace?.id
+        );
       }
     };
 

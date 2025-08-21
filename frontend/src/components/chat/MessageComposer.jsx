@@ -20,6 +20,7 @@ import {
   MicOff
 } from 'lucide-react';
 import socketManager from '../../utils/socket';
+import notificationManager from '../../utils/notifications';
 
 const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const [message, setMessage] = useState('');
@@ -122,6 +123,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
     e.preventDefault();
     if (message.trim()) {
       stopTyping();
+      
+      // Play message sent sound
+      notificationManager.playMessageSentSound();
+      
       onSendMessage(message.trim());
       setMessage('');
       setIsExpanded(false);

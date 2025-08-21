@@ -1,3 +1,5 @@
+import soundManager from './soundManager.js';
+
 class NotificationManager {
   constructor() {
     this.permission = null;
@@ -159,7 +161,7 @@ class NotificationManager {
     }
   }
 
-  showMessageNotification(message, type = 'message', currentThread = null) {
+  showMessageNotification(message, type = 'message', currentThread = null, currentWorkspace = null) {
     if (!this.shouldShowNotification(type, message, currentThread)) {
       return null;
     }
@@ -167,6 +169,17 @@ class NotificationManager {
     const senderName = message.sender_name || message.user?.display_name || 'Someone';
     const threadName = message.thread_name || 'a channel';
     const content = message.content || 'sent a message';
+    
+    // Determine sound context for different notification types
+    const soundContext = {
+      isMention: type === 'mention',
+      isDirect: type === 'direct_message',
+      isDifferentThread: currentThread && message.thread_id !== currentThread,
+      isDifferentWorkspace: currentWorkspace && message.workspace_id !== currentWorkspace
+    };
+
+    // Play appropriate notification sound
+    this.playNotificationSound(type, soundContext);
     
     let title, body, tag;
     
@@ -246,29 +259,77 @@ class NotificationManager {
     }));
   }
 
-  playNotificationSound() {
+  playNotificationSound(type = 'message', context = {}) {
     if (!this.settings.soundEnabled) return;
     
     try {
-      // Create a subtle notification sound
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.2);
+      soundManager.playMessageReceived(context);
     } catch (error) {
       console.warn('Failed to play notification sound:', error);
     }
+  }
+
+  // Method to play sound when user sends a message
+  playMessageSentSound() {
+    if (!this.settings.soundEnabled) return;
+    soundManager.playMessageSent();
+  }
+
+  // Method to play typing sound
+  playTypingSound() {
+    if (!this.settings.soundEnabled) return;
+    soundManager.playTyping();
+  }
+
+  // Method to play connection status sounds
+  playConnectionSound(connected) {
+    if (!this.settings.soundEnabled) return;
+    soundManager.playConnectionChange(connected);
+  }
+
+  // Method to play error sound
+  playErrorSound() {
+    if (!this.settings.soundEnabled) return;
+    soundManager.playError();
+  }
+
+  // Get combined settings from both notification and sound managers
+  getAllSettings() {
+    return {
+      notifications: this.getSettings(),
+      sounds: soundManager.getSettings()
+    };
+  }
+
+  // Update sound settings
+  updateSoundSettings(newSettings) {
+    soundManager.updateSettings(newSettings);
+  }
+
+  // Enable/disable sounds globally
+  setSoundEnabled(enabled) {
+    this.settings.soundEnabled = enabled;
+    soundManager.setEnabled(enabled);
+    this.saveSettings();
+  }
+
+  // Set master volume for all sounds
+  setSoundVolume(volume) {
+    soundManager.setVolume(volume);
+  }
+
+  // Enable/disable specific sound types
+  setSoundTypeEnabled(soundType, enabled) {
+    soundManager.setSoundEnabled(soundType, enabled);
+  }
+
+  // Test sound functionality
+  testSound(soundType) {
+    soundManager.testSound(soundType);
+  }
+
+  testAllSounds() {
+    soundManager.testAllSounds();
   }
 
   clearNotifications(tag = null) {

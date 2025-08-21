@@ -15,12 +15,14 @@ const threadRoutes = require('./routes/threads');
 const knowledgeRoutes = require('./routes/knowledge-advanced');
 const versionRoutes = require('./routes/version');
 const uploadRoutes = require('./routes/upload');
+const emailNotificationRoutes = require('./routes/emailNotifications');
 
 // Import Socket.IO server
 const SocketServer = require('./socket/socketServer');
 
 // Import email service (initializes automatically)
 const emailService = require('./services/emailService');
+const emailNotificationService = require('./services/emailNotificationService');
 
 // --- Initialization ---
 const app = express();
@@ -197,6 +199,7 @@ app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/version', versionRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/email-notifications', emailNotificationRoutes);
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {

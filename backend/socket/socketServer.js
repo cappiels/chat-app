@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const admin = require('firebase-admin');
 const { Pool } = require('pg');
+const emailNotificationService = require('../services/emailNotificationService');
 
 // Database connection
 const pool = new Pool({

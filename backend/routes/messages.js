@@ -15,6 +15,9 @@ const pool = new Pool({
   }
 });
 
+// Import email notification service
+const emailNotificationService = require('../services/emailNotificationService');
+
 // Socket server instance - will be set by the main app
 let socketServer = null;
 
@@ -403,6 +406,26 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
             threadId,
             message.id
           ]);
+
+          // Queue email notification for mention
+          try {
+            await emailNotificationService.queueNotification({
+              userId: mention.user_id,
+              workspaceId: parseInt(workspaceId),
+              threadId: parseInt(threadId),
+              messageId: message.id,
+              notificationType: 'mention',
+              priority: 'immediate',
+              senderName: req.user.display_name,
+              senderEmail: req.user.email,
+              messageContent: content.substring(0, 500),
+              messageTimestamp: new Date()
+            });
+            console.log(`📧 Email notification queued for mention to user ${mention.user_id}`);
+          } catch (emailError) {
+            console.error('Failed to queue email notification for mention:', emailError);
+            // Don't fail the request if email notification fails
+          }
         }
       }
     }

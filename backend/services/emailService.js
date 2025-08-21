@@ -550,11 +550,14 @@ class EmailService {
       // Use Gmail API directly since SMTP OAuth2 has issues with personal Gmail
       const gmail = google.gmail({ version: 'v1', auth: this.authClient });
 
+      // Encode subject line to handle emojis and special characters
+      const encodedSubject = this.encodeSubject(subject);
+
       // Create email message in RFC2822 format
       const emailLines = [
         `To: ${to}`,
         `From: ChatFlow <${this.oauth2Client ? 'cappiels@gmail.com' : process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>`,
-        `Subject: ${subject}`,
+        `Subject: ${encodedSubject}`,
         'MIME-Version: 1.0',
         'Content-Type: text/html; charset=utf-8',
         '',
@@ -610,6 +613,19 @@ class EmailService {
         enterprise_mode: true
       };
     }
+  }
+
+  /**
+   * Encode subject line to handle emojis and special characters properly
+   * Uses RFC 2047 encoding for email subject lines
+   */
+  encodeSubject(subject) {
+    // Check if subject contains non-ASCII characters (including emojis)
+    if (/[^\x00-\x7F]/.test(subject)) {
+      // Use RFC 2047 encoding for subjects with special characters/emojis
+      return `=?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`;
+    }
+    return subject;
   }
 
   /**

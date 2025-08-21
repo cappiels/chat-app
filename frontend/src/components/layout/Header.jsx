@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefcase, Settings } from 'lucide-react';
+import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefcase, Settings, Volume2 } from 'lucide-react';
 import { workspaceAPI, notificationAPI } from '../../utils/api';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
+import SoundSettingsDialog from '../SoundSettingsDialog';
 import ConnectionStatus from '../ui/ConnectionStatus';
 import { getVersionString } from '../../utils/version';
 
@@ -20,6 +21,8 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
   const [loadingWorkspaceDetails, setLoadingWorkspaceDetails] = useState(false);
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [totalMentions, setTotalMentions] = useState(0);
+  const [showSoundSettings, setShowSoundSettings] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Load unread summary when workspace changes
   useEffect(() => {
@@ -301,8 +304,11 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         </button>
 
         {/* User menu */}
-        <div className="relative group">
-          <button className="flex items-center gap-2 p-1 rounded hover:bg-white/10 transition">
+        <div className="relative">
+          <button 
+            className="flex items-center gap-2 p-1 rounded hover:bg-white/10 transition"
+            onClick={() => setShowUserMenu(!showUserMenu)}
+          >
             {user?.photoURL ? (
               <img
                 src={user.photoURL}
@@ -319,27 +325,41 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
           </button>
           
           {/* Dropdown menu */}
-          <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-            <div className="p-3 border-b border-gray-200">
-              <p className="font-semibold text-gray-900 truncate">{user?.displayName}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+          {showUserMenu && (
+            <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 z-50 animate-slide-up">
+              <div className="p-3 border-b border-gray-200">
+                <p className="font-semibold text-gray-900 truncate">{user?.displayName}</p>
+                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+              </div>
+              <div className="py-1">
+                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3">
+                  <User className="w-4 h-4" />
+                  Profile
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setShowSoundSettings(true);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                >
+                  <Volume2 className="w-4 h-4" />
+                  Sound & Notifications
+                </button>
+                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3">
+                  <Settings className="w-4 h-4" />
+                  Preferences
+                </button>
+                <hr className="my-1 border-gray-200" />
+                <button
+                  onClick={onSignOut}
+                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
-            <div className="py-1">
-              <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                Profile
-              </button>
-              <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                Preferences
-              </button>
-              <hr className="my-1 border-gray-200" />
-              <button
-                onClick={onSignOut}
-                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -351,6 +371,13 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         onClose={() => setShowSettings(false)}
         onWorkspaceDeleted={handleWorkspaceDeleted}
         onMemberRemoved={handleMemberRemoved}
+      />
+
+      {/* Sound Settings Dialog */}
+      <SoundSettingsDialog
+        open={showSoundSettings}
+        onClose={() => setShowSoundSettings(false)}
+        workspace={workspace}
       />
     </header>
   );

@@ -1,6 +1,6 @@
 {
   "name": "chat-app-backend",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "Backend API for bleeding-edge chat application with real-time messaging and advanced knowledge base",
   "main": "index.js",
   "scripts": {
@@ -33,6 +33,7 @@
     "googleapis": "^154.1.0",
     "helmet": "^8.0.0",
     "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
     "nodemailer": "^6.9.14",
     "pg": "^8.16.3",
     "socket.io": "^4.7.5"

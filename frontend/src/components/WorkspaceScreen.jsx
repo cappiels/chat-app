@@ -16,6 +16,7 @@ import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import { logAbsoluteTiming, logTiming } from '../utils/timing.js';
 import WorkspaceSettingsDialog from './WorkspaceSettingsDialog';
+import { getVersionString } from '../utils/version';
 
 // Beautiful workspace selection screen
 const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
@@ -278,9 +279,14 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                 </span>
                 <span className="text-gray-900 dark:text-white">Flow</span>
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Welcome back, {user.displayName}!
-              </p>
+              <div className="flex flex-col">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Welcome back, {user.displayName}!
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500">
+                  {getVersionString()}
+                </p>
+              </div>
             </div>
           </div>
           
