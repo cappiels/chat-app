@@ -595,7 +595,7 @@ const BookmarkDialog = ({
                 {step > 1 && (
                   <button
                     onClick={() => setStep(step - 1)}
-                    className="px-6 py-2.5 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 rounded-xl transition-all font-medium shadow-sm hover:shadow-md"
+                    className="px-6 py-2.5 bg-gray-200 text-gray-900 hover:bg-gray-300 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-xl transition-all font-medium shadow-sm hover:shadow-md"
                   >
                     Back
                   </button>
