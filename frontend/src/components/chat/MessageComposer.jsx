@@ -31,6 +31,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
+  const [shouldFocusAfterExpand, setShouldFocusAfterExpand] = useState(false);
   
   const editorRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -38,14 +39,20 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const recordingIntervalRef = useRef(null);
   const selectionRef = useRef(null);
 
-  // Auto-resize editor
+  // Auto-resize editor and handle focus after expand
   useEffect(() => {
     if (editorRef.current && isExpanded) {
       const maxHeight = 120;
       editorRef.current.style.height = 'auto';
       editorRef.current.style.height = Math.min(editorRef.current.scrollHeight, maxHeight) + 'px';
+      
+      // If we should focus after expanding, do it now
+      if (shouldFocusAfterExpand) {
+        editorRef.current.focus();
+        setShouldFocusAfterExpand(false);
+      }
     }
-  }, [message, isExpanded]);
+  }, [message, isExpanded, shouldFocusAfterExpand]);
 
   // Handle text selection for formatting toolbar
   useEffect(() => {
@@ -158,8 +165,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   };
 
   const handleInputFocus = () => {
-    setIsExpanded(true);
-    setIsFocused(true);
+    if (!isExpanded) {
+      // When expanding from collapsed state, we need to ensure focus is maintained
+      setIsExpanded(true);
+      setIsFocused(true);
+      setShouldFocusAfterExpand(true); // This will trigger focus in the useEffect
+    } else {
+      setIsFocused(true);
+    }
     if (message.trim()) {
       startTyping();
     }
