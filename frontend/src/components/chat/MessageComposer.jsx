@@ -32,6 +32,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
   const [shouldFocusAfterExpand, setShouldFocusAfterExpand] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
   
   const editorRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -126,22 +127,39 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
     };
   }, [channel?.id]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (message.trim()) {
+    if (message.trim() && !sendingMessage) {
+      setSendingMessage(true);
       stopTyping();
       
-      // Play message sent sound
-      notificationManager.playMessageSentSound();
-      
-      onSendMessage(message.trim());
-      setMessage('');
-      setIsExpanded(false);
-      setIsFocused(false);
-      if (editorRef.current) {
-        editorRef.current.style.height = 'auto';
-        editorRef.current.blur();
+      try {
+        // Play message sent sound
+        notificationManager.playMessageSentSound();
+        
+        await onSendMessage(message.trim());
+        
+        // Reset after successful send
+        setMessage('');
+        setIsExpanded(false);
+        setIsFocused(false);
+        if (editorRef.current) {
+          editorRef.current.style.height = 'auto';
+          editorRef.current.blur();
+        }
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      } finally {
+        setSendingMessage(false);
       }
+    }
+  };
+
+  const handleSendClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (message.trim() && !sendingMessage) {
+      handleSubmit(e);
     }
   };
 
@@ -166,7 +184,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
 
   const handleInputFocus = () => {
     if (!isExpanded) {
-      // When expanding from collapsed state, we need to ensure focus is maintained
+      // When expanding from collapsed state, expand AND focus immediately
       setIsExpanded(true);
       setIsFocused(true);
       setShouldFocusAfterExpand(true); // This will trigger focus in the useEffect
@@ -179,11 +197,26 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   };
 
   const handleInputBlur = (e) => {
-    // Only collapse if clicking outside the composer area
-    if (!e.relatedTarget || !e.relatedTarget.closest('.composer-container')) {
+    // Don't collapse if user is clicking the send button or other composer controls
+    if (e.relatedTarget && e.relatedTarget.closest('.composer-container')) {
+      return; // Stay expanded if clicking within composer
+    }
+    
+    // Only collapse if clicking completely outside the composer area
+    // and we're not in the middle of sending a message
+    if (!sendingMessage) {
       setIsExpanded(false);
       setIsFocused(false);
       stopTyping();
+    }
+  };
+
+  const handleContainerClick = () => {
+    // When clicking anywhere on the collapsed composer, expand and focus
+    if (!isExpanded && !isFocused) {
+      setIsExpanded(true);
+      setIsFocused(true);
+      setShouldFocusAfterExpand(true);
     }
   };
 
@@ -411,18 +444,21 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
         <div className="composer-container">
           <div 
             className="flex items-center bg-white border-2 border-gray-300 rounded-lg px-3 py-2 cursor-text hover:border-gray-400 transition-colors"
-            onClick={() => editorRef.current?.focus()}
+            onClick={handleContainerClick}
           >
             <button
               type="button"
-              onClick={handleAttachment}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAttachment();
+              }}
               className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full mr-3 transition-colors"
               title="Add attachments"
             >
               <Plus className="w-5 h-5 text-gray-600" />
             </button>
             
-            <div className="flex-1 flex items-center">
+            <div className="flex-1 flex items-center" onClick={handleContainerClick}>
               <Hash className="w-4 h-4 text-gray-500 mr-1" />
               <input
                 ref={editorRef}
@@ -437,7 +473,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
             
             <button
               type="button"
-              onClick={handleVoiceMessage}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleVoiceMessage();
+              }}
               className={`flex items-center justify-center w-8 h-8 rounded-full ml-3 transition-colors ${
                 isRecording
                   ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
@@ -594,14 +633,15 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                 </button>
                 
                 <button
-                  type="submit"
-                  disabled={!message.trim()}
+                  type="button"
+                  onClick={handleSendClick}
+                  disabled={!message.trim() || sendingMessage}
                   className={`flex items-center justify-center w-8 h-8 rounded-full transition-all ${
-                    message.trim()
+                    message.trim() && !sendingMessage
                       ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
-                  title="Send message"
+                  title={sendingMessage ? "Sending..." : "Send message"}
                 >
                   <Send className="w-4 h-4" />
                 </button>
