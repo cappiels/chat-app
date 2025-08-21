@@ -44,6 +44,7 @@ const BookmarkDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [myBookmarksFolder, setMyBookmarksFolder] = useState(null);
+  const [apiErrors, setApiErrors] = useState({});
 
   useEffect(() => {
     if (isOpen && message) {
@@ -54,30 +55,58 @@ const BookmarkDialog = ({
   }, [isOpen, message]);
 
   const loadBookmarkData = async () => {
+    setIsLoading(true);
+    const errors = {};
+    
+    // Load each API call separately to handle individual failures
     try {
-      setIsLoading(true);
-      const [scopes, categories, tags, permissions] = await Promise.all([
-        knowledgeAPI.getScopes(workspace.id),
-        knowledgeAPI.getCategories(workspace.id),
-        knowledgeAPI.getTags(workspace.id),
-        knowledgeAPI.getUserPermissions(workspace.id, currentUser.uid)
-      ]);
-
-      setAvailableScopes(scopes.data?.scopes || []);
-      setAvailableCategories(categories.data?.data || []);
-      setAvailableTags(tags.data?.data || []);
-      setUserPermissions(permissions.data?.permissions || {});
+      const scopesResponse = await knowledgeAPI.getScopes(workspace.id);
+      setAvailableScopes(scopesResponse.data?.scopes || []);
       
-      // Auto-select thread scope if available and user can access it
-      const threadScope = scopes.data?.scopes?.find(s => s.source_thread_id === thread.id);
-      if (threadScope && canAccessScope(threadScope)) {
+      // Auto-select thread scope if available
+      const threadScope = scopesResponse.data?.scopes?.find(s => s.source_thread_id === thread.id);
+      if (threadScope) {
         setSelectedLocations([threadScope]);
       }
     } catch (error) {
-      console.error('Error loading bookmark data:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error loading scopes:', error);
+      errors.scopes = error.message;
+      setAvailableScopes([]);
     }
+
+    try {
+      const categoriesResponse = await knowledgeAPI.getCategories(workspace.id);
+      setAvailableCategories(categoriesResponse.data?.data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      errors.categories = error.message;
+      setAvailableCategories([]);
+    }
+
+    try {
+      const tagsResponse = await knowledgeAPI.getTags(workspace.id);
+      setAvailableTags(tagsResponse.data?.data || []);
+    } catch (error) {
+      console.error('Error loading tags:', error);
+      errors.tags = error.message;
+      setAvailableTags([]);
+    }
+
+    try {
+      const permissionsResponse = await knowledgeAPI.getUserPermissions(workspace.id, currentUser.uid);
+      setUserPermissions(permissionsResponse.data?.permissions || {});
+    } catch (error) {
+      console.error('Error loading permissions:', error);
+      errors.permissions = error.message;
+      // Set default permissions to allow basic operations
+      setUserPermissions({ 
+        workspace_admin: false,
+        global_admin: false
+      });
+    }
+
+    setApiErrors(errors);
+    setIsLoading(false);
   };
 
   const loadMyBookmarksFolder = async () => {
@@ -555,49 +584,54 @@ const BookmarkDialog = ({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between p-8 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-              <AlertCircle className="w-4 h-4" />
-              <span>Knowledge will be saved with your current permissions</span>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              {step > 1 && (
-                <button
-                  onClick={() => setStep(step - 1)}
-                  className="px-6 py-3 text-gray-600 hover:text-blue-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all font-medium"
-                >
-                  Back
-                </button>
-              )}
+          <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+            <div className="flex items-center justify-between p-6 mx-5">
+              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                <AlertCircle className="w-4 h-4" />
+                <span>Knowledge will be saved with your current permissions</span>
+              </div>
               
-              {step < 3 ? (
-                <button
-                  onClick={() => setStep(step + 1)}
-                  disabled={step === 1 && !saveToMyBookmarks && selectedLocations.length === 0}
-                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  onClick={handleSaveBookmark}
-                  disabled={isLoading}
-                  className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md flex items-center space-x-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Save to Knowledge Base</span>
-                    </>
-                  )}
-                </button>
-              )}
+              <div className="flex items-center space-x-4">
+                {step > 1 && (
+                  <button
+                    onClick={() => setStep(step - 1)}
+                    className="px-6 py-2.5 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 rounded-xl transition-all font-medium shadow-sm hover:shadow-md"
+                  >
+                    Back
+                  </button>
+                )}
+                
+                {step < 3 ? (
+                  <button
+                    onClick={() => setStep(step + 1)}
+                    disabled={step === 1 && !saveToMyBookmarks && selectedLocations.length === 0}
+                    className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center space-x-2"
+                  >
+                    <span>Next</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSaveBookmark}
+                    disabled={isLoading || (step === 1 && !saveToMyBookmarks && selectedLocations.length === 0)}
+                    className="px-8 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center space-x-2"
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save to Knowledge Base</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
