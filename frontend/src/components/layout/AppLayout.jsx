@@ -635,13 +635,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         />
       )}
 
-      {/* Mobile Navigation */}
-      {isMobile && (
-        <MobileNav
-          activeSection={activeSection}
-          onSectionChange={setActiveSection}
-        />
-      )}
+      {/* Mobile Navigation - Removed: Redundant with header navigation */}
 
       {/* Invite Dialog */}
       <InviteDialog

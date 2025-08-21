@@ -728,7 +728,6 @@ body {
 @media (max-width: 767px) {
   :root {
     --header-height: var(--mobile-header-height);
-    --mobile-nav-height: 60px;
   }
   
   .app-header {
@@ -739,7 +738,7 @@ body {
     position: fixed;
     left: 0;
     top: var(--mobile-header-height);
-    bottom: var(--mobile-nav-height);
+    bottom: 0;
     width: 100%;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
@@ -752,42 +751,14 @@ body {
   
   .main-content {
     margin-left: 0;
-    margin-bottom: var(--mobile-nav-height);
-    height: calc(100vh - var(--mobile-header-height) - var(--mobile-nav-height));
+    height: calc(100vh - var(--mobile-header-height));
     overflow: hidden;
   }
   
   .thread-sidebar {
     width: 100%;
     top: var(--mobile-header-height);
-    bottom: var(--mobile-nav-height);
-  }
-  
-  .mobile-nav {
-    display: flex;
-    height: var(--mobile-nav-height);
-    padding: var(--space-2) var(--space-3);
-    align-items: center;
-    justify-content: space-around;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  .mobile-nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    border-radius: var(--radius-md);
-    color: var(--color-text-tertiary);
-    font-size: var(--text-xs);
-    cursor: pointer;
-    transition: all 0.2s;
-    text-decoration: none;
-  }
-  
-  .mobile-nav-item.active {
-    color: var(--color-accent);
+    bottom: 0;
   }
   
   .message {
