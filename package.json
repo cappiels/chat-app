@@ -1,0 +1,40 @@
+{
+  "name": "chat-app",
+  "version": "1.7.6",
+  "description": "Full-stack chat application with real-time messaging and advanced features",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "version:patch": "./scripts/bump-version.sh patch",
+    "version:minor": "./scripts/bump-version.sh minor",
+    "version:major": "./scripts/bump-version.sh major",
+    "bump": "./scripts/bump-version.sh patch",
+    "bump:patch": "./scripts/bump-version.sh patch",
+    "bump:minor": "./scripts/bump-version.sh minor",
+    "bump:major": "./scripts/bump-version.sh major",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "version": "echo 'Current version:' && node -p \"require('./frontend/package.json').version\"",
+    "help:version": "echo 'Version bump commands:' && echo '  npm run bump \"commit message\"                 - Patch version bump (1.0.0 -> 1.0.1)' && echo '  npm run bump:minor \"commit message\"           - Minor version bump (1.0.0 -> 1.1.0)' && echo '  npm run bump:major \"commit message\"           - Major version bump (1.0.0 -> 2.0.0)' && echo '' && echo 'Examples:' && echo '  npm run bump \"Fix send button issue\"' && echo '  npm run bump:minor \"Add new chat features\"' && echo '  npm run bump:major \"Complete UI redesign\"' && echo '' && echo 'What it does:' && echo '  - Updates version in frontend/package.json' && echo '  - Updates version in backend/package.json' && echo '  - Updates version in app.yaml (if present)' && echo '  - Commits changes to git' && echo '  - Pushes to main branch'"
+  },
+  "keywords": [
+    "chat",
+    "real-time",
+    "messaging",
+    "react",
+    "node",
+    "websockets"
+  ],
+  "author": "Steven Cappiello",
+  "license": "ISC",
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
