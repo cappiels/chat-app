@@ -375,7 +375,7 @@ const InviteDialog = ({ workspace, isOpen, onClose, onInviteSuccess }) => {
               <div className="flex items-center space-x-3">
                 <button
                   onClick={onClose}
-                  className="px-6 py-3 text-gray-600 hover:text-blue-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all font-medium"
+                  className="px-6 py-3 text-gray-900 dark:text-gray-300 hover:text-blue-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all font-medium"
                 >
                   Cancel
                 </button>
