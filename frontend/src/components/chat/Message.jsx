@@ -217,7 +217,7 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
 
   return (
     <div 
-      className="flex py-3 px-5 gap-3 relative border-b border-transparent transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/20 hover:to-transparent hover:border-b-slate-200 hover:shadow-[inset_3px_0_0_rgb(37,99,235)] group"
+      className="flex py-1.5 px-5 gap-3 relative transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/20 hover:to-transparent hover:shadow-[inset_3px_0_0_rgb(37,99,235)] group"
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
