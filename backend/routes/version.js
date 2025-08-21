@@ -48,21 +48,14 @@ router.get('/', (req, res) => {
       version,
       timestamp,
       environment: process.env.NODE_ENV || 'development',
-      // Force refresh instruction for old clients
-      forceRefresh: version !== '1.7.5' && version !== '1.7.6' && version !== '1.7.7',
+      // Only force refresh if there's an actual version mismatch
+      forceRefresh: false,
       cacheBreaker: Date.now(),
       refreshUrl: req.get('Referer') ? req.get('Referer').split('?')[0] + '?v=' + Date.now() : undefined
     };
     
-    // Add special instructions for cache clearing
-    if (version >= '1.7.8') {
-      response.instructions = {
-        clearCache: true,
-        reloadPage: true,
-        showBanner: true,
-        message: "🚀 New version available! Click to update."
-      };
-    }
+    // Don't add cache clearing instructions unless there's a version mismatch
+    // This will be handled by the frontend version comparison logic
     
     console.log(`📦 Version check from ${req.ip}: current=${version}, sending refresh=${response.forceRefresh}`);
     

@@ -6,6 +6,8 @@ class VersionManager {
     this.callbacks = [];
     this.apiUrl = import.meta.env.VITE_API_URL || 'https://coral-app-rgki8.ondigitalocean.app/api';
     this.forceRefreshOnMismatch = true;
+    this.lastNotifiedVersion = null; // Track last version we showed notification for
+    this.bannerShown = false; // Track if banner is currently shown
     
     // Check for version immediately and then periodically
     this.init();
@@ -23,10 +25,10 @@ class VersionManager {
       // Report current version to server for tracking
       await this.reportVersionToServer();
       
-      // Check for updates from server immediately and aggressively
+      // Check for updates from server immediately
       await this.checkForUpdates();
       
-      // Start very aggressive periodic checking (every 5 seconds)
+      // Start periodic checking at reasonable intervals
       this.startPeriodicCheck();
       
       console.log('🔄 Version manager initialized, current version:', this.currentVersion);
@@ -94,27 +96,13 @@ class VersionManager {
       const data = await response.json();
       console.log('📦 Server version data:', data);
       
-      // Check for server instructions to force cache clearing
-      if (data.instructions && data.instructions.clearCache) {
-        console.log('🔥 Server instructing cache clear!');
-        this.handleNewVersion(data.version);
-        return data;
-      }
-      
-      // Force refresh if server says so
-      if (data.forceRefresh) {
-        console.log('🔄 Server forcing refresh');
-        this.handleNewVersion(data.version);
-        return data;
-      }
-      
       // Store initial version if not set
       if (!this.currentVersion || this.currentVersion === '1.0.0') {
         this.currentVersion = data.version;
         localStorage.setItem('appVersion', data.version);
         console.log('📱 App version stored:', data.version);
       } else if (data.version !== this.currentVersion) {
-        // New version detected!
+        // Only handle new version if versions actually differ
         console.log('🚀 NEW VERSION DETECTED!', {
           old: this.currentVersion,
           new: data.version,
@@ -125,19 +113,12 @@ class VersionManager {
         this.handleNewVersion(data.version);
       } else {
         console.log('✅ Version up to date:', data.version);
+        // Versions match - no action needed, ignore server instructions
       }
       
       return data;
     } catch (error) {
       console.error('❌ Failed to get current version:', error);
-      
-      // For debugging - force show banner if version is clearly old
-      const stored = localStorage.getItem('appVersion');
-      if (stored === '1.7.5' || stored === '1.7.6' || stored === '1.7.7') {
-        console.log('🆘 Forcing update for old version:', stored);
-        this.handleNewVersion('1.7.8');
-      }
-      
       throw error;
     }
   }
@@ -145,9 +126,22 @@ class VersionManager {
   handleNewVersion(newVersion) {
     console.log('🔔 handleNewVersion called with:', newVersion);
     
+    // Prevent loop: don't show notification for same version multiple times
+    if (this.lastNotifiedVersion === newVersion) {
+      console.log('🚫 Already notified for version:', newVersion);
+      return;
+    }
+    
+    // Prevent showing notification if banner is already shown
+    if (this.bannerShown) {
+      console.log('🚫 Banner already shown, skipping notification');
+      return;
+    }
+    
     // Update stored version
     this.currentVersion = newVersion;
     localStorage.setItem('appVersion', newVersion);
+    this.lastNotifiedVersion = newVersion;
     
     // Notify all callbacks
     this.callbacks.forEach(callback => {
@@ -172,6 +166,9 @@ class VersionManager {
   }
 
   showUpdateNotification(newVersion) {
+    // Mark banner as shown to prevent duplicates
+    this.bannerShown = true;
+    
     // Create a nice notification banner
     const banner = document.createElement('div');
     banner.id = 'version-update-banner';
@@ -257,7 +254,10 @@ class VersionManager {
     
     document.getElementById('dismiss-update-btn').onclick = () => {
       banner.style.animation = 'slideUp 0.3s ease-out';
-      setTimeout(() => banner.remove(), 300);
+      setTimeout(() => {
+        banner.remove();
+        this.bannerShown = false; // Reset banner state when dismissed
+      }, 300);
     };
     
     // Auto-refresh after 30 seconds if user doesn't act
@@ -372,13 +372,13 @@ class VersionManager {
   }
 
   startPeriodicCheck() {
-    // Check very frequently to catch updates quickly  
+    // Check every 2 minutes for updates - reasonable frequency
     this.checkInterval = setInterval(() => {
       if (!this.isChecking) {
         console.log('⏰ Periodic version check...');
         this.checkForUpdates();
       }
-    }, 5000); // Check every 5 seconds for aggressive detection
+    }, 120000); // Check every 2 minutes (120000ms)
   }
 
   async checkForUpdates() {
