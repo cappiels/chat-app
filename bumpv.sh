@@ -213,13 +213,58 @@ if [ -f "app.yaml" ] && grep -q "version:" app.yaml; then
     rm app.yaml.bak 2>/dev/null || true
 fi
 
+# Generate timestamp-based cache buster
+TIMESTAMP=$(date +%s)
+BUILD_ID="$NEW_VERSION-$TIMESTAMP"
+
+# Update frontend/index.html with cache busting meta tag
+if [ -f "frontend/index.html" ]; then
+    print_status "🔄 Adding cache busting to index.html..."
+    # Remove existing cache buster if present
+    sed -i.bak '/<meta name="cache-version"/d' frontend/index.html
+    # Add new cache buster right after <head>
+    sed -i.bak "/<head>/a\\
+    <meta name=\"cache-version\" content=\"$BUILD_ID\">\\
+    <meta http-equiv=\"Cache-Control\" content=\"no-cache, no-store, must-revalidate\">\\
+    <meta http-equiv=\"Pragma\" content=\"no-cache\">\\
+    <meta http-equiv=\"Expires\" content=\"0\">" frontend/index.html
+    rm frontend/index.html.bak 2>/dev/null || true
+fi
+
+# Create a version info file for immediate cache invalidation
+print_status "💾 Creating version info file..."
+cat > frontend/public/version.json << EOF
+{
+  "version": "$NEW_VERSION",
+  "buildId": "$BUILD_ID",
+  "timestamp": $TIMESTAMP,
+  "buildDate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+
+# Update cache breaker with new version
+if [ -f "frontend/src/utils/cacheBreaker.js" ]; then
+    print_status "🔄 Updating cache breaker version..."
+    sed -i.bak "s/const CURRENT_VERSION = '[^']*'/const CURRENT_VERSION = '$NEW_VERSION'/" frontend/src/utils/cacheBreaker.js
+    rm frontend/src/utils/cacheBreaker.js.bak 2>/dev/null || true
+fi
+
 print_success "All files updated with version $NEW_VERSION"
 
 # Git operations
 print_status "📝 Adding files to git..."
-git add frontend/package.json backend/package.json package.json
+git add frontend/package.json backend/package.json package.json frontend/src/main.jsx
 if [ -f "app.yaml" ] && grep -q "version:" app.yaml; then
     git add app.yaml
+fi
+if [ -f "frontend/index.html" ]; then
+    git add frontend/index.html
+fi
+if [ -f "frontend/public/version.json" ]; then
+    git add frontend/public/version.json
+fi
+if [ -f "frontend/src/utils/cacheBreaker.js" ]; then
+    git add frontend/src/utils/cacheBreaker.js
 fi
 
 FULL_COMMIT_MESSAGE="v$NEW_VERSION: $COMMIT_MESSAGE"

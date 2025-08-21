@@ -202,13 +202,16 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
       return; // Stay expanded if clicking within composer
     }
     
-    // Only collapse if clicking completely outside the composer area
-    // and we're not in the middle of sending a message
-    if (!sendingMessage) {
-      setIsExpanded(false);
-      setIsFocused(false);
-      stopTyping();
-    }
+    // Add a small delay to prevent collapsing when clicking send button on mobile
+    setTimeout(() => {
+      // Only collapse if clicking completely outside the composer area
+      // and we're not in the middle of sending a message
+      if (!sendingMessage && !document.activeElement?.closest('.composer-container')) {
+        setIsExpanded(false);
+        setIsFocused(false);
+        stopTyping();
+      }
+    }, 100);
   };
 
   const handleContainerClick = () => {
@@ -633,7 +636,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                 </button>
                 
                 <button
-                  type="button"
+                  type="submit"
                   onClick={handleSendClick}
                   disabled={!message.trim() || sendingMessage}
                   className={`flex items-center justify-center w-8 h-8 rounded-full transition-all ${
@@ -641,6 +644,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                       ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
+                  style={{
+                    backgroundColor: message.trim() && !sendingMessage ? '#16a34a' : '#e5e7eb',
+                    color: message.trim() && !sendingMessage ? '#ffffff' : '#9ca3af'
+                  }}
                   title={sendingMessage ? "Sending..." : "Send message"}
                 >
                   <Send className="w-4 h-4" />

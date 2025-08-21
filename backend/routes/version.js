@@ -32,11 +32,41 @@ router.get('/', (req, res) => {
     const version = getAppVersion();
     const timestamp = new Date().toISOString();
     
-    res.json({
+    // Force cache invalidation headers
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate, private, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'X-Cache-Control': 'no-cache',
+      'X-Accel-Expires': '0'
+    });
+    
+    // Check if this is an old version requesting
+    const userAgent = req.get('User-Agent') || '';
+    
+    const response = {
       version,
       timestamp,
-      environment: process.env.NODE_ENV || 'development'
-    });
+      environment: process.env.NODE_ENV || 'development',
+      // Force refresh instruction for old clients
+      forceRefresh: version !== '1.7.5' && version !== '1.7.6' && version !== '1.7.7',
+      cacheBreaker: Date.now(),
+      refreshUrl: req.get('Referer') ? req.get('Referer').split('?')[0] + '?v=' + Date.now() : undefined
+    };
+    
+    // Add special instructions for cache clearing
+    if (version >= '1.7.8') {
+      response.instructions = {
+        clearCache: true,
+        reloadPage: true,
+        showBanner: true,
+        message: "🚀 New version available! Click to update."
+      };
+    }
+    
+    console.log(`📦 Version check from ${req.ip}: current=${version}, sending refresh=${response.forceRefresh}`);
+    
+    res.json(response);
   } catch (error) {
     console.error('Version check error:', error);
     res.status(500).json({

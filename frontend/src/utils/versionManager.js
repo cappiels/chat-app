@@ -5,6 +5,7 @@ class VersionManager {
     this.isChecking = false;
     this.callbacks = [];
     this.apiUrl = import.meta.env.VITE_API_URL || 'https://coral-app-rgki8.ondigitalocean.app/api';
+    this.forceRefreshOnMismatch = true;
     
     // Check for version immediately and then periodically
     this.init();
@@ -12,25 +13,55 @@ class VersionManager {
 
   async init() {
     try {
-      // Get initial version
-      await this.getCurrentVersion();
+      // Get current stored version
+      const storedVersion = localStorage.getItem('appVersion');
+      console.log('💾 Stored version:', storedVersion);
       
-      // Start periodic checking (every 30 seconds)
+      // Set a default current version
+      this.currentVersion = storedVersion || '1.0.0';
+      
+      // Check for updates from server immediately and aggressively
+      await this.checkForUpdates();
+      
+      // Start very aggressive periodic checking (every 5 seconds)
       this.startPeriodicCheck();
       
       console.log('🔄 Version manager initialized, current version:', this.currentVersion);
     } catch (error) {
       console.warn('⚠️ Version manager initialization failed:', error);
+      // Even if init fails, still start checking
+      this.startPeriodicCheck();
+    }
+  }
+
+  getPackageVersion() {
+    try {
+      // Import version from the bundled package.json using ES modules
+      import('../../package.json').then(packageJson => {
+        return packageJson.version;
+      }).catch(error => {
+        console.warn('Could not get package version:', error);
+        return '1.0.0';
+      });
+      
+      // For now, return a placeholder - the actual version will be detected via server
+      return '1.0.0';
+    } catch (error) {
+      console.warn('Could not get package version:', error);
+      return '1.0.0';
     }
   }
 
   async getCurrentVersion() {
     try {
-      const response = await fetch(`${this.apiUrl}/version`, {
+      console.log('🔍 Checking version from:', this.apiUrl + '/version');
+      
+      const response = await fetch(`${this.apiUrl}/version?t=${Date.now()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        cache: 'no-cache'
       });
       
       if (!response.ok) {
@@ -38,30 +69,59 @@ class VersionManager {
       }
       
       const data = await response.json();
+      console.log('📦 Server version data:', data);
+      
+      // Check for server instructions to force cache clearing
+      if (data.instructions && data.instructions.clearCache) {
+        console.log('🔥 Server instructing cache clear!');
+        this.handleNewVersion(data.version);
+        return data;
+      }
+      
+      // Force refresh if server says so
+      if (data.forceRefresh) {
+        console.log('🔄 Server forcing refresh');
+        this.handleNewVersion(data.version);
+        return data;
+      }
       
       // Store initial version if not set
-      if (!this.currentVersion) {
+      if (!this.currentVersion || this.currentVersion === '1.0.0') {
         this.currentVersion = data.version;
         localStorage.setItem('appVersion', data.version);
         console.log('📱 App version stored:', data.version);
       } else if (data.version !== this.currentVersion) {
         // New version detected!
-        console.log('🚀 New version detected!', {
+        console.log('🚀 NEW VERSION DETECTED!', {
           old: this.currentVersion,
-          new: data.version
+          new: data.version,
+          shouldUpdate: true
         });
         
+        console.log('🔔 Calling handleNewVersion...');
         this.handleNewVersion(data.version);
+      } else {
+        console.log('✅ Version up to date:', data.version);
       }
       
       return data;
     } catch (error) {
-      console.warn('Failed to get current version:', error);
+      console.error('❌ Failed to get current version:', error);
+      
+      // For debugging - force show banner if version is clearly old
+      const stored = localStorage.getItem('appVersion');
+      if (stored === '1.7.5' || stored === '1.7.6' || stored === '1.7.7') {
+        console.log('🆘 Forcing update for old version:', stored);
+        this.handleNewVersion('1.7.8');
+      }
+      
       throw error;
     }
   }
 
   handleNewVersion(newVersion) {
+    console.log('🔔 handleNewVersion called with:', newVersion);
+    
     // Update stored version
     this.currentVersion = newVersion;
     localStorage.setItem('appVersion', newVersion);
@@ -76,7 +136,16 @@ class VersionManager {
     });
     
     // Show user notification and refresh
+    console.log('🖼️ About to show update notification...');
     this.showUpdateNotification(newVersion);
+    
+    // Add debug info to window for testing
+    window.versionDebug = {
+      currentVersion: this.currentVersion,
+      newVersion: newVersion,
+      bannerShown: true,
+      timestamp: new Date().toISOString()
+    };
   }
 
   showUpdateNotification(newVersion) {
@@ -280,12 +349,13 @@ class VersionManager {
   }
 
   startPeriodicCheck() {
-    // Don't check too frequently to avoid rate limiting
+    // Check very frequently to catch updates quickly  
     this.checkInterval = setInterval(() => {
       if (!this.isChecking) {
+        console.log('⏰ Periodic version check...');
         this.checkForUpdates();
       }
-    }, 30000); // Check every 30 seconds
+    }, 5000); // Check every 5 seconds for aggressive detection
   }
 
   async checkForUpdates() {
