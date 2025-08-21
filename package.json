@@ -1,6 +1,6 @@
 {
   "name": "chat-app",
-  "version": "1.8.5",
+  "version": "1.8.6",
   "description": "Full-stack chat application with real-time messaging and advanced features",
   "private": true,
   "workspaces": [
