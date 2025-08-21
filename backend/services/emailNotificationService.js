@@ -5,7 +5,10 @@ const cron = require('node-cron');
 class EmailNotificationService {
   constructor() {
     this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      }
     });
     this.isProcessing = false;
     this.batchProcessingInterval = null;
