@@ -124,7 +124,7 @@ const pool = new Pool({
   }
 });
 
-// Test database connection on startup
+// Test database connection on startup (non-fatal)
 const testConnection = async () => {
   try {
     const client = await pool.connect();
@@ -142,8 +142,9 @@ const testConnection = async () => {
     console.log(`📋 Found ${result.rows.length} core tables:`, result.rows.map(r => r.table_name));
     client.release();
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    process.exit(1);
+    console.error('⚠️  Database connection failed during startup:', error.message);
+    console.log('📡 Server will continue starting - database may be initializing');
+    // Don't exit - let server start anyway for health checks
   }
 };
 
