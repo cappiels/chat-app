@@ -1,16 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import toast, { Toaster } from 'react-hot-toast';
+import AppShell from './components/layout/AppShell';
 import ChatInterface from './components/ChatInterface';
 import InviteAcceptance from './components/InviteAcceptance';
 import HomePage from './components/HomePage';
 import WorkspaceScreen from './components/WorkspaceScreen';
-import { workspaceAPI } from './utils/api';
 
-// Main App component with Router
+// Modern Loading Component
+const ModernLoading = () => (
+  <div className="app-shell">
+    <div className="flex-1 flex items-center justify-center bg-gradient-subtle">
+      <div className="text-center p-8">
+        <div className="relative mb-6">
+          <div className="w-16 h-16 mx-auto">
+            <div className="loading-spinner w-16 h-16 border-4 border-accent-200 border-t-accent-500 rounded-full"></div>
+          </div>
+        </div>
+        <h2 className="text-xl font-semibold text-text-primary mb-2">Loading ChatFlow</h2>
+        <p className="text-text-secondary">Preparing your workspace...</p>
+      </div>
+    </div>
+  </div>
+);
+
+// Main App component with modern layout
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,25 +37,23 @@ function App() {
     let unsubscribe = null;
     let authResolved = false;
     
-    // Immediate auth resolution - no complex logic, just fast execution
     const resolveAuth = (user) => {
       if (authResolved || !isMounted) return;
       authResolved = true;
       setUser(user);
       setLoading(false);
-      console.log('🔐 Auth resolved immediately:', user ? 'signed in' : 'signed out');
+      console.log('🔐 Auth resolved:', user ? 'signed in' : 'signed out');
     };
 
-    // Set up auth listener first - this is the most reliable method
     unsubscribe = onAuthStateChanged(auth, resolveAuth, (error) => {
       console.error('❌ Auth error:', error);
       resolveAuth(null);
     });
 
-    // Aggressive timeout - don't wait more than 1 second
+    // Fast timeout for immediate UI response
     const timeoutId = setTimeout(() => {
       if (!authResolved && isMounted) {
-        console.log('⚡ Fast timeout: proceeding without waiting for Firebase');
+        console.log('⚡ Auth timeout: proceeding with current state');
         resolveAuth(auth.currentUser);
       }
     }, 1000);
@@ -86,33 +100,17 @@ function App() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-          className="text-center"
-        >
-          <div className="loading-dots mb-4">
-            <div className="loading-dot bg-blue-500"></div>
-            <div className="loading-dot bg-blue-600"></div>
-            <div className="loading-dot bg-blue-700"></div>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 font-medium">Loading ChatFlow...</p>
-        </motion.div>
-      </div>
-    );
+    return <ModernLoading />;
   }
 
   return (
     <Router>
-      <div className="min-h-screen">
+      <AppShell>
         <Routes>
-          {/* Invitation acceptance route - works without authentication initially */}
+          {/* Invitation acceptance route */}
           <Route path="/invite/:token" element={<InviteAcceptance />} />
           
-          {/* Main home page */}
+          {/* Main application routes */}
           <Route 
             path="/" 
             element={
@@ -157,24 +155,40 @@ function App() {
           {/* Logout route */}
           <Route path="/logout" element={<Navigate to="/" replace />} />
           
-          {/* Catch all - redirect to home */}
+          {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 
-        {/* Toast notifications */}
+        {/* Modern Toast System */}
         <Toaster
           position="top-right"
           toastOptions={{
             duration: 4000,
-            className: 'glass',
+            className: 'animate-fade-in-up',
             style: {
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-            }
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(226, 232, 240, 0.8)',
+              borderRadius: '12px',
+              padding: '16px',
+              fontSize: '14px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            },
+            success: {
+              iconTheme: {
+                primary: '#22c55e',
+                secondary: 'white',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: 'white',
+              },
+            },
           }}
         />
-      </div>
+      </AppShell>
     </Router>
   );
 }

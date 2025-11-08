@@ -1,52 +1,111 @@
-# Cline Rules for Chat-App Calendar Integration
+# Cline Rules for Chat-App Revolutionary Features
 
 ## Project Context
-This is a Slack-like chat application with knowledge base and integrated calendar/timeline functionality being added to channels.
+Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams system, and full Calendar/Timeline integration.
 
-## Development Workflow
-1. **Testing Approach**: Test early and frequently via git push to DigitalOcean App Platform
-2. **Architecture**: Each channel gets Calendar & Timeline views (simple, zero learning curve)  
-3. **Database**: PostgreSQL on DigitalOcean with channel_tasks table
-4. **Deployment**: DigitalOcean App Platform auto-rebuilds on git push
+## 📋 WORKFLOW INSTRUCTIONS
 
-## Current Status
-- ✅ Phase 1 Foundation Complete: Database schema, API endpoints, Google integration
-- 🔄 Phase 2 Current: Adding Calendar/Timeline buttons to channel headers
-- 📝 Database: channel_tasks table created with sample data
-- 🚀 API: Channel task endpoints mounted at `/api/workspaces/:id/threads/:id/tasks`
+### **Start Each Session By Reading These Files:**
+1. `.clinerules` - Current project context and deployment status
+2. `SYNCUP-MIGRATION-PLAN.md` - Technical architecture and implementation plan
+3. `SYNCUP-TODO.md` - Detailed accomplishments and next priorities
 
-## Architecture Decisions Made
-- **Simple Channel-Based**: No separate "projects" - each channel IS a project
-- **View Switching**: Chat/Calendar/Timeline buttons in channel header  
-- **Zero Learning Curve**: Users see familiar channels with new view options
-- **Scalable**: Want more projects? Create more channels!
+### **Update These Files After Making Changes:**
+- `SYNCUP-TODO.md` - Add new accomplishments and update status
+- `SYNCUP-MIGRATION-PLAN.md` - Update technical progress and component status
+- `.clinerules` - Update deployment status and current features
 
-## Components Being Migrated
-- `InfiniteOSRMCalendar.js` → `ChannelCalendar.jsx` (monthly calendar view)
-- `GV2.js` → `ChannelTimeline.jsx` (Gantt chart timeline)
-- Remove: FileMaker dependencies, complex project switching, MSKCC auth
-- Keep: Calendar drag/drop, timeline dependencies, infinite scroll
+### **Before Closing Each Session, Update These Files:**
+1. `SYNCUP-TODO.md` - Document what was accomplished with technical details
+2. `SYNCUP-MIGRATION-PLAN.md` - Update implementation status and next milestones  
+3. `.clinerules` - Update current deployment status and testing checklist
 
-## Database Schema
-- `channel_tasks` table references existing `threads` (channels) table
-- Google Calendar integration per-channel
-- Task dependencies for timeline view
-- Reuses existing channel membership for permissions
+### **Always List in Chat:**
+- **Accomplishments**: Technical specifics of what was built/deployed
+- **Next Steps**: Concrete priorities for the next session with file locations
+- **Testing Status**: What needs to be validated in production
+- **Deployment Info**: Current commit hash and DigitalOcean status
 
-## Testing Strategy
-1. **Visual First**: Add view buttons to see them work
-2. **API Integration**: Connect to DigitalOcean database endpoints  
-3. **Component Migration**: Port calendar/timeline from syncup-staging
-4. **Real-time**: Extend existing WebSocket system
+## 🚀 DIGITALOCEAN DEPLOYMENT SETUP
+1. **Auto-Deploy**: DigitalOcean App Platform automatically rebuilds on `git push origin main`
+2. **Migration Execution**: All SQL migrations run automatically on deployment
+3. **Database**: PostgreSQL cluster on DigitalOcean with enhanced multi-assignee schema
+4. **Testing**: Deploy early and often - DigitalOcean handles the infrastructure
 
-## File Locations
-- Backend API: `backend/routes/channel-tasks.js`
-- Frontend: `frontend/src/components/chat/MessageList.jsx` (view buttons added)
-- Migration: `backend/migrations/017_create_channel_tasks.sql`
-- Database: DigitalOcean PostgreSQL cluster
+### **Current Deployment Status (Nov 8, 2025):**
+- ✅ **DEPLOYED**: Commit 906c6a2 - Revolutionary features live in production
+- 🔄 **REBUILDING**: DigitalOcean App Platform currently deploying latest changes
+- 📊 **Migration 018**: Multi-assignee + teams schema will execute on first app startup
+- 🎯 **Ready for Testing**: Calendar/Timeline views, multi-assignee progress, team assignments
 
-## Next Steps
-1. Git commit + push to deploy view buttons to DigitalOcean
-2. Test view switching in live app
-3. Migrate calendar component from syncup-staging
-4. Add task creation from chat (`/task` command)
+## 🎉 REVOLUTIONARY FEATURES DEPLOYED
+### **🎯 Multi-Assignee Tasks with Individual Progress Tracking:**
+- Tasks assigned to multiple people simultaneously
+- **Collaborative Mode**: Any assignee can mark done/edit/reassign
+- **Individual Response Mode**: Each assignee must mark done separately with "2/7 done" progress
+- Smart permissions and edit rights for all assignees
+
+### **👥 Team/Group System with @mention Support:**
+- Create teams: "kitchen-team", "frontend-dev", "marketing", etc.
+- @mention teams in chat, assign tasks to entire teams
+- Combined assignments: individuals + teams on same task
+- Professional color coding with 12 distinct team colors
+
+### **📅 Production Calendar & Timeline Integration:**
+- **Real ChannelCalendar.jsx**: Monthly view connected to production API
+- **Real ChannelTimeline.jsx**: Full Gantt chart with dependencies
+- **Seamless View Switching**: Chat/Calendar/Timeline buttons in headers
+- **Multi-Channel Support**: View multiple channels simultaneously
+
+## Architecture Decisions
+- **Channel-Based Projects**: Each channel IS a project (simple, scalable)
+- **Multi-Assignee Innovation**: Two modes for task completion tracking
+- **Team-Based Collaboration**: Groups can be assigned and @mentioned
+- **Professional Design**: Modern color system with channel color coding
+- **Zero Learning Curve**: Familiar chat interface with powerful new views
+
+## Database Schema (Current)
+- ✅ `channel_tasks` table: Enhanced with multi-assignee support
+- ✅ `workspace_teams` table: Team/group definitions
+- ✅ `workspace_team_members` table: Team membership relationships
+- ✅ **Views**: `channel_tasks_with_progress`, `user_task_assignments`
+- ✅ **Functions**: `is_task_assignee()`, `get_task_completion_progress()`, `mark_task_complete_individual()`
+
+## Key API Endpoints
+- `GET /api/workspaces/:id/threads/:id/tasks` - Enhanced with multi-assignee data
+- `POST /api/workspaces/:id/threads/:id/tasks` - Create with assignees/teams
+- `POST /api/workspaces/:id/threads/:id/tasks/:id/complete` - Individual completion
+- `GET /api/workspaces/:id/threads/:id/tasks/:id/progress` - Progress tracking
+- `GET /api/workspaces/:id/teams` - Team management
+- `POST /api/workspaces/:id/teams` - Create teams
+
+## Testing Checklist (Production)
+1. ✅ **View Switching**: Click Chat/Calendar/Timeline buttons in channel headers
+2. 🔄 **Calendar View**: See real tasks from API in monthly calendar format
+3. 🔄 **Timeline View**: Gantt chart with task dependencies and progress bars
+4. 🔄 **Multi-Assignee**: Look for "2/7 done" style progress indicators
+5. 🔄 **Team Assignment**: Create teams and assign to tasks
+6. 🔄 **Individual Completion**: Each assignee marks done separately
+7. 🔄 **@Team Mentions**: Type @team-name in chat (future iteration)
+
+## File Locations (Production Ready)
+- **Calendar**: `frontend/src/components/calendar/ChannelCalendar.jsx`
+- **Timeline**: `frontend/src/components/timeline/ChannelTimeline.jsx` 
+- **Multi-Channel**: `frontend/src/components/calendar/ChannelDropdown.jsx`
+- **API**: `backend/routes/channel-tasks.js` (enhanced with multi-assignee)
+- **Migration**: `backend/migrations/018_add_multi_assignee_and_groups.sql`
+- **Design System**: `frontend/tailwind.config.js` (professional color palette)
+
+## Deployment Process
+1. **Develop Locally**: Make changes and test
+2. **Git Commit**: `git add . && git commit -m "description"`
+3. **Deploy**: `git push origin main` 
+4. **Auto-Build**: DigitalOcean rebuilds app automatically
+5. **Migration**: New SQL migrations execute on app startup
+6. **Test**: Validate features in production environment
+
+## Emergency Procedures
+- **Rollback**: `git revert HEAD && git push origin main`
+- **Check Logs**: DigitalOcean App Platform → Runtime Logs
+- **Database Access**: Use provided DigitalOcean database credentials
+- **Migration Issues**: Check `backend/migrations/` files and execution order
