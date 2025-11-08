@@ -4,8 +4,8 @@
   "version": "1.8.7",
   "type": "module",
   "engines": {
-    "node": "20.17.0",
-    "npm": ">=8.0.0"
+    "node": ">=24.0.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "dev": "lsof -ti:5173 | xargs kill -9 2>/dev/null || true && vite",
