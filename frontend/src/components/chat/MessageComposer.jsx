@@ -443,10 +443,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   // Collapsed state (Slack-like minimal input)
   if (!isExpanded && !isFocused) {
     return (
-      <div className="px-4 py-3 bg-white border-t border-gray-200">
+      <div className="message-input-container">
         <div className="composer-container">
           <div 
-            className="flex items-center bg-white border-2 border-gray-300 rounded-lg px-3 py-2 cursor-text hover:border-gray-400 transition-colors"
+            className="message-input-wrapper cursor-text"
             onClick={handleContainerClick}
           >
             <button
@@ -455,14 +455,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                 e.stopPropagation();
                 handleAttachment();
               }}
-              className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full mr-3 transition-colors"
+              className="btn-icon"
               title="Add attachments"
             >
-              <Plus className="w-5 h-5 text-gray-600" />
+              <Plus className="w-5 h-5" />
             </button>
             
             <div className="flex-1 flex items-center" onClick={handleContainerClick}>
-              <Hash className="w-4 h-4 text-gray-500 mr-1" />
+              <Hash className="w-4 h-4 text-text-tertiary mr-1" />
               <input
                 ref={editorRef}
                 value={message}
@@ -470,7 +470,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
                 placeholder={placeholder || `Message #${channel?.name || 'general_chat'}`}
-                className="flex-1 bg-transparent text-gray-900 text-sm placeholder-gray-500 border-none outline-none"
+                className="message-input"
               />
             </div>
             
@@ -480,10 +480,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                 e.stopPropagation();
                 handleVoiceMessage();
               }}
-              className={`flex items-center justify-center w-8 h-8 rounded-full ml-3 transition-colors ${
+              className={`btn-icon ${
                 isRecording
                   ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                  : ''
               }`}
               title={isRecording ? 'Stop recording' : 'Send voice message'}
             >
@@ -575,11 +575,11 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
         </div>
       )}
 
-      <div className="px-4 py-3 bg-white border-t border-gray-200">
+      <div className="message-input-container">
         <form onSubmit={handleSubmit}>
-          <div className="composer-container bg-white border-2 border-gray-300 rounded-lg overflow-hidden focus-within:border-blue-500 transition-colors">
+          <div className="message-input-wrapper composer-container">
             {/* Blue accent bar */}
-            <div className="h-1 bg-blue-500" />
+            <div className="h-1 bg-accent-500" />
             
             <div className="p-3">
               {/* Top row with buttons */}
@@ -587,37 +587,37 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                 <button
                   type="button"
                   onClick={handleAttachment}
-                  className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  className="btn-icon"
                   title="Add attachments"
                 >
-                  <Plus className="w-5 h-5 text-gray-600" />
+                  <Plus className="w-5 h-5" />
                 </button>
                 
                 <button
                   type="button"
                   onClick={handleFormatting}
-                  className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  className="btn-icon"
                   title="Text formatting"
                 >
-                  <Edit3 className="w-4 h-4 text-gray-600" />
+                  <Edit3 className="w-4 h-4" />
                 </button>
                 
                 <button
                   type="button"
                   onClick={handleEmoji}
-                  className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  className="btn-icon"
                   title="Add emoji"
                 >
-                  <Smile className="w-5 h-5 text-gray-600" />
+                  <Smile className="w-5 h-5" />
                 </button>
                 
                 <button
                   type="button"
                   onClick={handleMention}
-                  className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  className="btn-icon"
                   title="Mention someone"
                 >
-                  <AtSign className="w-5 h-5 text-gray-600" />
+                  <AtSign className="w-5 h-5" />
                 </button>
                 
                 <div className="flex-1" />
@@ -625,10 +625,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                 <button
                   type="button"
                   onClick={handleVoiceMessage}
-                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-all mr-2 ${
+                  className={`btn-icon mr-2 ${
                     isRecording
                       ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                      : ''
                   }`}
                   title={isRecording ? 'Stop recording' : 'Start voice recording'}
                 >
@@ -639,15 +639,11 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                   type="submit"
                   onClick={handleSendClick}
                   disabled={!message.trim() || sendingMessage}
-                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-all ${
+                  className={`btn-icon ${
                     message.trim() && !sendingMessage
-                      ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      ? 'bg-accent-600 hover:bg-accent-700 text-white shadow-md hover:shadow-lg'
+                      : 'bg-surface-tertiary text-text-tertiary cursor-not-allowed'
                   }`}
-                  style={{
-                    backgroundColor: message.trim() && !sendingMessage ? '#16a34a' : '#e5e7eb',
-                    color: message.trim() && !sendingMessage ? '#ffffff' : '#9ca3af'
-                  }}
                   title={sendingMessage ? "Sending..." : "Send message"}
                 >
                   <Send className="w-4 h-4" />
@@ -664,7 +660,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                   onFocus={handleInputFocus}
                   onBlur={handleInputBlur}
                   placeholder={placeholder || `Message #${channel?.name || 'general_chat'}`}
-                  className="w-full bg-transparent text-gray-900 text-sm placeholder-gray-500 border-none outline-none resize-none min-h-[20px] max-h-[120px]"
+                  className="message-input"
                   rows="1"
                 />
               </div>

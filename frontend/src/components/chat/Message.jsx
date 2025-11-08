@@ -217,14 +217,14 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
 
   return (
     <div 
-      className="flex py-1.5 px-5 gap-3 relative transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/20 hover:to-transparent hover:shadow-[inset_3px_0_0_rgb(37,99,235)] group"
+      className="message"
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
       {/* Avatar */}
-      <div className="w-9 flex-shrink-0">
+      <div className="flex-shrink-0">
         {showAvatar && (
-          <div className="relative inline-flex items-center justify-center w-9 h-9 rounded-md bg-slate-50 border-2 border-slate-200 shadow-sm overflow-hidden">
+          <div className="message-avatar">
             {message.user.avatar ? (
               <img
                 src={message.user.avatar}
@@ -245,13 +245,13 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
       </div>
 
       {/* Message Content */}
-      <div className="flex-1 min-w-0">
+      <div className="message-content">
         {showAvatar && (
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-[15px] font-bold text-slate-900">{message.user.name}</span>
-            <span className="text-xs text-slate-500">{formatTime(message.timestamp)}</span>
+          <div className="message-header">
+            <span className="message-author">{message.user.name}</span>
+            <span className="message-time">{formatTime(message.timestamp)}</span>
             {message.edited && (
-              <span className="text-xs text-slate-400">(edited)</span>
+              <span className="text-xs text-text-tertiary">(edited)</span>
             )}
           </div>
         )}
@@ -282,17 +282,17 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
           </div>
         ) : (
           <>
-            <div className="text-slate-900 leading-relaxed prose prose-sm max-w-none">
+            <div className="message-text">
               <ReactMarkdown
                 components={{
                   // Custom styling for markdown elements
                   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                  strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
-                  em: ({ children }) => <em className="italic text-slate-800">{children}</em>,
-                  code: ({ children }) => <code className="px-1 py-0.5 bg-gray-100 rounded text-sm font-mono text-red-600">{children}</code>,
-                  pre: ({ children }) => <pre className="p-3 bg-gray-100 rounded-lg overflow-x-auto my-2">{children}</pre>,
-                  blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-2">{children}</blockquote>,
-                  a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">{children}</a>,
+                  strong: ({ children }) => <strong className="font-bold text-text-primary">{children}</strong>,
+                  em: ({ children }) => <em className="italic text-text-secondary">{children}</em>,
+                  code: ({ children }) => <code className="px-1 py-0.5 bg-surface-tertiary rounded text-sm font-mono text-red-600">{children}</code>,
+                  pre: ({ children }) => <pre className="p-3 bg-surface-tertiary rounded-lg overflow-x-auto my-2">{children}</pre>,
+                  blockquote: ({ children }) => <blockquote className="border-l-4 border-border-primary pl-4 italic text-text-secondary my-2">{children}</blockquote>,
+                  a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent-600 hover:text-accent-700 underline">{children}</a>,
                   ul: ({ children }) => <ul className="list-disc ml-4 my-2">{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal ml-4 my-2">{children}</ol>,
                   li: ({ children }) => <li className="mb-1">{children}</li>,
@@ -360,23 +360,23 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
 
       {/* Message Actions */}
       {showActions && (
-        <div className="absolute -top-2 right-4 bg-white border border-slate-300 rounded-lg p-1 shadow-lg backdrop-blur-sm flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+        <div className="message-actions">
           <button 
-            className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" 
+            className="btn-icon" 
             title="Add reaction"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           >
             <Smile className="w-4 h-4" />
           </button>
           <button 
-            className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" 
+            className="btn-icon" 
             title="Reply in thread" 
             onClick={onThreadClick}
           >
             <Reply className="w-4 h-4" />
           </button>
           <button 
-            className={`p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110 ${isBookmarked ? 'text-yellow-500' : ''}`}
+            className={`btn-icon ${isBookmarked ? 'text-yellow-500' : ''}`}
             title="Save to Knowledge Base"
             onClick={handleBookmarkClick}
           >
@@ -384,14 +384,14 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
           </button>
           {isCurrentUser && (
             <button 
-              className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" 
+              className="btn-icon" 
               title="Edit message"
               onClick={() => setIsEditing(true)}
             >
               <Edit className="w-4 h-4" />
             </button>
           )}
-          <button className="p-1 rounded-md transition-colors hover:bg-blue-100 hover:text-blue-600 hover:scale-110" title="More actions">
+          <button className="btn-icon" title="More actions">
             <MoreHorizontal className="w-4 h-4" />
           </button>
         </div>
