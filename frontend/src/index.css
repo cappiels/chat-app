@@ -20,3 +20,326 @@ body {
   background-color: #ffffff;
   overflow: hidden;
 }
+
+/* ===== LAYOUT COMPONENTS ===== */
+
+/* App Shell Layout */
+.app-shell {
+  @apply h-screen w-full bg-white overflow-hidden;
+  display: grid;
+  grid-template-areas: "header header" "sidebar main";
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: 60px 1fr;
+}
+
+.app-header {
+  @apply bg-white border-b border-slate-200 px-4 py-2;
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 50;
+}
+
+.app-sidebar {
+  @apply bg-slate-50 border-r border-slate-200 overflow-y-auto;
+  grid-area: sidebar;
+}
+
+.main-content {
+  @apply bg-white overflow-hidden;
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+}
+
+.thread-panel {
+  @apply flex-1 flex flex-col min-h-0;
+}
+
+/* ===== COMPONENT STYLES ===== */
+
+/* Workspace and Channel Items */
+.workspace-header {
+  @apply px-4 py-3 border-b border-slate-200 bg-slate-100;
+}
+
+.workspace-title {
+  @apply text-lg font-semibold text-slate-900 truncate;
+}
+
+.section-header {
+  @apply px-4 py-2 text-xs font-semibold text-slate-600 uppercase tracking-wider bg-slate-50;
+}
+
+.channel-item {
+  @apply flex items-center px-4 py-2 mx-2 rounded-md text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors duration-150;
+}
+
+.channel-item.active {
+  @apply bg-blue-50 text-blue-700 border-r-2 border-blue-500;
+}
+
+.channel-item .channel-hash {
+  @apply text-slate-400 mr-2;
+}
+
+.channel-item .channel-name {
+  @apply flex-1 truncate font-medium;
+}
+
+.channel-item .channel-count {
+  @apply text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full ml-auto;
+}
+
+/* ===== MESSAGE COMPONENTS ===== */
+
+/* Message Container */
+.message {
+  @apply flex gap-3 px-4 py-2 hover:bg-slate-50 group transition-colors duration-150;
+}
+
+.message-avatar {
+  @apply flex-shrink-0 mt-1;
+}
+
+.message-content {
+  @apply flex-1 min-w-0;
+}
+
+.message-header {
+  @apply flex items-baseline gap-2 mb-1;
+}
+
+.message-author {
+  @apply font-semibold text-slate-900 text-sm;
+}
+
+.message-time {
+  @apply text-xs text-slate-500;
+}
+
+.message-text {
+  @apply text-slate-800 leading-relaxed;
+}
+
+.message-actions {
+  @apply opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity duration-150;
+}
+
+/* Message Input */
+.message-input-container {
+  @apply border-t border-slate-200 bg-white p-4;
+}
+
+.message-input-wrapper {
+  @apply relative bg-slate-50 border border-slate-200 rounded-lg focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20;
+}
+
+.message-input {
+  @apply w-full bg-transparent px-4 py-3 text-slate-900 placeholder-slate-500 resize-none border-none outline-none;
+  min-height: 44px;
+  max-height: 200px;
+}
+
+.message-input:focus {
+  @apply outline-none ring-0;
+}
+
+/* ===== BUTTON SYSTEM ===== */
+
+/* Base Button */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Primary Button */
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 active:bg-blue-800;
+}
+
+/* Secondary Button */
+.btn-secondary {
+  @apply bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-500 border border-slate-200;
+}
+
+/* Ghost Button */
+.btn-ghost {
+  @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-500;
+}
+
+/* Icon Button */
+.btn-icon {
+  @apply p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:ring-slate-500 rounded-md;
+}
+
+.btn-icon.active {
+  @apply bg-blue-100 text-blue-600;
+}
+
+/* ===== FORM COMPONENTS ===== */
+
+.form-input {
+  @apply w-full px-3 py-2 border border-slate-200 rounded-md text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150;
+}
+
+.form-select {
+  @apply w-full px-3 py-2 border border-slate-200 rounded-md text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150;
+}
+
+/* ===== CALENDAR/TIMELINE COMPONENTS ===== */
+
+.calendar-view {
+  @apply flex-1 bg-white overflow-hidden flex flex-col;
+}
+
+.calendar-header {
+  @apply flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50;
+}
+
+.calendar-grid {
+  @apply grid grid-cols-7 flex-1;
+}
+
+.calendar-day {
+  @apply border border-slate-100 p-2 min-h-[100px] hover:bg-slate-50 cursor-pointer;
+}
+
+.calendar-day.today {
+  @apply bg-blue-50 border-blue-200;
+}
+
+.timeline-view {
+  @apply flex-1 bg-white overflow-auto flex flex-col;
+}
+
+.timeline-header {
+  @apply sticky top-0 bg-white border-b border-slate-200 p-4 flex items-center gap-4 z-10;
+}
+
+.timeline-task-bar {
+  @apply bg-blue-500 text-white px-3 py-1 rounded text-sm font-medium cursor-pointer hover:bg-blue-600 transition-colors;
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+/* Status Indicators */
+.status-online {
+  @apply bg-green-400;
+}
+
+.status-away {
+  @apply bg-yellow-400;
+}
+
+.status-busy {
+  @apply bg-red-400;
+}
+
+.status-offline {
+  @apply bg-slate-300;
+}
+
+/* Text Colors */
+.text-primary {
+  @apply text-slate-900;
+}
+
+.text-secondary {
+  @apply text-slate-600;
+}
+
+.text-tertiary {
+  @apply text-slate-500;
+}
+
+.text-inverse {
+  @apply text-white;
+}
+
+/* Surface Colors */
+.surface-primary {
+  @apply bg-white;
+}
+
+.surface-secondary {
+  @apply bg-slate-50;
+}
+
+.surface-hover {
+  @apply bg-slate-100;
+}
+
+.surface-selected {
+  @apply bg-blue-50;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+@media (max-width: 768px) {
+  .app-shell {
+    grid-template-areas: "header" "main";
+    grid-template-columns: 1fr;
+    grid-template-rows: 60px 1fr;
+  }
+  
+  .app-sidebar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+  
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+}
+
+/* ===== ANIMATIONS ===== */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* ===== LOADING STATES ===== */
+
+.loading-spinner {
+  @apply inline-block w-4 h-4 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin;
+}
+
+.skeleton {
+  @apply bg-slate-200 rounded animate-pulse;
+}
+
+/* ===== CHANNEL COLOR VARIANTS ===== */
+
+.channel-blue { @apply text-blue-600 bg-blue-50 border-blue-200; }
+.channel-green { @apply text-green-600 bg-green-50 border-green-200; }
+.channel-purple { @apply text-purple-600 bg-purple-50 border-purple-200; }
+.channel-orange { @apply text-orange-600 bg-orange-50 border-orange-200; }
+.channel-pink { @apply text-pink-600 bg-pink-50 border-pink-200; }
+.channel-teal { @apply text-teal-600 bg-teal-50 border-teal-200; }
+.channel-indigo { @apply text-indigo-600 bg-indigo-50 border-indigo-200; }
+.channel-red { @apply text-red-600 bg-red-50 border-red-200; }
+.channel-yellow { @apply text-yellow-700 bg-yellow-50 border-yellow-200; }
+.channel-cyan { @apply text-cyan-600 bg-cyan-50 border-cyan-200; }
+.channel-rose { @apply text-rose-600 bg-rose-50 border-rose-200; }
+.channel-violet { @apply text-violet-600 bg-violet-50 border-violet-200; }
