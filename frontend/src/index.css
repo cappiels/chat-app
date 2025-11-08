@@ -96,7 +96,7 @@ body {
 
 /* Message Container */
 .message {
-  @apply flex gap-3 px-4 py-2 hover:bg-slate-50 group transition-colors duration-150;
+  @apply flex gap-3 px-4 py-2 hover:bg-slate-50 transition-colors duration-150;
 }
 
 .message-avatar {
@@ -124,7 +124,11 @@ body {
 }
 
 .message-actions {
-  @apply opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity duration-150;
+  @apply opacity-0 flex gap-1 transition-opacity duration-150;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
 }
 
 /* Message Input */
