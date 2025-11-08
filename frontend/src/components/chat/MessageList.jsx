@@ -6,6 +6,8 @@ import NewMessageDivider from './NewMessageDivider';
 import TypingIndicator from './TypingIndicator';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
+import ChannelCalendar from '../calendar/ChannelCalendar';
+import ChannelTimeline from '../timeline/ChannelTimeline';
 
 const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, onChannelMembers, onChannelInfo, typingUsers: externalTypingUsers, workspace, workspaceId }) => {
   const messagesEndRef = useRef(null);
@@ -167,42 +169,20 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
     switch(currentView) {
       case 'calendar':
         return (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl mb-6 shadow-lg">
-                <Calendar className="w-10 h-10 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-slate-900">
-                #{channel.name} Calendar
-              </h3>
-              <p className="text-slate-600 max-w-md mx-auto">
-                Calendar view for channel tasks and events. This will show scheduled tasks and deadlines.
-              </p>
-              <div className="mt-4 text-sm text-slate-500">
-                📋 {channel.name} tasks will appear here
-              </div>
-            </div>
-          </div>
+          <ChannelCalendar 
+            channel={channel}
+            workspace={workspace}
+            workspaceId={workspaceId || workspace?.id}
+          />
         );
         
       case 'timeline':
         return (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl mb-6 shadow-lg">
-                <BarChart3 className="w-10 h-10 text-purple-600" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-slate-900">
-                #{channel.name} Timeline
-              </h3>
-              <p className="text-slate-600 max-w-md mx-auto">
-                Gantt chart timeline view for channel tasks. Visualize dependencies and project progress.
-              </p>
-              <div className="mt-4 text-sm text-slate-500">
-                📊 Task timeline and dependencies will appear here
-              </div>
-            </div>
-          </div>
+          <ChannelTimeline 
+            channel={channel}
+            workspace={workspace}
+            workspaceId={workspaceId || workspace?.id}
+          />
         );
         
       case 'chat':

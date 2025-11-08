@@ -44,29 +44,76 @@ router.use(authenticateUser);
 router.use(requireChannelMembership);
 
 // GET /api/workspaces/:workspaceId/threads/:threadId/tasks
-// Get all tasks for a channel
+// Get all tasks for a channel with multi-assignee support
 router.get('/', async (req, res) => {
   try {
     const { threadId } = req.params;
     const { status, assigned_to, start_date, end_date, limit = 100, offset = 0 } = req.query;
+    const userId = req.user.uid;
 
     let query = `
       SELECT 
         ct.*,
-        u1.display_name as assigned_to_name,
         u2.display_name as created_by_name,
-        t.name as channel_name
-      FROM channel_tasks ct
-      LEFT JOIN users u1 ON ct.assigned_to = u1.id
+        t.name as channel_name,
+        ct.progress_info,
+        ct.is_complete,
+        ct.total_assignees,
+        ct.individual_assignee_count,
+        ct.team_count,
+        -- Get assignee details
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id', u.id,
+              'display_name', u.display_name,
+              'email', u.email
+            )
+          )
+          FROM users u 
+          WHERE u.id IN (
+            SELECT jsonb_array_elements_text(ct.assignees)
+          )
+        ) as assignee_details,
+        -- Get team details
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id', wt.id,
+              'name', wt.name,
+              'display_name', wt.display_name,
+              'color', wt.color,
+              'member_count', (
+                SELECT count(*) 
+                FROM workspace_team_members wtm 
+                WHERE wtm.team_id = wt.id AND wtm.is_active = true
+              )
+            )
+          )
+          FROM workspace_teams wt
+          WHERE wt.id IN (
+            SELECT (jsonb_array_elements_text(ct.assigned_teams))::integer
+          )
+        ) as team_details,
+        -- Check if current user can edit this task
+        can_user_edit_task(ct.assignees, ct.assigned_teams, ct.created_by, $2) as user_can_edit,
+        -- Check if current user is assignee
+        is_task_assignee(ct.assignees, ct.assigned_teams, $2) as user_is_assignee,
+        -- Check if current user has completed this task
+        CASE 
+          WHEN ct.individual_completions ? $2 THEN true
+          ELSE false
+        END as user_completed
+      FROM channel_tasks_with_progress ct
       LEFT JOIN users u2 ON ct.created_by = u2.id
       JOIN threads t ON ct.thread_id = t.id
       WHERE ct.thread_id = $1
     `;
     
-    const params = [threadId];
-    let paramCount = 1;
+    const params = [threadId, userId];
+    let paramCount = 2;
 
-    // Add filters
+    // Add filters - updated for multi-assignee
     if (status) {
       paramCount++;
       query += ` AND ct.status = $${paramCount}`;
@@ -75,7 +122,8 @@ router.get('/', async (req, res) => {
     
     if (assigned_to) {
       paramCount++;
-      query += ` AND ct.assigned_to = $${paramCount}`;
+      // Updated to support both old and new assignment systems
+      query += ` AND (ct.assigned_to = $${paramCount} OR ct.assignees ? $${paramCount})`;
       params.push(assigned_to);
     }
     
@@ -139,7 +187,7 @@ router.get('/:taskId', async (req, res) => {
 });
 
 // POST /api/workspaces/:workspaceId/threads/:threadId/tasks
-// Create a new task in the channel
+// Create a new task with multi-assignee and teams support
 router.post('/', async (req, res) => {
   try {
     const { threadId } = req.params;
@@ -150,7 +198,13 @@ router.post('/', async (req, res) => {
       start_date, 
       end_date, 
       due_date,
+      // Legacy support
       assigned_to,
+      // New multi-assignee fields
+      assignees = [],
+      assigned_teams = [],
+      assignment_mode = 'collaborative',
+      requires_individual_response = false,
       status = 'pending',
       priority = 'medium',
       tags = [],
@@ -171,11 +225,41 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Task title must be 255 characters or less' });
     }
 
-    // Validate assigned_to user exists
-    if (assigned_to) {
-      const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [assigned_to]);
-      if (userCheck.rows.length === 0) {
-        return res.status(400).json({ error: 'Assigned user does not exist' });
+    // Validate assignment mode
+    if (!['collaborative', 'individual_response'].includes(assignment_mode)) {
+      return res.status(400).json({ error: 'Invalid assignment mode' });
+    }
+
+    // Convert legacy assigned_to to new assignees format
+    let finalAssignees = [...assignees];
+    if (assigned_to && !finalAssignees.includes(assigned_to)) {
+      finalAssignees.push(assigned_to);
+    }
+
+    // Validate all assignee users exist
+    if (finalAssignees.length > 0) {
+      const userCheck = await pool.query(
+        'SELECT id FROM users WHERE id = ANY($1)', 
+        [finalAssignees]
+      );
+      if (userCheck.rows.length !== finalAssignees.length) {
+        const foundUsers = userCheck.rows.map(u => u.id);
+        const missingUsers = finalAssignees.filter(id => !foundUsers.includes(id));
+        return res.status(400).json({ 
+          error: 'Some assigned users do not exist',
+          missing_users: missingUsers
+        });
+      }
+    }
+
+    // Validate assigned teams exist
+    if (assigned_teams.length > 0) {
+      const teamCheck = await pool.query(
+        'SELECT id FROM workspace_teams WHERE id = ANY($1)', 
+        [assigned_teams.map(id => parseInt(id))]
+      );
+      if (teamCheck.rows.length !== assigned_teams.length) {
+        return res.status(400).json({ error: 'Some assigned teams do not exist' });
       }
     }
 
@@ -193,13 +277,15 @@ router.post('/', async (req, res) => {
     const result = await pool.query(`
       INSERT INTO channel_tasks (
         thread_id, title, description, start_date, end_date, due_date,
-        assigned_to, status, priority, tags, estimated_hours, 
+        assigned_to, assignees, assigned_teams, assignment_mode, requires_individual_response,
+        status, priority, tags, estimated_hours, 
         is_all_day, start_time, end_time, parent_task_id, dependencies, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
       RETURNING id, created_at, updated_at
     `, [
       threadId, title.trim(), description, start_date, end_date, due_date,
-      assigned_to, status, priority, JSON.stringify(tags), estimated_hours,
+      assigned_to, JSON.stringify(finalAssignees), JSON.stringify(assigned_teams), assignment_mode, requires_individual_response,
+      status, priority, JSON.stringify(tags), estimated_hours,
       is_all_day, start_time, end_time, parent_task_id, JSON.stringify(dependencies), userId
     ]);
 
@@ -371,6 +457,301 @@ router.get('/:taskId/subtasks', async (req, res) => {
   } catch (error) {
     console.error('Error fetching subtasks:', error);
     res.status(500).json({ error: 'Failed to fetch subtasks' });
+  }
+});
+
+// === REVOLUTIONARY MULTI-ASSIGNEE ENDPOINTS ===
+
+// POST /api/workspaces/:workspaceId/threads/:threadId/tasks/:taskId/complete
+// Mark task as completed by current user (individual completion)
+router.post('/:taskId/complete', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.uid;
+
+    const result = await pool.query(
+      'SELECT mark_task_complete_individual($1, $2)',
+      [taskId, userId]
+    );
+
+    const completion_result = result.rows[0].mark_task_complete_individual;
+    
+    if (!completion_result.success) {
+      return res.status(400).json({ 
+        error: completion_result.error 
+      });
+    }
+
+    res.json({
+      message: 'Task marked as complete',
+      progress: completion_result.progress,
+      completed_by: completion_result.completed_by_user,
+      timestamp: completion_result.timestamp
+    });
+  } catch (error) {
+    console.error('Error marking task complete:', error);
+    res.status(500).json({ error: 'Failed to mark task complete' });
+  }
+});
+
+// DELETE /api/workspaces/:workspaceId/threads/:threadId/tasks/:taskId/complete
+// Mark task as incomplete by current user (remove individual completion)
+router.delete('/:taskId/complete', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.uid;
+
+    const result = await pool.query(
+      'SELECT mark_task_incomplete_individual($1, $2)',
+      [taskId, userId]
+    );
+
+    const completion_result = result.rows[0].mark_task_incomplete_individual;
+    
+    if (!completion_result.success) {
+      return res.status(400).json({ 
+        error: completion_result.error 
+      });
+    }
+
+    res.json({
+      message: 'Task marked as incomplete',
+      progress: completion_result.progress,
+      uncompleted_by: completion_result.uncompleted_by_user
+    });
+  } catch (error) {
+    console.error('Error marking task incomplete:', error);
+    res.status(500).json({ error: 'Failed to mark task incomplete' });
+  }
+});
+
+// GET /api/workspaces/:workspaceId/threads/:threadId/tasks/:taskId/progress
+// Get detailed progress information for a task
+router.get('/:taskId/progress', async (req, res) => {
+  try {
+    const { threadId, taskId } = req.params;
+    const userId = req.user.uid;
+
+    const result = await pool.query(`
+      SELECT 
+        ct.id,
+        ct.title,
+        ct.assignment_mode,
+        ct.requires_individual_response,
+        ct.progress_info,
+        ct.individual_completions,
+        ct.assignee_details,
+        ct.team_details,
+        ct.user_can_edit,
+        ct.user_is_assignee,
+        ct.user_completed,
+        -- Get detailed completion info with timestamps
+        (
+          SELECT json_object_agg(
+            completion_user_id,
+            json_build_object(
+              'completed_at', completion_timestamp,
+              'user_name', u.display_name
+            )
+          )
+          FROM (
+            SELECT 
+              completion_user_id,
+              completion_timestamp,
+              u.display_name
+            FROM jsonb_each_text(ct.individual_completions) as comp(completion_user_id, completion_timestamp)
+            JOIN users u ON u.id = comp.completion_user_id
+          ) as completions_with_names
+        ) as detailed_completions
+      FROM channel_tasks_with_progress ct
+      WHERE ct.id = $1 AND ct.thread_id = $2
+    `, [taskId, threadId, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching task progress:', error);
+    res.status(500).json({ error: 'Failed to fetch task progress' });
+  }
+});
+
+// === TEAM MANAGEMENT ENDPOINTS ===
+
+// GET /api/workspaces/:workspaceId/teams
+// Get all teams in workspace
+router.get('/../../teams', async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+
+    const result = await pool.query(`
+      SELECT 
+        wt.*,
+        (
+          SELECT json_agg(
+            json_build_object(
+              'user_id', wtm.user_id,
+              'role', wtm.role,
+              'display_name', u.display_name,
+              'email', u.email,
+              'joined_at', wtm.joined_at
+            )
+          )
+          FROM workspace_team_members wtm
+          JOIN users u ON u.id = wtm.user_id
+          WHERE wtm.team_id = wt.id AND wtm.is_active = true
+          ORDER BY wtm.role DESC, u.display_name
+        ) as members,
+        (
+          SELECT count(*)
+          FROM workspace_team_members wtm
+          WHERE wtm.team_id = wt.id AND wtm.is_active = true
+        ) as member_count
+      FROM workspace_teams wt
+      WHERE wt.workspace_id = $1 AND wt.is_active = true
+      ORDER BY wt.display_name
+    `, [workspaceId]);
+
+    res.json({ teams: result.rows });
+  } catch (error) {
+    console.error('Error fetching teams:', error);
+    res.status(500).json({ error: 'Failed to fetch teams' });
+  }
+});
+
+// POST /api/workspaces/:workspaceId/teams
+// Create a new team
+router.post('/../../teams', async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const userId = req.user.uid;
+    const { 
+      name, 
+      display_name, 
+      description, 
+      color = 'blue',
+      members = []
+    } = req.body;
+
+    // Validation
+    if (!name || !display_name) {
+      return res.status(400).json({ error: 'Team name and display name are required' });
+    }
+
+    // Validate name format (lowercase with hyphens)
+    if (!/^[a-z0-9-]+$/.test(name)) {
+      return res.status(400).json({ error: 'Team name must be lowercase with hyphens only' });
+    }
+
+    // Validate color
+    const validColors = ['blue', 'green', 'purple', 'orange', 'pink', 'teal', 'indigo', 'red', 'yellow', 'cyan', 'rose', 'violet'];
+    if (!validColors.includes(color)) {
+      return res.status(400).json({ error: 'Invalid team color' });
+    }
+
+    // Check if team name already exists in workspace
+    const existingTeam = await pool.query(
+      'SELECT id FROM workspace_teams WHERE workspace_id = $1 AND name = $2',
+      [workspaceId, name]
+    );
+
+    if (existingTeam.rows.length > 0) {
+      return res.status(409).json({ error: 'Team name already exists in this workspace' });
+    }
+
+    // Create team
+    const teamResult = await pool.query(`
+      INSERT INTO workspace_teams (workspace_id, name, display_name, description, color, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [workspaceId, name, display_name, description, color, userId]);
+
+    const team = teamResult.rows[0];
+
+    // Add members if provided
+    if (members.length > 0) {
+      const memberValues = members.map((member, index) => 
+        `($1, $${index * 3 + 2}, $${index * 3 + 3}, $${index * 3 + 4})`
+      ).join(', ');
+
+      const memberParams = [team.id];
+      members.forEach(member => {
+        memberParams.push(member.user_id, member.role || 'member', userId);
+      });
+
+      await pool.query(`
+        INSERT INTO workspace_team_members (team_id, user_id, role, joined_by)
+        VALUES ${memberValues}
+      `, memberParams);
+    }
+
+    res.status(201).json({
+      message: 'Team created successfully',
+      team: team
+    });
+  } catch (error) {
+    console.error('Error creating team:', error);
+    res.status(500).json({ error: 'Failed to create team' });
+  }
+});
+
+// POST /api/workspaces/:workspaceId/teams/:teamId/members
+// Add member to team
+router.post('/../../teams/:teamId/members', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const userId = req.user.uid;
+    const { user_id, role = 'member' } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // Check if user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user_id]);
+    if (userCheck.rows.length === 0) {
+      return res.status(400).json({ error: 'User does not exist' });
+    }
+
+    // Check if team exists
+    const teamCheck = await pool.query('SELECT id FROM workspace_teams WHERE id = $1', [teamId]);
+    if (teamCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    // Add member
+    await pool.query(`
+      INSERT INTO workspace_team_members (team_id, user_id, role, joined_by)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (team_id, user_id) 
+      DO UPDATE SET role = $3, is_active = true, joined_at = CURRENT_TIMESTAMP
+    `, [teamId, user_id, role, userId]);
+
+    res.json({ message: 'Team member added successfully' });
+  } catch (error) {
+    console.error('Error adding team member:', error);
+    res.status(500).json({ error: 'Failed to add team member' });
+  }
+});
+
+// DELETE /api/workspaces/:workspaceId/teams/:teamId/members/:memberId
+// Remove member from team
+router.delete('/../../teams/:teamId/members/:memberId', async (req, res) => {
+  try {
+    const { teamId, memberId } = req.params;
+
+    await pool.query(`
+      UPDATE workspace_team_members 
+      SET is_active = false 
+      WHERE team_id = $1 AND user_id = $2
+    `, [teamId, memberId]);
+
+    res.json({ message: 'Team member removed successfully' });
+  } catch (error) {
+    console.error('Error removing team member:', error);
+    res.status(500).json({ error: 'Failed to remove team member' });
   }
 });
 
