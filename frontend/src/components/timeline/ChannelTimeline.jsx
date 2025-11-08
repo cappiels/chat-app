@@ -3,7 +3,7 @@ import {
   ChevronLeftIcon, 
   ChevronRightIcon,
   PlusIcon,
-  BarChart3Icon,
+  ChartBarIcon,
   ClockIcon,
   UserIcon,
   ArrowRightIcon,
@@ -324,7 +324,7 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-error-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <BarChart3Icon className="w-8 h-8 text-error-600" />
+            <ChartBarIcon className="w-8 h-8 text-error-600" />
           </div>
           <h3 className="text-lg font-semibold text-text-primary mb-2">Failed to load timeline</h3>
           <p className="text-text-secondary mb-4">{error}</p>
@@ -374,7 +374,7 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
           <div className="flex-1 flex items-center justify-center py-12">
             <div className="text-center">
               <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-purple-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                <BarChart3Icon className="w-8 h-8 text-purple-600" />
+                <ChartBarIcon className="w-8 h-8 text-purple-600" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary mb-2">
                 No tasks in #{channel.name}

@@ -13,7 +13,8 @@ html {
 }
 
 body {
-  @apply font-sans text-base text-text-primary bg-background-primary;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  @apply text-base text-text-primary bg-background-primary;
   @apply overflow-hidden;
 }
 
