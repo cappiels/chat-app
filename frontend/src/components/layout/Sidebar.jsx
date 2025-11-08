@@ -4,10 +4,8 @@ import {
   ChevronDown, 
   Plus, 
   Hash, 
-  Lock, 
   MessageSquare,
   Users,
-  MoreVertical,
   X,
   Bell,
   BellOff,
@@ -40,7 +38,7 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
     loadDMs();
   }, [workspace]);
 
-  // Load unread summary and channel data (initial load only)
+  // Load unread summary and channel data
   useEffect(() => {
     const loadUnreadData = async () => {
       if (!workspace?.id) return;
@@ -48,7 +46,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       try {
         console.log('📊 Loading initial unread data for workspace:', workspace.id);
         
-        // Load both unread summary and channels with unread counts
         const [summaryResponse, channelsResponse] = await Promise.all([
           notificationAPI.getUnreadSummary(workspace.id),
           notificationAPI.getChannelsWithUnread(workspace.id)
@@ -67,8 +64,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
     };
 
     loadUnreadData();
-    
-    // No more polling - rely purely on real-time updates
   }, [workspace?.id]);
 
   // Set up real-time notification listeners
@@ -79,7 +74,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       if (data.workspaceId === workspace.id) {
         console.log('📱 Sidebar: Notification update received', data);
         
-        // Update unread count for specific channel
         setChannelsWithUnread(prev => {
           const existingIndex = prev.findIndex(ch => ch.id === data.entityId);
           if (existingIndex >= 0) {
@@ -91,7 +85,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
             };
             return updated;
           } else {
-            // Add new channel to unread list if it has unread messages
             if (data.unreadIncrement > 0) {
               return [...prev, {
                 id: data.entityId,
@@ -104,7 +97,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
           return prev;
         });
 
-        // Update summary
         setUnreadSummary(prev => ({
           ...prev,
           total_unread: Math.max(0, prev.total_unread + data.unreadIncrement),
@@ -117,13 +109,12 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       if (data.workspaceId === workspace.id) {
         console.log('📖 Sidebar: Read status update', data);
         
-        // Update specific channel unread count
         setChannelsWithUnread(prev => 
           prev.map(ch => 
             ch.id === data.entityId 
               ? { ...ch, unread_count: data.unreadCount || 0, unread_mentions: 0 }
               : ch
-          ).filter(ch => ch.unread_count > 0 || ch.unread_mentions > 0) // Remove channels with no unread
+          ).filter(ch => ch.unread_count > 0 || ch.unread_mentions > 0)
         );
       }
     };
@@ -135,7 +126,7 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
         setUnreadSummary({
           total_unread: data.totalUnread || 0,
           total_mentions: data.totalMentions || 0,
-          unread_conversations: data.totalUnread > 0 ? 1 : 0 // Simplified count
+          unread_conversations: data.totalUnread > 0 ? 1 : 0
         });
       }
     };
@@ -144,7 +135,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       if (data.workspaceId === workspace.id || (data.message && data.threadId)) {
         console.log('💬 Sidebar: New message notification', data);
         
-        // Show notification badge animation for new messages
         const channelElement = document.querySelector(`[data-channel-id="${data.threadId}"]`);
         if (channelElement) {
           channelElement.classList.add('animate-notification-bounce');
@@ -155,7 +145,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       }
     };
 
-    // Listen for real-time notification events
     socketManager.on('notification_update', handleNotificationUpdate);
     socketManager.on('read_status_update', handleReadStatusUpdate);
     socketManager.on('workspace_notification_update', handleWorkspaceNotificationUpdate);
@@ -177,11 +166,10 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       const response = await threadAPI.getThreads(workspace.id);
       const threadsData = response.data;
       
-      // Filter direct messages from the threads response
       const dms = threadsData.direct_messages.map(thread => ({
         id: thread.id,
         name: thread.name || 'Direct Message',
-        status: 'online', // Default status - could be enhanced with real presence data
+        status: 'online',
         initials: thread.name ? thread.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'DM',
         unread: thread.unread_count || 0
       }));
@@ -195,27 +183,22 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
     }
   };
 
-  // Helper to get unread count for a specific channel
   const getChannelUnreadCount = (channelId) => {
     const channelData = channelsWithUnread.find(ch => ch.id === channelId);
     return channelData?.unread_count || 0;
   };
 
-  // Helper to get mention count for a specific channel
   const getChannelMentionCount = (channelId) => {
     const channelData = channelsWithUnread.find(ch => ch.id === channelId);
     return channelData?.unread_mentions || 0;
   };
 
-  // Helper to check if channel is muted
   const isChannelMuted = (channelId) => {
     const channelData = channelsWithUnread.find(ch => ch.id === channelId);
     return channelData?.is_muted || false;
   };
 
-  // Handle marking channel as read when user clicks on it
   const handleChannelSelect = async (channel) => {
-    // Mark as read if there are unread messages
     const unreadCount = getChannelUnreadCount(channel.id);
     if (unreadCount > 0) {
       try {
@@ -224,7 +207,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
           entity_id: channel.id
         });
         
-        // Update local state immediately for instant UI feedback
         setChannelsWithUnread(prev => 
           prev.map(ch => 
             ch.id === channel.id 
@@ -233,7 +215,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
           )
         );
         
-        // Update summary
         setUnreadSummary(prev => ({
           ...prev,
           total_unread: Math.max(0, prev.total_unread - unreadCount),
@@ -249,59 +230,60 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
   };
 
   return (
-    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <div className="flex flex-col h-full">
       {/* Workspace Header */}
-      <div className="p-4 border-b border-slate-200 bg-white/50 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md">
-              <span className="text-white font-bold text-sm">
-                {workspace?.name?.charAt(0)?.toUpperCase() || 'C'}
+      <div className="workspace-header" onClick={onWorkspaceSettings}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 bg-gradient-brand rounded-xl flex items-center justify-center shadow-sm">
+            <span className="text-text-inverse font-bold text-sm">
+              {workspace?.name?.charAt(0)?.toUpperCase() || 'C'}
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="workspace-name truncate">
+              {workspace?.name || 'ChatFlow'}
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-2 h-2 bg-success-400 rounded-full"></div>
+              <span className="text-xs text-text-tertiary">
+                {workspace?.member_count || 0} members
               </span>
             </div>
-            <div className="min-w-0">
-              <h2 className="font-semibold text-slate-800 truncate text-sm">
-                {workspace?.name || 'ChatFlow'}
-              </h2>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full shadow-sm" />
-                <span className="text-xs text-slate-500">
-                  {workspace?.member_count || 0} {(workspace?.member_count || 0) === 1 ? 'member' : 'members'}
-                </span>
-              </div>
-            </div>
           </div>
-          <button 
-            className="md:hidden p-2 hover:bg-slate-200 rounded-lg transition-colors duration-200" 
-            onClick={onClose}
-          >
-            <X className="w-4 h-4 text-slate-600" />
-          </button>
         </div>
+        
+        {/* Mobile close button */}
+        <button 
+          className="btn-icon md:hidden" 
+          onClick={onClose}
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Channel List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+      <div className="channel-list">
         {/* Channels Section */}
-        <div className="mb-6 relative">
-          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+        <div>
+          <div className="section-header">
             <button
               onClick={() => setChannelsExpanded(!channelsExpanded)}
-              className="flex items-center gap-2 hover:text-slate-800 transition-colors duration-200"
+              className="flex items-center gap-2"
             >
               <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${channelsExpanded ? '' : '-rotate-90'}`} />
               <span>Channels</span>
             </button>
             <button 
-              className="p-1 hover:bg-slate-200 rounded transition-colors duration-200" 
+              className="btn-icon" 
               onClick={onAddChannel}
+              title="Add channel"
             >
               <Plus className="w-3 h-3" />
             </button>
           </div>
 
           {channelsExpanded && (
-            <div className="mt-2 space-y-0.5">
+            <div className="space-y-1">
               {channels.map((channel) => {
                 const unreadCount = getChannelUnreadCount(channel.id);
                 const mentionCount = getChannelMentionCount(channel.id);
@@ -312,144 +294,140 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
                     key={channel.id}
                     onClick={() => handleChannelSelect(channel)}
                     data-channel-id={channel.id}
-                    className={`w-full flex items-center gap-2 px-2 py-2 text-sm rounded-lg transition-all duration-200 relative group ${
-                      currentChannel?.id === channel.id 
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-sm' 
-                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                    } ${unreadCount > 0 ? 'font-semibold' : ''}`}
+                    className={`channel-item ${
+                      currentChannel?.id === channel.id ? 'active' : ''
+                    } ${unreadCount > 0 ? 'unread' : ''}`}
                   >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Hash className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate flex-1">{channel.name}</span>
-                      {isMuted && (
-                        <BellOff className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                      )}
-                    </div>
+                    <Hash className="w-4 h-4" />
+                    <span className="truncate flex-1">{channel.name}</span>
                     
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1">
+                      {isMuted && (
+                        <BellOff className="w-3 h-3 text-text-quaternary" />
+                      )}
                       {mentionCount > 0 && (
-                        <span className="bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-bold shadow-sm animate-pulse">
+                        <div className="badge-count bg-error-500">
                           @{mentionCount}
-                        </span>
+                        </div>
                       )}
                       {unreadCount > 0 && mentionCount === 0 && (
-                        <span className={`text-white text-xs px-1.5 py-0.5 rounded-full font-medium shadow-sm ${
-                          isMuted ? 'bg-slate-400' : 'bg-red-500'
-                        }`}>
+                        <div className={`badge-count ${isMuted ? 'bg-gray-400' : 'bg-accent-500'}`}>
                           {unreadCount}
-                        </span>
+                        </div>
                       )}
                     </div>
                   </button>
                 );
               })}
+              
               <button 
-                className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all duration-200" 
+                className="channel-item text-text-tertiary" 
                 onClick={onAddChannel}
               >
-                <Plus className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">Add channels</span>
+                <Plus className="w-4 h-4" />
+                <span>Add channels</span>
               </button>
             </div>
           )}
         </div>
 
         {/* Direct Messages Section */}
-        <div className="mb-6 relative">
-          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+        <div>
+          <div className="section-header">
             <button
               onClick={() => setDirectMessagesExpanded(!directMessagesExpanded)}
-              className="flex items-center gap-2 hover:text-slate-800 transition-colors duration-200"
+              className="flex items-center gap-2"
             >
               <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${directMessagesExpanded ? '' : '-rotate-90'}`} />
               <span>Direct messages</span>
             </button>
-            <button className="p-1 hover:bg-slate-200 rounded transition-colors duration-200">
+            <button className="btn-icon" title="New message">
               <Plus className="w-3 h-3" />
             </button>
           </div>
 
           {directMessagesExpanded && (
-            <div className="mt-2 space-y-0.5">
+            <div className="space-y-1">
               {directMessages.map((dm) => (
                 <button
                   key={dm.id}
-                  className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200"
+                  className="channel-item"
                 >
-                  <div className="relative flex-shrink-0">
-                    <div className="w-7 h-7 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
-                      <span className="text-white text-xs font-medium">{dm.initials}</span>
+                  <div className="relative">
+                    <div className="w-7 h-7 bg-gradient-accent rounded-lg flex items-center justify-center">
+                      <span className="text-text-inverse text-xs font-medium">{dm.initials}</span>
                     </div>
                     <div className={`w-3 h-3 absolute -bottom-0.5 -right-0.5 border-2 border-white rounded-full ${
-                      dm.status === 'online' ? 'bg-green-400' : dm.status === 'away' ? 'bg-yellow-400' : 'bg-slate-400'
+                      dm.status === 'online' ? 'bg-online' : dm.status === 'away' ? 'bg-away' : 'bg-offline'
                     }`} />
                   </div>
-                  <span className="truncate flex-1">{dm.name}</span>
+                  <span className="truncate">{dm.name}</span>
+                  
+                  {dm.unread > 0 && (
+                    <div className="badge-count">
+                      {dm.unread}
+                    </div>
+                  )}
                 </button>
               ))}
-              <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all duration-200">
-                <Users className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">Browse people</span>
+              
+              <button className="channel-item text-text-tertiary">
+                <Users className="w-4 h-4" />
+                <span>Browse people</span>
               </button>
             </div>
           )}
         </div>
 
         {/* Knowledge Base Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+        <div>
+          <div className="section-header">
             <span>Knowledge Base</span>
-            <button className="p-1 hover:bg-slate-200 rounded transition-colors duration-200">
+            <button className="btn-icon" title="Add knowledge">
               <Plus className="w-3 h-3" />
             </button>
           </div>
-          <div className="mt-2 space-y-0.5">
-            <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200">
-              <BookOpen className="w-4 h-4 flex-shrink-0 text-blue-600" />
-              <span className="truncate">Browse Knowledge</span>
+          
+          <div className="space-y-1">
+            <button className="channel-item">
+              <BookOpen className="w-4 h-4 text-blue-600" />
+              <span>Browse Knowledge</span>
             </button>
-            <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200">
-              <Star className="w-4 h-4 flex-shrink-0 text-yellow-600" />
-              <span className="truncate">My Bookmarks</span>
+            
+            <button className="channel-item">
+              <Star className="w-4 h-4 text-yellow-600" />
+              <span>My Bookmarks</span>
               {unreadSummary.total_unread > 0 && (
-                <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium shadow-sm flex-shrink-0">
+                <div className="badge-count">
                   {unreadSummary.total_unread > 99 ? '99+' : unreadSummary.total_unread}
-                </span>
+                </div>
               )}
             </button>
-            <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200">
-              <Hash className="w-4 h-4 flex-shrink-0 text-purple-600" />
-              <span className="truncate">Categories</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Apps Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-            <span>Apps</span>
-            <button className="p-1 hover:bg-slate-200 rounded transition-colors duration-200">
-              <Plus className="w-3 h-3" />
+            
+            <button className="channel-item">
+              <Hash className="w-4 h-4 text-purple-600" />
+              <span>Categories</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Bottom User Section */}
-      <div className="p-3 border-t border-slate-200 bg-white/30 backdrop-blur-sm space-y-0.5">
-        <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200">
-          <MessageSquare className="w-4 h-4 flex-shrink-0" />
-          <span className="truncate">Threads</span>
+      {/* Bottom Section */}
+      <div className="mt-auto p-3 border-t border-border-primary bg-surface-secondary/50 backdrop-blur-sm space-y-1">
+        <button className="channel-item">
+          <MessageSquare className="w-4 h-4" />
+          <span>All Threads</span>
         </button>
+        
         <button 
-          className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200"
+          className="channel-item"
           onClick={onWorkspaceSettings}
         >
-          <Users className="w-4 h-4 flex-shrink-0" />
-          <span className="truncate">People & user groups</span>
+          <Users className="w-4 h-4" />
+          <span>People & Teams</span>
         </button>
       </div>
-    </aside>
+    </div>
   );
 };
 

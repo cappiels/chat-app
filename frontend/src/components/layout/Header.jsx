@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Search, X, Bell, HelpCircle, User, UserPlus, ChevronDown, Briefcase, Settings, Volume2 } from 'lucide-react';
+import { 
+  Menu, 
+  Search, 
+  Bell, 
+  UserPlus, 
+  ChevronDown, 
+  Briefcase, 
+  Settings, 
+  Volume2, 
+  User,
+  HelpCircle 
+} from 'lucide-react';
 import { workspaceAPI, notificationAPI } from '../../utils/api';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 import SoundSettingsDialog from '../SoundSettingsDialog';
@@ -8,7 +19,6 @@ import ConnectionStatus from '../ui/ConnectionStatus';
 import { getVersionString } from '../../utils/version';
 
 const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces }) => {
-  const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -41,12 +51,10 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
 
     loadUnreadSummary();
     
-    // Set up polling for unread updates every 30 seconds
     const interval = setInterval(loadUnreadSummary, 30000);
     return () => clearInterval(interval);
   }, [workspace?.id]);
 
-  // Load available workspaces when component mounts or when workspace switcher is opened
   const loadWorkspaces = async () => {
     if (loadingWorkspaces || !onWorkspaceSwitch) return;
     
@@ -76,7 +84,6 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
   };
 
   const handleWorkspaceDeleted = (workspaceId, archived) => {
-    // Go back to workspace selection when current workspace is deleted/archived
     if (onBackToWorkspaces) {
       onBackToWorkspaces();
     } else if (onWorkspaceSwitch) {
@@ -101,7 +108,6 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
       });
     } catch (error) {
       console.error('Failed to load workspace details:', error);
-      // Still show dialog with basic data as fallback
       setDetailedWorkspace(workspace);
     } finally {
       setLoadingWorkspaceDetails(false);
@@ -115,7 +121,6 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
   };
 
   const handleMemberRemoved = (memberId) => {
-    // Refresh workspace details after member is removed
     if (detailedWorkspace?.members) {
       setDetailedWorkspace({
         ...detailedWorkspace,
@@ -125,47 +130,56 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
   };
 
   return (
-    <header className="app-header">
-      <div className="flex items-center gap-3 flex-1">
+    <div className="flex items-center justify-between px-4 h-full w-full">
+      {/* Left Section */}
+      <div className="flex items-center gap-3">
         {/* Mobile menu button */}
         <button
           onClick={onMenuClick}
-          className="btn-icon btn-ghost text-white md:hidden"
+          className="btn-icon text-text-inverse hover:bg-white/15 md:hidden"
           aria-label="Toggle sidebar"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Version and Workspace Switcher - Always Visible */}
-        <div className="relative flex flex-col">
-            <div className="text-xs text-white/70 mb-1 px-1">{getVersionString()}</div>
-            <button
-              onClick={handleWorkspaceSwitcherToggle}
-              className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/15 rounded-lg transition-all bg-white/10 border-2 border-white/40 backdrop-blur-sm"
-              title="Switch workspace • Click to see all workspaces"
-              style={{ minWidth: '150px', backgroundColor: 'rgba(255,255,255,0.15)' }}
-            >
-              <Briefcase className="w-5 h-5" />
-              <span className="font-semibold truncate max-w-32">
-                {workspace?.name || 'ChatFlow'}
-              </span>
-              <ChevronDown className="w-4 h-4 transition-transform" />
-            </button>
-            
-            {/* Workspace Dropdown */}
-            {showWorkspaceSwitcher && (
-              <div className="absolute left-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-border-strong z-50 animate-slide-up">
-                <div className="p-4 border-b border-border bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-xl">
-                  <h3 className="text-sm font-semibold text-primary">Switch Workspace</h3>
-                  <p className="text-xs text-tertiary mt-1">Choose a workspace to switch to</p>
+        {/* Workspace Switcher */}
+        <div className="relative">
+          <button
+            onClick={handleWorkspaceSwitcherToggle}
+            className="flex items-center gap-2 px-3 py-2 text-text-inverse hover:bg-white/15 rounded-lg transition-all duration-200 min-w-[160px]"
+            title="Switch workspace"
+          >
+            <Briefcase className="w-4 h-4" />
+            <span className="font-medium truncate">
+              {workspace?.name || 'ChatFlow'}
+            </span>
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showWorkspaceSwitcher ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {/* Workspace Dropdown */}
+          {showWorkspaceSwitcher && (
+            <>
+              {/* Overlay */}
+              <div 
+                className="fixed inset-0 z-dropdown-backdrop" 
+                onClick={() => setShowWorkspaceSwitcher(false)}
+              />
+              
+              {/* Dropdown Content */}
+              <div className="dropdown absolute top-full left-0 mt-2 w-80">
+                <div className="p-4 border-b border-border-primary bg-surface-tertiary">
+                  <h3 className="font-semibold text-text-primary">Switch Workspace</h3>
+                  <p className="text-xs text-text-tertiary mt-1">Choose a workspace to switch to</p>
                 </div>
-                <div className="py-1 max-h-64 overflow-y-auto">
+                
+                <div className="max-h-64 overflow-y-auto">
                   {loadingWorkspaces ? (
-                    <div className="p-3 text-center text-sm text-tertiary">
+                    <div className="p-4 text-center text-text-tertiary">
+                      <div className="loading-spinner w-4 h-4 mx-auto mb-2"></div>
                       Loading workspaces...
                     </div>
                   ) : workspaces.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-tertiary">
+                    <div className="p-4 text-center text-text-tertiary">
                       No other workspaces found
                     </div>
                   ) : (
@@ -173,37 +187,39 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
                       <button
                         key={ws.id}
                         onClick={() => handleWorkspaceSelect(ws)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-surface transition flex items-center gap-3 ${
-                          ws.id === workspace?.id ? 'bg-surface text-accent' : 'text-primary'
+                        className={`dropdown-item w-full ${
+                          ws.id === workspace?.id ? 'bg-surface-selected text-accent-600' : ''
                         }`}
                       >
-                        <Briefcase className="w-4 h-4 flex-shrink-0" />
+                        <Briefcase className="w-4 h-4" />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{ws.name}</div>
-                          <div className="text-xs text-tertiary truncate">
+                          <div className="text-xs text-text-tertiary truncate">
                             {ws.member_count} members
                           </div>
                         </div>
                         {ws.id === workspace?.id && (
-                          <div className="w-2 h-2 bg-accent rounded-full"></div>
+                          <div className="w-2 h-2 bg-accent-500 rounded-full"></div>
                         )}
                       </button>
                     ))
                   )}
                 </div>
-                <div className="border-t border-border p-2 bg-gray-50/50">
+                
+                <div className="border-t border-border-primary p-2 bg-surface-secondary">
                   <button
                     onClick={handleOpenSettings}
-                    className="w-full text-left px-3 py-3 text-sm hover:bg-surface transition flex items-center gap-3 rounded-lg"
+                    className="dropdown-item w-full"
                   >
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Settings className="w-4 h-4 text-blue-600" />
                     </div>
-                    <div>
+                    <div className="text-left">
                       <div className="font-medium">Workspace Settings</div>
-                      <div className="text-xs text-tertiary">Manage settings, members & permissions</div>
+                      <div className="text-xs text-text-tertiary">Manage settings & members</div>
                     </div>
                   </button>
+                  
                   <button
                     onClick={() => {
                       setShowWorkspaceSwitcher(false);
@@ -211,75 +227,54 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
                         onBackToWorkspaces();
                       }
                     }}
-                    className="w-full text-left px-3 py-3 text-sm hover:bg-surface transition text-accent rounded-lg flex items-center gap-3"
+                    className="dropdown-item w-full"
                   >
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                       <Briefcase className="w-4 h-4 text-purple-600" />
                     </div>
-                    <div>
-                      <div className="font-medium">View All Workspaces</div>
-                      <div className="text-xs text-tertiary">Browse and create workspaces</div>
+                    <div className="text-left">
+                      <div className="font-medium">All Workspaces</div>
+                      <div className="text-xs text-text-tertiary">Browse and create</div>
                     </div>
                   </button>
                 </div>
               </div>
-            )}
-          </div>
-
-        {/* Workspace name on mobile */}
-        <div className="md:hidden">
-          <h1 className="text-white font-semibold text-lg truncate">
-            {workspace?.name || 'ChatFlow'}
-          </h1>
-        </div>
-
-        {/* Search bar */}
-        <div className="search-container">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none z-10" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              placeholder={`Search ${workspace?.name || 'ChatFlow'}`}
-              className="search-input pl-10"
-            />
-            {searchQuery && searchFocused && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10"
-              >
-                <X className="w-4 h-4 text-gray-400" />
-              </button>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Right side actions */}
-      <div className="flex items-center gap-2">
-        {/* Mobile search button */}
-        <button className="btn-icon btn-ghost text-white md:hidden">
-          <Search className="w-5 h-5" />
-        </button>
+      {/* Center Section - Search */}
+      <div className="flex-1 max-w-md mx-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none z-10" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={`Search ${workspace?.name || 'ChatFlow'}`}
+            className="w-full pl-10 pr-4 py-2 bg-white/20 border border-white/30 rounded-lg text-text-inverse placeholder-white/70 focus:bg-white focus:text-text-primary focus:border-white focus:placeholder-text-tertiary transition-all duration-200 outline-none"
+          />
+        </div>
+      </div>
 
+      {/* Right Section */}
+      <div className="flex items-center gap-2">
         {/* Notifications */}
         <button 
-          className="btn-icon btn-ghost text-white relative"
+          className="btn-icon text-text-inverse hover:bg-white/15 relative"
           onClick={() => setShowNotifications(!showNotifications)}
           title={`${totalUnreadCount} unread messages${totalMentions > 0 ? `, ${totalMentions} mentions` : ''}`}
         >
           <Bell className="w-5 h-5" />
           {totalMentions > 0 ? (
-            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[1.25rem] h-5 flex items-center justify-center animate-pulse">
-              @{totalMentions}
-            </span>
+            <div className="badge-count absolute -top-1 -right-1 bg-error-500">
+              {totalMentions}
+            </div>
           ) : totalUnreadCount > 0 ? (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium min-w-[1.25rem] h-5 flex items-center justify-center">
+            <div className="badge-count absolute -top-1 -right-1">
               {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-            </span>
+            </div>
           ) : null}
         </button>
 
@@ -287,7 +282,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         {onInvite && (
           <button 
             onClick={onInvite}
-            className="btn-icon btn-ghost text-white flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="btn-ghost text-text-inverse flex items-center gap-2 px-3 py-2"
             title="Invite people to workspace"
           >
             <UserPlus className="w-4 h-4" />
@@ -295,70 +290,81 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
           </button>
         )}
 
-        {/* Connection Status */}
-        <ConnectionStatus className="text-white" />
-
         {/* Help */}
-        <button className="btn-icon btn-ghost text-white hidden md:flex">
+        <button className="btn-icon text-text-inverse hover:bg-white/15 hidden md:flex">
           <HelpCircle className="w-5 h-5" />
         </button>
 
         {/* User menu */}
         <div className="relative">
           <button 
-            className="flex items-center gap-2 p-1 rounded hover:bg-white/10 transition"
+            className="flex items-center gap-2 p-1 rounded-lg hover:bg-white/15 transition-colors duration-200"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
             {user?.photoURL ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName}
-                className="w-8 h-8 rounded"
+                className="w-8 h-8 rounded-lg border border-white/20"
               />
             ) : (
-              <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center border border-white/30">
+                <span className="text-text-inverse text-sm font-semibold">
                   {user?.displayName?.charAt(0) || 'U'}
                 </span>
               </div>
             )}
           </button>
           
-          {/* Dropdown menu */}
+          {/* User Dropdown */}
           {showUserMenu && (
-            <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 z-50 animate-slide-up">
-              <div className="p-3 border-b border-gray-200">
-                <p className="font-semibold text-gray-900 truncate">{user?.displayName}</p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            <>
+              {/* Overlay */}
+              <div 
+                className="fixed inset-0 z-dropdown-backdrop" 
+                onClick={() => setShowUserMenu(false)}
+              />
+              
+              {/* Dropdown Content */}
+              <div className="dropdown absolute right-0 top-full mt-2 w-64">
+                <div className="p-3 border-b border-border-primary">
+                  <p className="font-semibold text-text-primary truncate">{user?.displayName}</p>
+                  <p className="text-xs text-text-tertiary truncate">{user?.email}</p>
+                </div>
+                
+                <div className="py-1">
+                  <button className="dropdown-item w-full">
+                    <User className="w-4 h-4" />
+                    <span>Profile</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setShowSoundSettings(true);
+                    }}
+                    className="dropdown-item w-full"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    <span>Sound & Notifications</span>
+                  </button>
+                  
+                  <button className="dropdown-item w-full">
+                    <Settings className="w-4 h-4" />
+                    <span>Preferences</span>
+                  </button>
+                  
+                  <hr className="my-1 border-border-primary" />
+                  
+                  <button
+                    onClick={onSignOut}
+                    className="dropdown-item w-full text-error-600 hover:bg-error-50"
+                  >
+                    Sign out
+                  </button>
+                </div>
               </div>
-              <div className="py-1">
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3">
-                  <User className="w-4 h-4" />
-                  Profile
-                </button>
-                <button 
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    setShowSoundSettings(true);
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3"
-                >
-                  <Volume2 className="w-4 h-4" />
-                  Sound & Notifications
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3">
-                  <Settings className="w-4 h-4" />
-                  Preferences
-                </button>
-                <hr className="my-1 border-gray-200" />
-                <button
-                  onClick={onSignOut}
-                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  Sign out
-                </button>
-              </div>
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -379,7 +385,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         onClose={() => setShowSoundSettings(false)}
         workspace={workspace}
       />
-    </header>
+    </div>
   );
 };
 
