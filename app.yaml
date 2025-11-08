@@ -1,9 +1,9 @@
 name: coral-app-rgki8
 services:
 - name: backend
-  source_dir: /backend  
+  source_dir: /
   build_command: npm install
-  run_command: npm start
+  run_command: cd backend && npm start
   environment_slug: node-js
   http_port: 8080
   routes:
