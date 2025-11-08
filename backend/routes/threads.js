@@ -617,6 +617,10 @@ router.put('/:threadId/read', authenticateUser, requireWorkspaceMembership, asyn
 const messageRoutes = require('./messages');
 router.use('/:threadId/messages', messageRoutes);
 
+// Mount channel task routes as sub-routes
+const channelTaskRoutes = require('./channel-tasks');
+router.use('/:threadId/tasks', channelTaskRoutes);
+
 // Socket server instance - will be set by the parent route
 let socketServer = null;
 

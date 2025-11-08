@@ -34,6 +34,10 @@ router.use('/:workspaceId/threads', threadRoutes);
 const notificationRoutes = require('./notifications');
 router.use('/:workspaceId/notifications', notificationRoutes);
 
+// Mount project routes as sub-routes
+const projectRoutes = require('./projects');
+router.use('/:workspaceId/projects', projectRoutes);
+
 // Socket server instance - will be set by the main app
 let socketServer = null;
 

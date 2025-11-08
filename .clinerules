@@ -1,0 +1,52 @@
+# Cline Rules for Chat-App Calendar Integration
+
+## Project Context
+This is a Slack-like chat application with knowledge base and integrated calendar/timeline functionality being added to channels.
+
+## Development Workflow
+1. **Testing Approach**: Test early and frequently via git push to DigitalOcean App Platform
+2. **Architecture**: Each channel gets Calendar & Timeline views (simple, zero learning curve)  
+3. **Database**: PostgreSQL on DigitalOcean with channel_tasks table
+4. **Deployment**: DigitalOcean App Platform auto-rebuilds on git push
+
+## Current Status
+- ✅ Phase 1 Foundation Complete: Database schema, API endpoints, Google integration
+- 🔄 Phase 2 Current: Adding Calendar/Timeline buttons to channel headers
+- 📝 Database: channel_tasks table created with sample data
+- 🚀 API: Channel task endpoints mounted at `/api/workspaces/:id/threads/:id/tasks`
+
+## Architecture Decisions Made
+- **Simple Channel-Based**: No separate "projects" - each channel IS a project
+- **View Switching**: Chat/Calendar/Timeline buttons in channel header  
+- **Zero Learning Curve**: Users see familiar channels with new view options
+- **Scalable**: Want more projects? Create more channels!
+
+## Components Being Migrated
+- `InfiniteOSRMCalendar.js` → `ChannelCalendar.jsx` (monthly calendar view)
+- `GV2.js` → `ChannelTimeline.jsx` (Gantt chart timeline)
+- Remove: FileMaker dependencies, complex project switching, MSKCC auth
+- Keep: Calendar drag/drop, timeline dependencies, infinite scroll
+
+## Database Schema
+- `channel_tasks` table references existing `threads` (channels) table
+- Google Calendar integration per-channel
+- Task dependencies for timeline view
+- Reuses existing channel membership for permissions
+
+## Testing Strategy
+1. **Visual First**: Add view buttons to see them work
+2. **API Integration**: Connect to DigitalOcean database endpoints  
+3. **Component Migration**: Port calendar/timeline from syncup-staging
+4. **Real-time**: Extend existing WebSocket system
+
+## File Locations
+- Backend API: `backend/routes/channel-tasks.js`
+- Frontend: `frontend/src/components/chat/MessageList.jsx` (view buttons added)
+- Migration: `backend/migrations/017_create_channel_tasks.sql`
+- Database: DigitalOcean PostgreSQL cluster
+
+## Next Steps
+1. Git commit + push to deploy view buttons to DigitalOcean
+2. Test view switching in live app
+3. Migrate calendar component from syncup-staging
+4. Add task creation from chat (`/task` command)

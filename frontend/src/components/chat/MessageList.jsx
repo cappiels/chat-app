@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Hash, Reply, MoreHorizontal, Smile, Bookmark, Edit, Users, Info } from 'lucide-react';
+import { Hash, Reply, MoreHorizontal, Smile, Bookmark, Edit, Users, Info, Calendar, BarChart3, MessageCircle } from 'lucide-react';
 import Message from './Message';
 import NewMessageDivider from './NewMessageDivider';
 import TypingIndicator from './TypingIndicator';
@@ -11,6 +11,7 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
   const messagesEndRef = useRef(null);
   const [internalTypingUsers, setInternalTypingUsers] = useState([]);
   const [newMessages, setNewMessages] = useState([]);
+  const [currentView, setCurrentView] = useState('chat'); // chat, calendar, timeline
   
   // Use external typing users if provided, otherwise use internal state
   const typingUsers = externalTypingUsers || internalTypingUsers;
@@ -161,6 +162,156 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
 
   const messageGroups = groupMessagesByDate(messages);
 
+  // Render different views based on currentView state
+  const renderCurrentView = () => {
+    switch(currentView) {
+      case 'calendar':
+        return (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl mb-6 shadow-lg">
+                <Calendar className="w-10 h-10 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-slate-900">
+                #{channel.name} Calendar
+              </h3>
+              <p className="text-slate-600 max-w-md mx-auto">
+                Calendar view for channel tasks and events. This will show scheduled tasks and deadlines.
+              </p>
+              <div className="mt-4 text-sm text-slate-500">
+                📋 {channel.name} tasks will appear here
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'timeline':
+        return (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl mb-6 shadow-lg">
+                <BarChart3 className="w-10 h-10 text-purple-600" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-slate-900">
+                #{channel.name} Timeline
+              </h3>
+              <p className="text-slate-600 max-w-md mx-auto">
+                Gantt chart timeline view for channel tasks. Visualize dependencies and project progress.
+              </p>
+              <div className="mt-4 text-sm text-slate-500">
+                📊 Task timeline and dependencies will appear here
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'chat':
+      default:
+        return (
+          <div className="px-5 py-4 flex flex-col flex-1 min-h-0">
+            {messages.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl mb-6 shadow-lg">
+                    <Hash className="w-10 h-10 text-blue-600" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2 text-slate-900">
+                    This is the beginning of #{channel.name}
+                  </h3>
+                  <p className="text-slate-600 max-w-md mx-auto">
+                    Start the conversation! Share ideas, ask questions, or just say hello to get things going.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Messages - flex grow to fill available space */}
+                <div className="flex-1 flex flex-col justify-end min-h-0">
+                  <div className="flex flex-col">
+                    {messageGroups.map((group, groupIndex) => (
+                      <div key={groupIndex}>
+                        {/* Date Divider */}
+                        <div className="flex items-center my-4">
+                          <div className="flex-1 h-px bg-slate-200" />
+                          <span className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                            {formatDate(group.date)}
+                          </span>
+                          <div className="flex-1 h-px bg-slate-200" />
+                        </div>
+
+                        {/* Messages for this date - sorted by timestamp with oldest at top, newest at bottom */}
+                        {(() => {
+                          // Sort messages first, then operate on the sorted array
+                          const sortedMessages = [...group.messages]
+                            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                            
+                          return sortedMessages.map((message, index) => {
+                          // Now prevMessage refers to the previous message in the sorted array
+                          const prevMessage = index > 0 ? sortedMessages[index - 1] : null;
+                          const showAvatar = !prevMessage || 
+                            prevMessage.user.name !== message.user.name ||
+                            (message.timestamp - prevMessage.timestamp) > 300000; // 5 minutes
+
+                          // Check if this is the first unread message
+                          const isFirstUnreadMessage = lastReadMessageId && 
+                            prevMessage?.id === lastReadMessageId && 
+                            message.id !== lastReadMessageId;
+
+                          // Count unread messages after this point
+                          const unreadMessagesAfter = lastReadMessageId ? 
+                            messages.filter(m => {
+                              const lastReadIndex = messages.findIndex(msg => msg.id === lastReadMessageId);
+                              const currentIndex = messages.findIndex(msg => msg.id === message.id);
+                              return currentIndex > lastReadIndex;
+                            }).length : 0;
+
+                          // Check if this is a new message for animation
+                          const isNewMessage = newMessages.includes(message.id);
+
+                          return (
+                            <React.Fragment key={message.id}>
+                              {/* Show NEW divider before first unread message */}
+                              {isFirstUnreadMessage && unreadMessagesAfter > 0 && (
+                                <NewMessageDivider messageCount={unreadMessagesAfter} />
+                              )}
+                              
+                              <div className={isNewMessage ? 'animate-fade-in-up' : ''}>
+                                <Message
+                                  message={message}
+                                  showAvatar={showAvatar}
+                                  onThreadClick={() => onThreadClick(message)}
+                                  currentUser={currentUser}
+                                  workspaceId={workspaceId || workspace?.id}
+                                  threadId={channel.id}
+                                  workspace={workspace}
+                                  thread={channel}
+                                  onMessageUpdate={() => {}}
+                                />
+                              </div>
+                            </React.Fragment>
+                          );
+                          })})()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Typing Indicator - positioned at the bottom, always visible */}
+                {typingUsers.length > 0 && (
+                  <div className="flex-shrink-0 pb-2">
+                    <TypingIndicator typingUsers={typingUsers} />
+                  </div>
+                )}
+                
+                {/* Invisible element for scrolling to bottom */}
+                <div ref={messagesEndRef} className="h-1 flex-shrink-0" />
+              </>
+            )}
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Channel Header */}
@@ -176,6 +327,46 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {/* View Toggle Buttons */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-1 mr-2">
+              <button 
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                  currentView === 'chat' 
+                    ? 'bg-white text-slate-900 shadow-sm' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+                onClick={() => setCurrentView('chat')}
+                title="Chat View"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Chat
+              </button>
+              <button 
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                  currentView === 'calendar' 
+                    ? 'bg-white text-slate-900 shadow-sm' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+                onClick={() => setCurrentView('calendar')}
+                title="Calendar View - Channel Tasks & Events"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Calendar
+              </button>
+              <button 
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                  currentView === 'timeline' 
+                    ? 'bg-white text-slate-900 shadow-sm' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+                onClick={() => setCurrentView('timeline')}
+                title="Timeline View - Gantt Chart & Dependencies"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                Timeline
+              </button>
+            </div>
+            
             <button 
               className="p-2.5 rounded-lg transition-all duration-200 bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-blue-100 text-slate-600 hover:text-blue-700 border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:-translate-y-px"
               title="View channel members"
@@ -194,107 +385,8 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
         </div>
       </div>
 
-      {/* Messages Container with proper flex layout */}
-      <div className="px-5 py-4 flex flex-col flex-1 min-h-0">
-        {messages.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl mb-6 shadow-lg">
-                <Hash className="w-10 h-10 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-slate-900">
-                This is the beginning of #{channel.name}
-              </h3>
-              <p className="text-slate-600 max-w-md mx-auto">
-                Start the conversation! Share ideas, ask questions, or just say hello to get things going.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Messages - flex grow to fill available space */}
-            <div className="flex-1 flex flex-col justify-end min-h-0">
-              <div className="flex flex-col">
-                {messageGroups.map((group, groupIndex) => (
-                  <div key={groupIndex}>
-                    {/* Date Divider */}
-                    <div className="flex items-center my-4">
-                      <div className="flex-1 h-px bg-slate-200" />
-                      <span className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        {formatDate(group.date)}
-                      </span>
-                      <div className="flex-1 h-px bg-slate-200" />
-                    </div>
-
-                    {/* Messages for this date - sorted by timestamp with oldest at top, newest at bottom */}
-                    {(() => {
-                      // Sort messages first, then operate on the sorted array
-                      const sortedMessages = [...group.messages]
-                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                        
-                      return sortedMessages.map((message, index) => {
-                      // Now prevMessage refers to the previous message in the sorted array
-                      const prevMessage = index > 0 ? sortedMessages[index - 1] : null;
-                      const showAvatar = !prevMessage || 
-                        prevMessage.user.name !== message.user.name ||
-                        (message.timestamp - prevMessage.timestamp) > 300000; // 5 minutes
-
-                      // Check if this is the first unread message
-                      const isFirstUnreadMessage = lastReadMessageId && 
-                        prevMessage?.id === lastReadMessageId && 
-                        message.id !== lastReadMessageId;
-
-                      // Count unread messages after this point
-                      const unreadMessagesAfter = lastReadMessageId ? 
-                        messages.filter(m => {
-                          const lastReadIndex = messages.findIndex(msg => msg.id === lastReadMessageId);
-                          const currentIndex = messages.findIndex(msg => msg.id === message.id);
-                          return currentIndex > lastReadIndex;
-                        }).length : 0;
-
-                      // Check if this is a new message for animation
-                      const isNewMessage = newMessages.includes(message.id);
-
-                      return (
-                        <React.Fragment key={message.id}>
-                          {/* Show NEW divider before first unread message */}
-                          {isFirstUnreadMessage && unreadMessagesAfter > 0 && (
-                            <NewMessageDivider messageCount={unreadMessagesAfter} />
-                          )}
-                          
-                          <div className={isNewMessage ? 'animate-fade-in-up' : ''}>
-                            <Message
-                              message={message}
-                              showAvatar={showAvatar}
-                              onThreadClick={() => onThreadClick(message)}
-                              currentUser={currentUser}
-                              workspaceId={workspaceId || workspace?.id}
-                              threadId={channel.id}
-                              workspace={workspace}
-                              thread={channel}
-                              onMessageUpdate={() => {}}
-                            />
-                          </div>
-                        </React.Fragment>
-                      );
-                      })})()}
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Typing Indicator - positioned at the bottom, always visible */}
-            {typingUsers.length > 0 && (
-              <div className="flex-shrink-0 pb-2">
-                <TypingIndicator typingUsers={typingUsers} />
-              </div>
-            )}
-            
-            {/* Invisible element for scrolling to bottom */}
-            <div ref={messagesEndRef} className="h-1 flex-shrink-0" />
-          </>
-        )}
-      </div>
+      {/* Dynamic View Content */}
+      {renderCurrentView()}
     </div>
   );
 };

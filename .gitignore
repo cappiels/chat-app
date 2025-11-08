@@ -27,3 +27,6 @@ ecosystem.config.js
 
 # Screenshots and images that shouldn't be in repo
 Screenshot*
+
+# Syncup staging area (temporary integration files)
+/syncup-staging/
