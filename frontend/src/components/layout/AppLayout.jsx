@@ -31,6 +31,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   const [sendingMessage, setSendingMessage] = useState(false);
   const [error, setError] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
+  const [currentView, setCurrentView] = useState('chat'); // chat, calendar, timeline
 
   // Handle responsive behavior
   useEffect(() => {
@@ -480,6 +481,9 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           onInvite={() => setInviteDialogOpen(true)}
           onWorkspaceSwitch={onWorkspaceSwitch}
           onBackToWorkspaces={onBackToWorkspaces}
+          currentChannel={currentChannel}
+          currentView={currentView}
+          onViewChange={setCurrentView}
         />
       </div>
 
@@ -514,12 +518,11 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
               messages={messages}
               onThreadClick={handleThreadOpen}
               currentUser={user}
-              onChannelMembers={handleChannelMembers}
-              onChannelInfo={handleChannelInfo}
               typingUsers={typingUsers}
               lastReadMessageId={currentChannel.last_read_id}
               workspace={workspace}
               workspaceId={workspace.id}
+              currentView={currentView}
             />
             <div className="message-input-container">
               <MessageComposer

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Hash, Reply, MoreHorizontal, Smile, Bookmark, Edit, Users, Info, Calendar, BarChart3, MessageCircle } from 'lucide-react';
+import { Hash, Reply, MoreHorizontal, Smile, Bookmark, Edit, Info } from 'lucide-react';
 import Message from './Message';
 import NewMessageDivider from './NewMessageDivider';
 import TypingIndicator from './TypingIndicator';
@@ -9,11 +9,10 @@ import notificationManager from '../../utils/notifications';
 import ChannelCalendar from '../calendar/ChannelCalendar';
 import ChannelTimeline from '../timeline/ChannelTimeline';
 
-const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, onChannelMembers, onChannelInfo, typingUsers: externalTypingUsers, workspace, workspaceId }) => {
+const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, typingUsers: externalTypingUsers, workspace, workspaceId, currentView }) => {
   const messagesEndRef = useRef(null);
   const [internalTypingUsers, setInternalTypingUsers] = useState([]);
   const [newMessages, setNewMessages] = useState([]);
-  const [currentView, setCurrentView] = useState('chat'); // chat, calendar, timeline
   
   // Use external typing users if provided, otherwise use internal state
   const typingUsers = externalTypingUsers || internalTypingUsers;
@@ -307,57 +306,9 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
             </div>
           </div>
           <div className="flex items-center gap-1">
-            {/* View Toggle Buttons */}
-            <div className="flex items-center bg-slate-100 rounded-lg p-1 mr-2">
-              <button 
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                  currentView === 'chat' 
-                    ? 'bg-white text-slate-900 shadow-sm' 
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
-                onClick={() => setCurrentView('chat')}
-                title="Chat View"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                Chat
-              </button>
-              <button 
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                  currentView === 'calendar' 
-                    ? 'bg-white text-slate-900 shadow-sm' 
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
-                onClick={() => setCurrentView('calendar')}
-                title="Calendar View - Channel Tasks & Events"
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                Calendar
-              </button>
-              <button 
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                  currentView === 'timeline' 
-                    ? 'bg-white text-slate-900 shadow-sm' 
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
-                onClick={() => setCurrentView('timeline')}
-                title="Timeline View - Gantt Chart & Dependencies"
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                Timeline
-              </button>
-            </div>
-            
-            <button 
-              className="p-2.5 rounded-lg transition-all duration-200 bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-blue-100 text-slate-600 hover:text-blue-700 border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:-translate-y-px"
-              title="View channel members"
-              onClick={onChannelMembers}
-            >
-              <Users className="w-4 h-4" />
-            </button>
             <button 
               className="p-2.5 rounded-lg transition-all duration-200 bg-white hover:bg-gradient-to-br hover:from-slate-50 hover:to-slate-100 text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md hover:-translate-y-px"
               title="Channel information"
-              onClick={onChannelInfo}
             >
               <Info className="w-4 h-4" />
             </button>
@@ -377,10 +328,9 @@ MessageList.propTypes = {
   onThreadClick: PropTypes.func.isRequired,
   currentUser: PropTypes.object.isRequired,
   lastReadMessageId: PropTypes.string,
-  onChannelMembers: PropTypes.func,
-  onChannelInfo: PropTypes.func,
   workspace: PropTypes.object,
   workspaceId: PropTypes.string,
+  currentView: PropTypes.string,
   typingUsers: PropTypes.arrayOf(
     PropTypes.shape({
       userId: PropTypes.string.isRequired,

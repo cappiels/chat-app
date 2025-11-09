@@ -10,15 +10,16 @@ import {
   Settings, 
   Volume2, 
   User,
-  HelpCircle 
+  HelpCircle
 } from 'lucide-react';
 import { workspaceAPI, notificationAPI } from '../../utils/api';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 import SoundSettingsDialog from '../SoundSettingsDialog';
 import ConnectionStatus from '../ui/ConnectionStatus';
+import ViewSwitcher from '../ui/ViewSwitcher';
 import { getVersionString } from '../../utils/version';
 
-const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces }) => {
+const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces, currentChannel, currentView, onViewChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -260,6 +261,16 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
 
       {/* Right Section */}
       <div className="flex items-center gap-2">
+        {/* View Switcher - only show when a channel is selected */}
+        {currentChannel && onViewChange && (
+          <ViewSwitcher
+            currentView={currentView}
+            onViewChange={onViewChange}
+            variant="header"
+            className="mr-2"
+          />
+        )}
+
         {/* Notifications */}
         <button 
           className="btn-icon text-text-inverse hover:bg-white/15 relative"
@@ -397,6 +408,9 @@ Header.propTypes = {
   onInvite: PropTypes.func,
   onWorkspaceSwitch: PropTypes.func,
   onBackToWorkspaces: PropTypes.func,
+  currentChannel: PropTypes.object,
+  currentView: PropTypes.string,
+  onViewChange: PropTypes.func,
 };
 
 export default Header;
