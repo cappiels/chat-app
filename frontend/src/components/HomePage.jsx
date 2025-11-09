@@ -48,54 +48,33 @@ const LoadingSpinner = ({ message = "Loading...", showProgress = false }) => (
 // Homepage Component
 const HomePage = ({ onSignIn, isLoading = false }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-8 flex flex-col justify-center min-h-screen">
+    <div className="min-h-screen bg-white">
+      <div className="max-w-4xl mx-auto px-6 py-16 flex flex-col justify-center min-h-screen">
         {/* Main hero content */}
         <motion.div
-          className="text-center mb-12 max-w-4xl mx-auto"
-          initial={{ opacity: 0, y: 30 }}
+          className="text-center mb-16"
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
         >
           {/* Logo and branding */}
-          <motion.div
-            className="flex items-center justify-center mb-8"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur-xl opacity-60 animate-pulse"></div>
-              <div className="relative bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-lg">
-                <MessageCircle className="w-12 h-12 text-blue-600" />
-              </div>
+          <div className="flex items-center justify-center mb-12">
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <MessageCircle className="w-8 h-8 text-gray-700" />
             </div>
-          </motion.div>
+          </div>
 
           {/* Main headline */}
-          <motion.h1
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black mb-4 sm:mb-6 text-balance"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Chat
-            </span>
-            <span className="text-gray-900 dark:text-white">Flow</span>
-          </motion.h1>
+          <h1 className="text-4xl sm:text-5xl font-semibold mb-6 text-gray-900">
+            ChatFlow
+          </h1>
 
           {/* Subtitle */}
-          <motion.p
-            className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 max-w-2xl sm:max-w-3xl mx-auto text-balance px-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
-            The world's most advanced team communication platform. 
-            <br className="hidden sm:block" />
-            Built for the future of work.
-          </motion.p>
+          <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto">
+            Professional team communication platform.
+            <br />
+            Simple, powerful, and secure.
+          </p>
 
           {/* Feature highlights */}
           <motion.div
@@ -125,38 +104,22 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
           </motion.div>
 
           {/* CTA Button */}
-          <motion.div
-            className="px-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-          >
-            <motion.button
-              className="btn btn-primary px-6 sm:px-8 md:px-12 py-3 sm:py-4 text-lg sm:text-xl font-bold rounded-xl shadow-lg group relative overflow-hidden w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-                color: 'white',
-                border: 'none'
-              }}
+          <div className="mb-8">
+            <button
+              className="inline-flex items-center gap-3 px-8 py-3 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={onSignIn}
               disabled={isLoading}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
             >
-              <span className="relative flex items-center justify-center space-x-2 sm:space-x-3">
-                {isLoading ? (
-                  <LoadingSpinner />
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
-                    <span className="hidden sm:inline">Login with Google</span>
-                    <span className="sm:hidden">Login with Google</span>
-                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform duration-200" />
-                  </>
-                )}
-              </span>
-            </motion.button>
-          </motion.div>
+              {isLoading ? (
+                <div className="loading-spinner"></div>
+              ) : (
+                <>
+                  <span>Continue with Google</span>
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
 
           {/* Trust indicators */}
           <motion.div

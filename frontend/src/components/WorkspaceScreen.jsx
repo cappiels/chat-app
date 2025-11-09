@@ -227,63 +227,40 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <motion.div
-          className="text-center"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="mb-8">
-            <div className="relative mx-auto w-20 h-20">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl animate-pulse"></div>
-              <div className="relative bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-lg">
-                <MessageCircle className="w-12 h-12 text-blue-600" />
-              </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4">
+            <div className="mx-auto w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+              <MessageCircle className="w-6 h-6 text-gray-500" />
             </div>
           </div>
-          <div className="loading-dots mb-4">
-            <div className="loading-dot bg-blue-500"></div>
-            <div className="loading-dot bg-blue-600"></div>
-            <div className="loading-dot bg-blue-700"></div>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 mt-4">
+          <div className="loading-spinner mb-4"></div>
+          <p className="text-gray-600 text-sm">
             Loading your workspaces...
           </p>
-        </motion.div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <motion.header
-        className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-b border-gray-200/50 dark:border-gray-700/50 px-6 py-4"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+      <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur-md opacity-60"></div>
-              <div className="relative bg-white dark:bg-gray-900 p-2 rounded-xl shadow-lg">
-                <MessageCircle className="w-8 h-8 text-blue-600" />
-              </div>
+            <div className="bg-gray-100 p-2 rounded-lg border border-gray-200">
+              <MessageCircle className="w-6 h-6 text-gray-700" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Chat
-                </span>
-                <span className="text-gray-900 dark:text-white">Flow</span>
+              <h1 className="text-xl font-semibold text-gray-900">
+                ChatFlow
               </h1>
               <div className="flex flex-col">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600">
                   Welcome back, {user.displayName}!
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500">
+                <p className="text-xs text-gray-500">
                   {getVersionString()}
                 </p>
               </div>
@@ -298,13 +275,13 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
             />
             <button
               onClick={onSignOut}
-              className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
+              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200"
             >
               Sign Out
             </button>
           </div>
         </div>
-      </motion.header>
+      </header>
 
       {/* Main content */}
       <div className="max-w-6xl mx-auto p-4 sm:p-6">
