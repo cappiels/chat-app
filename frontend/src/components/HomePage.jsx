@@ -48,11 +48,11 @@ const LoadingSpinner = ({ message = "Loading...", showProgress = false }) => (
 // Homepage Component
 const HomePage = ({ onSignIn, isLoading = false }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-8 flex flex-col justify-center min-h-screen">
         {/* Main hero content */}
         <motion.div
-          className="text-center mb-16"
+          className="text-center mb-12 max-w-4xl mx-auto"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}

@@ -336,7 +336,7 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
 
         {/* Workspaces grid */}
         <motion.div
-          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8"
+          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mb-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}

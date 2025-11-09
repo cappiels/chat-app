@@ -1,36 +1,50 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useEffect } from 'react';
+import { X } from 'lucide-react';
 
-const DialogContext = createContext();
-
-const Dialog = ({ children, open, onOpenChange }) => {
-  const [isOpen, setIsOpen] = useState(open || false);
+// Simple, working dialog component
+const Dialog = ({ children, open, onClose, className = '' }) => {
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && open) {
+        onClose?.();
+      }
+    };
+    
+    if (open) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [open, onClose]);
   
-  const handleOpenChange = (newOpen) => {
-    setIsOpen(newOpen);
-    if (onOpenChange) onOpenChange(newOpen);
-  };
-
+  if (!open) return null;
+  
   return (
-    <DialogContext.Provider value={{ isOpen, setIsOpen: handleOpenChange }}>
-      {children}
-    </DialogContext.Provider>
-  );
-};
-
-const DialogContent = ({ children, className = '' }) => {
-  const { isOpen, setIsOpen } = useContext(DialogContext);
-  
-  if (!isOpen) return null;
-  
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
-        onClick={() => setIsOpen(false)}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" 
+        onClick={onClose}
       />
-      <div className={`relative bg-white rounded-[20px] border border-blue-200 shadow-[0_25px_50px_-12px_rgba(37,99,235,0.15)] p-8 w-full max-w-md mx-4 transform transition-all duration-200 scale-100 ring-1 ring-blue-100 ${className}`}>
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-50/50 to-white rounded-xl"></div>
-        <div className="relative">
+      
+      {/* Dialog content */}
+      <div className={`relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden ${className}`}>
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          title="Close dialog"
+        >
+          <X className="w-5 h-5 text-gray-500" />
+        </button>
+        
+        {/* Scrollable content */}
+        <div className="overflow-y-auto max-h-[90vh]">
           {children}
         </div>
       </div>
@@ -38,20 +52,27 @@ const DialogContent = ({ children, className = '' }) => {
   );
 };
 
+// Compatibility components for existing usage
+const DialogContent = ({ children, className = '' }) => (
+  <div className={className}>
+    {children}
+  </div>
+);
+
 const DialogHeader = ({ children, className = '' }) => (
-  <div className={`mb-4 ${className}`}>
+  <div className={`mb-6 ${className}`}>
     {children}
   </div>
 );
 
 const DialogTitle = ({ children, className = '' }) => (
-  <h2 className={`text-lg font-semibold ${className}`}>
+  <h2 className={`text-xl font-semibold text-gray-900 dark:text-white ${className}`}>
     {children}
   </h2>
 );
 
 const DialogDescription = ({ children, className = '' }) => (
-  <p className={`text-sm text-gray-600 mt-2 ${className}`}>
+  <p className={`text-sm text-gray-600 dark:text-gray-400 mt-2 ${className}`}>
     {children}
   </p>
 );
