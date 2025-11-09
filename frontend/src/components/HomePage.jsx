@@ -176,7 +176,7 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
 
         {/* Feature showcase */}
         <motion.div
-          className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-4xl mx-auto px-4"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-3xl mx-auto px-4"
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.7 }}

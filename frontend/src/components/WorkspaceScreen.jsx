@@ -290,15 +290,15 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <img 
               src={user.photoURL} 
               alt={user.displayName}
-              className="w-10 h-10 rounded-full shadow-lg"
+              className="w-7 h-7 rounded-full shadow-sm"
             />
             <button
               onClick={onSignOut}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
+              className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
             >
               Sign Out
             </button>
@@ -401,7 +401,8 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                   {/* Dropdown Menu - Fixed z-index and positioning */}
                   {openMenuId === workspace.id && (
                     <div 
-                      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[9999] overflow-hidden"
+                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-2xl border border-gray-200 z-[9999] overflow-hidden"
+                      style={{ backgroundColor: 'white', backdropFilter: 'none' }}
                     >
                       <div className="py-1">
                         <button
