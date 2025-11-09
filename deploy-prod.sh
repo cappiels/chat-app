@@ -6,8 +6,8 @@ set -e  # Exit on any error
 
 echo "🚀 Starting Production Deployment..."
 
-# Get current version
-CURRENT_VERSION=$(grep '"version"' package.json | sed 's/.*"version": *"\([^"]*\)".*/\1/')
+# Get current version more reliably
+CURRENT_VERSION=$(node -p "require('./package.json').version")
 echo "📦 Current version: $CURRENT_VERSION"
 
 # Ask for version bump type if not provided
@@ -67,10 +67,19 @@ esac
 
 echo "📦 Updating version: $CURRENT_VERSION → $NEW_VERSION"
 
-# Update all package.json files
-sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" package.json
-sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" frontend/package.json
-sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" backend/package.json
+# Update package.json files using Node.js (more reliable than sed)
+node -e "
+const fs = require('fs');
+const files = ['package.json', 'frontend/package.json', 'backend/package.json'];
+files.forEach(file => {
+  if (fs.existsSync(file)) {
+    const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+    pkg.version = '$NEW_VERSION';
+    fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+    console.log('✅ Updated ' + file + ' to v$NEW_VERSION');
+  }
+});
+"
 
 echo "✅ Version bumped: $CURRENT_VERSION → $NEW_VERSION"
 
