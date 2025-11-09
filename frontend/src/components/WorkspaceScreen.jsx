@@ -401,8 +401,15 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                   {/* Dropdown Menu - Fixed z-index and positioning */}
                   {openMenuId === workspace.id && (
                     <div 
-                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-2xl border border-gray-200 z-[9999] overflow-hidden"
-                      style={{ backgroundColor: 'white', backdropFilter: 'none' }}
+                      className="fixed z-[99999] mt-2 w-48 rounded-lg overflow-hidden"
+                      style={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 1)', 
+                        backdropFilter: 'none',
+                        top: `${openMenuId === workspace.id ? 'auto' : '0'}px`,
+                        right: '16px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 10px 25px -6px rgba(0, 0, 0, 0.1)',
+                        border: '2px solid rgba(229, 231, 235, 1)'
+                      }}
                     >
                       <div className="py-1">
                         <button
