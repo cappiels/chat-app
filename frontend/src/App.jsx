@@ -105,90 +105,88 @@ function App() {
 
   return (
     <Router>
-      <AppShell>
-        <Routes>
-          {/* Invitation acceptance route */}
-          <Route path="/invite/:token" element={<InviteAcceptance />} />
-          
-          {/* Main application routes */}
-          <Route 
-            path="/" 
-            element={
-              !user ? (
-                <HomePage onSignIn={signInWithGoogle} />
-              ) : selectedWorkspace ? (
-                <ChatInterface 
-                  user={user} 
-                  workspace={selectedWorkspace} 
-                  onSignOut={handleSignOut}
-                  onWorkspaceSwitch={handleWorkspaceSwitch}
-                  onBackToWorkspaces={handleBackToWorkspaces}
-                />
-              ) : (
-                <WorkspaceScreen 
-                  user={user} 
-                  onSignOut={handleSignOut} 
-                  onSelectWorkspace={setSelectedWorkspace}
-                />
-              )
-            } 
-          />
-
-          {/* Workspace route */}
-          <Route 
-            path="/workspace/:workspaceId" 
-            element={
-              user ? (
-                <ChatInterface 
-                  user={user} 
-                  workspace={selectedWorkspace} 
-                  onSignOut={handleSignOut}
-                  onWorkspaceSwitch={handleWorkspaceSwitch}
-                  onBackToWorkspaces={handleBackToWorkspaces}
-                />
-              ) : (
-                <Navigate to="/" replace />
-              )
-            } 
-          />
-
-          {/* Logout route */}
-          <Route path="/logout" element={<Navigate to="/" replace />} />
-          
-          {/* Catch all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-
-        {/* Modern Toast System */}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            className: 'animate-fade-in-up',
-            style: {
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(226, 232, 240, 0.8)',
-              borderRadius: '12px',
-              padding: '16px',
-              fontSize: '14px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-            },
-            success: {
-              iconTheme: {
-                primary: '#22c55e',
-                secondary: 'white',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: 'white',
-              },
-            },
-          }}
+      <Routes>
+        {/* Invitation acceptance route */}
+        <Route path="/invite/:token" element={<InviteAcceptance />} />
+        
+        {/* Main application routes */}
+        <Route 
+          path="/" 
+          element={
+            !user ? (
+              <HomePage onSignIn={signInWithGoogle} />
+            ) : selectedWorkspace ? (
+              <ChatInterface 
+                user={user} 
+                workspace={selectedWorkspace} 
+                onSignOut={handleSignOut}
+                onWorkspaceSwitch={handleWorkspaceSwitch}
+                onBackToWorkspaces={handleBackToWorkspaces}
+              />
+            ) : (
+              <WorkspaceScreen 
+                user={user} 
+                onSignOut={handleSignOut} 
+                onSelectWorkspace={setSelectedWorkspace}
+              />
+            )
+          } 
         />
-      </AppShell>
+
+        {/* Workspace route */}
+        <Route 
+          path="/workspace/:workspaceId" 
+          element={
+            user ? (
+              <ChatInterface 
+                user={user} 
+                workspace={selectedWorkspace} 
+                onSignOut={handleSignOut}
+                onWorkspaceSwitch={handleWorkspaceSwitch}
+                onBackToWorkspaces={handleBackToWorkspaces}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } 
+        />
+
+        {/* Logout route */}
+        <Route path="/logout" element={<Navigate to="/" replace />} />
+        
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* Modern Toast System */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          className: 'animate-fade-in-up',
+          style: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+            borderRadius: '12px',
+            padding: '16px',
+            fontSize: '14px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#22c55e',
+              secondary: 'white',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: 'white',
+            },
+          },
+        }}
+      />
     </Router>
   );
 }
