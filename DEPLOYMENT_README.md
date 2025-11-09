@@ -7,13 +7,7 @@
 ./deploy-prod.sh major "Revolutionary UI redesign"
 ```
 
-## Quick Reference
+**Local**: http://localhost:5173  
+**Production**: https://crew.elbarriobk.com
 
-**Local Testing**: `./deploy-dev.sh` - Empty database, safe testing
-**Production Deploy**: `./deploy-prod.sh [patch|minor|major] "message"` - Auto-versioning
-
-**URLs:**
-- Local: http://localhost:5173
-- Production: https://crew.elbarriobk.com
-
-**Note**: deploy-prod.sh deploys whatever you currently have in development to production with proper versioning.
+**deploy-prod.sh** commits to main branch → auto-deploys to DigitalOcean
