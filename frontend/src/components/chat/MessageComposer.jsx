@@ -17,12 +17,14 @@ import {
   ListOrdered,
   Code,
   X,
-  MicOff
+  MicOff,
+  Calendar
 } from 'lucide-react';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
+import QuickTaskDialog from '../tasks/QuickTaskDialog';
 
-const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
+const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, workspaceId, currentUser }) => {
   const [message, setMessage] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -33,6 +35,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
   const [shouldFocusAfterExpand, setShouldFocusAfterExpand] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
   
   const editorRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -620,6 +623,15 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
                   <AtSign className="w-5 h-5" />
                 </button>
                 
+                <button
+                  type="button"
+                  onClick={() => setShowTaskDialog(true)}
+                  className="btn-icon"
+                  title="Create task"
+                >
+                  <Calendar className="w-5 h-5" />
+                </button>
+                
                 <div className="flex-1" />
                 
                 <button
@@ -668,6 +680,20 @@ const MessageComposer = ({ channel, onSendMessage, placeholder }) => {
           </div>
         </form>
       </div>
+
+      {/* Quick Task Dialog */}
+      <QuickTaskDialog
+        isOpen={showTaskDialog}
+        onClose={() => setShowTaskDialog(false)}
+        channel={channel}
+        workspaceId={workspaceId || workspace?.id}
+        currentUser={currentUser}
+        onTaskCreated={(task) => {
+          console.log('Task created:', task);
+          // TODO: Refresh calendar/timeline views
+          setShowTaskDialog(false);
+        }}
+      />
     </>
   );
 };
