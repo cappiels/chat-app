@@ -4,8 +4,7 @@
   "description": "Full-stack chat application with real-time messaging and advanced features",
   "private": true,
   "workspaces": [
-    "frontend",
-    "backend"
+    "frontend"
   ],
   "scripts": {
     "version:patch": "./scripts/bump-version.sh patch",
