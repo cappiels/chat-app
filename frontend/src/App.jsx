@@ -19,7 +19,7 @@ const ModernLoading = () => (
             <div className="loading-spinner w-16 h-16 border-4 border-accent-200 border-t-accent-500 rounded-full"></div>
           </div>
         </div>
-        <h2 className="text-xl font-semibold text-text-primary mb-2">Loading ChatFlow</h2>
+        <h2 className="text-xl font-semibold text-text-primary mb-2">Loading crew</h2>
         <p className="text-text-secondary">Preparing your workspace...</p>
       </div>
     </div>

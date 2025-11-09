@@ -241,7 +241,7 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
           </div>
           <div className="min-w-0 flex-1">
             <div className="workspace-name truncate">
-              {workspace?.name || 'ChatFlow'}
+              {workspace?.name || 'crew'}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <div className="w-2 h-2 bg-success-400 rounded-full"></div>

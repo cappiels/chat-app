@@ -165,7 +165,7 @@ const InviteAcceptance = () => {
           e.target.style.background = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
         }}
       >
-        Go to ChatFlow
+        Go to crew
       </button>
     </motion.div>
   );
@@ -188,7 +188,7 @@ const InviteAcceptance = () => {
           You're invited to join {inviteData?.workspaceName}!
         </h1>
         <p className="text-gray-600 dark:text-gray-400 text-lg">
-          {inviteData?.inviterName} has invited you to collaborate on ChatFlow
+          {inviteData?.inviterName} has invited you to collaborate on crew
         </p>
       </div>
 
@@ -394,7 +394,7 @@ const InviteAcceptance = () => {
           onClick={() => navigate('/')}
           className="w-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
         >
-          Go to ChatFlow
+          Go to crew
         </button>
       </div>
     </motion.div>

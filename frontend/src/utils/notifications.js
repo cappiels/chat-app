@@ -93,7 +93,7 @@ class NotificationManager {
   }
 
   showWelcomeNotification() {
-    this.showNotification('ChatFlow Notifications Enabled', {
+    this.showNotification('crew Notifications Enabled', {
       body: 'You\'ll now receive desktop notifications for important messages.',
       icon: '/vite.svg',
       tag: 'welcome'

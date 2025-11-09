@@ -290,7 +290,7 @@ class EmailService {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Join {{workspaceName}} on ChatFlow</title>
+    <title>Join {{workspaceName}} on crew</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
         .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -309,7 +309,7 @@ class EmailService {
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">💬 ChatFlow</div>
+            <div class="logo">💬 crew</div>
             <h1>You're invited to join {{workspaceName}}!</h1>
         </div>
         
@@ -330,7 +330,7 @@ class EmailService {
                 </p>
             </div>
             
-            <p>Join your team on ChatFlow to start collaborating with real-time messaging, file sharing, and advanced knowledge management.</p>
+            <p>Join your team on crew to start collaborating with real-time messaging, file sharing, and advanced knowledge management.</p>
             
             <div style="text-align: center;">
                 <a href="{{inviteUrl}}" class="cta-button">Join {{workspaceName}}</a>
@@ -344,7 +344,7 @@ class EmailService {
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             
             <div style="font-size: 14px; color: #666;">
-                <p><strong>What is ChatFlow?</strong></p>
+                <p><strong>What is crew?</strong></p>
                 <ul style="margin: 0; padding-left: 20px;">
                     <li>Real-time team messaging and collaboration</li>
                     <li>Advanced knowledge management system</li>
@@ -473,7 +473,7 @@ class EmailService {
 
     return this.sendEmail({
       to,
-      subject: `You're invited to join ${workspaceName} on ChatFlow`,
+      subject: `You're invited to join ${workspaceName} on crew`,
       html,
       category: 'workspace-invitation'
     });
@@ -556,7 +556,7 @@ class EmailService {
       // Create email message in RFC2822 format
       const emailLines = [
         `To: ${to}`,
-        `From: ChatFlow <${this.oauth2Client ? 'cappiels@gmail.com' : process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>`,
+        `From: crew <${this.oauth2Client ? 'cappiels@gmail.com' : process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}>`,
         `Subject: ${encodedSubject}`,
         'MIME-Version: 1.0',
         'Content-Type: text/html; charset=utf-8',

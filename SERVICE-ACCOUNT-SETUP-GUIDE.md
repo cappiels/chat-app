@@ -1,4 +1,4 @@
-# Gmail Service Account Setup Guide for ChatFlow
+# Gmail Service Account Setup Guide for crew
 
 ## Overview
 For enterprise-grade email functionality, ChatFlow uses Google Service Accounts which provide:

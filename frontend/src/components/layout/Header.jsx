@@ -152,7 +152,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
           >
             <Briefcase className="w-4 h-4" />
             <span className="font-medium truncate">
-              {workspace?.name || 'ChatFlow'}
+              {workspace?.name || 'crew'}
             </span>
             <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showWorkspaceSwitcher ? 'rotate-180' : ''}`} />
           </button>

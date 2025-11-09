@@ -66,7 +66,7 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
 
           {/* Main headline */}
           <h1 className="text-4xl sm:text-5xl font-semibold mb-6 text-gray-900">
-            ChatFlow
+            crew
           </h1>
 
           {/* Subtitle */}

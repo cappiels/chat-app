@@ -254,7 +254,7 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
             </div>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">
-                ChatFlow
+                crew
               </h1>
               <div className="flex flex-col">
                 <p className="text-sm text-gray-600">

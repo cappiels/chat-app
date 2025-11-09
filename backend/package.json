@@ -1,5 +1,5 @@
 {
-  "name": "chat-app-backend",
+  "name": "crew-backend",
   "version": "1.8.7",
   "description": "Backend API for bleeding-edge chat application with real-time messaging and advanced knowledge base",
   "main": "index.js",
