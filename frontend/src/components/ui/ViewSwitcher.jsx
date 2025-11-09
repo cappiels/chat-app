@@ -20,7 +20,7 @@ const ViewSwitcher = ({ currentView, onViewChange, className = '', variant = 'de
         `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
           isActive 
             ? 'bg-white text-slate-900 shadow-sm' 
-            : 'text-white/80 hover:text-white hover:bg-white/10'
+            : 'text-white hover:text-white hover:bg-white/20'
         }`,
     }
   };
