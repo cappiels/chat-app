@@ -20,12 +20,9 @@ ALTER COLUMN workspace_id SET NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_channel_tasks_workspace_id ON channel_tasks(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_channel_tasks_workspace_thread ON channel_tasks(workspace_id, thread_id);
 
--- Add constraint to ensure data consistency
-ALTER TABLE channel_tasks 
-ADD CONSTRAINT IF NOT EXISTS check_workspace_thread_consistency 
-CHECK (
-  (SELECT workspace_id FROM threads WHERE id = thread_id) = workspace_id
-);
+-- Note: Cannot add CHECK constraint with subquery in PostgreSQL
+-- Data consistency should be enforced at application level
+-- The verification block below ensures existing data is consistent
 
 -- Add comment for documentation
 COMMENT ON COLUMN channel_tasks.workspace_id IS 'Denormalized workspace_id for efficient querying without JOINs. Must match threads.workspace_id.';

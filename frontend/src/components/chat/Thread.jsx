@@ -115,6 +115,9 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
         channel={{ name: 'thread' }}
         onSendMessage={onSendReply}
         placeholder="Reply..."
+        workspace={workspace}
+        workspaceId={workspaceId || workspace?.id}
+        currentUser={currentUser}
       />
     </aside>
   );

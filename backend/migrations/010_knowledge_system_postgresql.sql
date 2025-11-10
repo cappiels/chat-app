@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS knowledge_roles (
 -- Knowledge Scope Members (who has access to what scope with what role)
 CREATE TABLE IF NOT EXISTS knowledge_scope_members (
     id SERIAL PRIMARY KEY,
-    scope_id INTEGER NOT NULL,
+    scope_id UUID NOT NULL, -- FIXED: UUID to match knowledge_scopes.id
     user_id VARCHAR(128) NOT NULL, -- Firebase UID
     role_id INTEGER NOT NULL,
     granted_by VARCHAR(128) NOT NULL, -- Firebase UID of person who granted access
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS knowledge_scope_members (
 CREATE TABLE IF NOT EXISTS knowledge_categories (
     id SERIAL PRIMARY KEY,
     workspace_id UUID NOT NULL,
-    scope_id INTEGER, -- Categories can be scoped to specific knowledge scopes
+    scope_id UUID, -- Categories can be scoped to specific knowledge scopes - FIXED: UUID not INTEGER
     name VARCHAR(255) NOT NULL,
     description TEXT,
     color VARCHAR(7) DEFAULT '#6366f1',
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS knowledge_category_admins (
 CREATE TABLE IF NOT EXISTS knowledge_items (
     id SERIAL PRIMARY KEY,
     workspace_id UUID NOT NULL,
-    primary_scope_id INTEGER NOT NULL, -- Main scope this belongs to
+    primary_scope_id UUID NOT NULL, -- Main scope this belongs to - FIXED: UUID not INTEGER
     created_by VARCHAR(128) NOT NULL, -- Firebase UID
     title VARCHAR(500) NOT NULL,
     content TEXT NOT NULL,
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
 -- Multi-Scope Knowledge Items (knowledge can exist in multiple scopes)
 CREATE TABLE IF NOT EXISTS knowledge_item_scopes (
     knowledge_item_id INTEGER NOT NULL,
-    scope_id INTEGER NOT NULL,
+    scope_id UUID NOT NULL, -- FIXED: UUID not INTEGER
     added_by VARCHAR(128) NOT NULL, -- Firebase UID
     added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     is_primary BOOLEAN DEFAULT FALSE,
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS knowledge_item_scopes (
 CREATE TABLE IF NOT EXISTS knowledge_tags (
     id SERIAL PRIMARY KEY,
     workspace_id UUID NOT NULL,
-    scope_id INTEGER, -- Tags can be scoped
+    scope_id UUID, -- Tags can be scoped - FIXED: UUID not INTEGER
     name VARCHAR(100) NOT NULL,
     description TEXT,
     color VARCHAR(7),
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS knowledge_item_tags (
 CREATE TABLE IF NOT EXISTS knowledge_collections (
     id SERIAL PRIMARY KEY,
     workspace_id UUID NOT NULL,
-    scope_id INTEGER NOT NULL,
+    scope_id UUID NOT NULL, -- FIXED: UUID not INTEGER
     name VARCHAR(255) NOT NULL,
     description TEXT,
     cover_image TEXT, -- URL or path to cover image
@@ -219,7 +219,7 @@ CREATE TABLE IF NOT EXISTS knowledge_analytics (
     knowledge_item_id INTEGER NOT NULL,
     user_id VARCHAR(128) NOT NULL, -- Firebase UID
     action_type VARCHAR(20) CHECK(action_type IN ('view', 'save', 'share', 'upvote', 'downvote', 'edit', 'comment')) NOT NULL,
-    scope_id INTEGER, -- Which scope they accessed it from
+    scope_id UUID, -- Which scope they accessed it from - FIXED: UUID not INTEGER
     metadata JSONB, -- Additional context (time spent, search query, etc.)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     FOREIGN KEY (knowledge_item_id) REFERENCES knowledge_items(id) ON DELETE CASCADE,

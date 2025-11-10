@@ -129,7 +129,7 @@ const HomePage = ({ onSignIn, isLoading = false }) => {
             transition={{ duration: 0.8, delay: 0.8 }}
           >
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Trusted by over 10,000+ teams worldwide • Enterprise-grade security • 99.9% uptime
+              The team collaboration hub for El Barrio Burritos staff & friends • Share knowledge, coordinate shifts, and stay connected
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
               {getVersionString()} • Advanced Knowledge Management System

@@ -7,6 +7,12 @@ class CacheBreaker {
   }
 
   init() {
+    // Disable cache breaker in development
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('🛠️ Cache breaker disabled in development');
+      return;
+    }
+    
     console.log('🔍 Cache breaker checking version...');
     
     // Get stored version
@@ -14,11 +20,18 @@ class CacheBreaker {
     console.log('💾 Stored version:', storedVersion);
     console.log('📦 Current version:', CURRENT_VERSION);
     
-    // If versions don't match, force immediate refresh
+    // Only force refresh for significant version changes (major/minor, not patch)
     if (storedVersion && storedVersion !== CURRENT_VERSION) {
-      console.log('🚨 Version mismatch detected! Forcing cache clear and refresh...');
-      this.forceRefresh();
-      return;
+      const [storedMajor, storedMinor] = storedVersion.split('.');
+      const [currentMajor, currentMinor] = CURRENT_VERSION.split('.');
+      
+      if (storedMajor !== currentMajor || storedMinor !== currentMinor) {
+        console.log('🚨 Major version change detected! Forcing cache clear and refresh...');
+        this.forceRefresh();
+        return;
+      } else {
+        console.log('📦 Patch version change detected, updating silently...');
+      }
     }
     
     // Update stored version to current
@@ -83,7 +96,7 @@ class CacheBreaker {
       <div style="text-align: center; color: white; padding: 40px;">
         <div style="font-size: 64px; margin-bottom: 24px; animation: bounce 1s infinite;">🚀</div>
         <div style="font-size: 24px; font-weight: 600; margin-bottom: 16px;">
-          Updating ChatFlow...
+          Updating crew...
         </div>
         <div style="font-size: 16px; opacity: 0.9; margin-bottom: 32px;">
           Loading new features and improvements

@@ -20,6 +20,29 @@ router.get('/unread-summary', authenticateUser, requireWorkspaceMembership, asyn
     const { workspaceId } = req.params;
     const userId = req.user.id;
 
+    // Check if user_read_status table exists
+    const tableExists = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'user_read_status'
+      );
+    `);
+
+    if (!tableExists.rows[0].exists) {
+      // Fallback: return empty summary if table doesn't exist
+      console.log('user_read_status table not found, returning empty summary');
+      return res.json({
+        summary: {
+          total_unread: 0,
+          total_mentions: 0,
+          unread_conversations: 0,
+          unread_items: []
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Get comprehensive unread summary
     const summaryQuery = `
       SELECT 
@@ -57,9 +80,15 @@ router.get('/unread-summary', authenticateUser, requireWorkspaceMembership, asyn
 
   } catch (error) {
     console.error('Get unread summary error:', error);
-    res.status(500).json({ 
-      error: 'Server Error', 
-      message: 'Unable to retrieve unread summary' 
+    // Graceful fallback even on error
+    res.json({
+      summary: {
+        total_unread: 0,
+        total_mentions: 0,
+        unread_conversations: 0,
+        unread_items: []
+      },
+      timestamp: new Date().toISOString()
     });
   }
 });

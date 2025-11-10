@@ -3,9 +3,9 @@
 
 -- Create many-to-many table for category relationships
 CREATE TABLE IF NOT EXISTS knowledge_category_relationships (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    child_category_id UUID NOT NULL,
-    parent_category_id UUID NOT NULL,
+    id SERIAL PRIMARY KEY, -- FIXED: SERIAL not UUID
+    child_category_id INTEGER NOT NULL, -- FIXED: INTEGER to match knowledge_categories.id
+    parent_category_id INTEGER NOT NULL, -- FIXED: INTEGER to match knowledge_categories.id
     relationship_type TEXT CHECK(relationship_type IN ('hierarchy', 'cross_reference', 'related')) DEFAULT 'hierarchy',
     weight REAL DEFAULT 1.0, -- For determining primary parent, relevance scoring
     created_by VARCHAR(128) NOT NULL, -- Firebase UID
@@ -19,18 +19,18 @@ CREATE TABLE IF NOT EXISTS knowledge_category_relationships (
 -- Add fields to knowledge_categories for multi-parent support
 ALTER TABLE knowledge_categories 
 ADD COLUMN IF NOT EXISTS is_multi_parent BOOLEAN DEFAULT FALSE,
-ADD COLUMN IF NOT EXISTS primary_parent_id UUID,
+ADD COLUMN IF NOT EXISTS primary_parent_id INTEGER, -- FIXED: INTEGER to match knowledge_categories.id
 ADD COLUMN IF NOT EXISTS breadcrumb_path TEXT, -- Cached breadcrumb for performance
 ADD CONSTRAINT fk_primary_parent FOREIGN KEY (primary_parent_id) REFERENCES knowledge_categories(id) ON DELETE SET NULL;
 
 -- Categories can have multiple parent admins (inherit from all parents)
 CREATE TABLE IF NOT EXISTS knowledge_category_inherited_admins (
-    category_id UUID NOT NULL,
-    inherited_from_category_id UUID NOT NULL,
+    category_id INTEGER NOT NULL, -- FIXED: INTEGER to match knowledge_categories.id
+    inherited_from_category_id INTEGER NOT NULL, -- FIXED: INTEGER to match knowledge_categories.id
     user_id VARCHAR(128) NOT NULL, -- Firebase UID
     admin_level TEXT CHECK(admin_level IN ('owner', 'moderator', 'contributor')) NOT NULL,
     is_direct BOOLEAN DEFAULT FALSE, -- Direct assignment vs inherited
-    inheritance_path UUID[], -- Array of category IDs showing inheritance chain
+    inheritance_path INTEGER[], -- FIXED: INTEGER[] for category IDs
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (category_id, inherited_from_category_id, user_id),
     FOREIGN KEY (category_id) REFERENCES knowledge_categories(id) ON DELETE CASCADE,
@@ -39,13 +39,13 @@ CREATE TABLE IF NOT EXISTS knowledge_category_inherited_admins (
 
 -- Update knowledge_items to support multiple categories
 ALTER TABLE knowledge_items 
-ADD COLUMN IF NOT EXISTS primary_category_id UUID,
+ADD COLUMN IF NOT EXISTS primary_category_id INTEGER, -- FIXED: INTEGER to match knowledge_categories.id
 ADD CONSTRAINT fk_primary_category FOREIGN KEY (primary_category_id) REFERENCES knowledge_categories(id) ON DELETE SET NULL;
 
 -- Many-to-many for knowledge items in multiple categories
 CREATE TABLE IF NOT EXISTS knowledge_item_categories (
-    knowledge_item_id UUID NOT NULL,
-    category_id UUID NOT NULL,
+    knowledge_item_id INTEGER NOT NULL, -- FIXED: INTEGER to match knowledge_items.id (SERIAL)
+    category_id INTEGER NOT NULL, -- FIXED: INTEGER to match knowledge_categories.id
     is_primary BOOLEAN DEFAULT FALSE,
     added_by VARCHAR(128) NOT NULL, -- Firebase UID
     relevance_score REAL DEFAULT 1.0, -- How relevant is this item to this category
@@ -95,7 +95,7 @@ CREATE TRIGGER update_category_breadcrumbs_trigger
     EXECUTE FUNCTION update_category_breadcrumbs();
 
 -- Function to calculate inherited permissions across multiple parents
-CREATE OR REPLACE FUNCTION calculate_inherited_permissions(category_id UUID, user_id VARCHAR(128))
+CREATE OR REPLACE FUNCTION calculate_inherited_permissions(category_id INTEGER, user_id VARCHAR(128))
 RETURNS JSONB AS $$
 DECLARE
     max_permissions JSONB := '{"create": false, "read": false, "update": false, "delete": false, "manage_permissions": false, "manage_categories": false, "moderate": false}';
@@ -135,7 +135,7 @@ WITH RECURSIVE category_tree AS (
         kc.icon,
         0 as level,
         ARRAY[kc.id] as path,
-        kc.name as breadcrumb
+        CAST(kc.name AS TEXT) as breadcrumb
     FROM knowledge_categories kc
     WHERE NOT EXISTS (
         SELECT 1 FROM knowledge_category_relationships kcr 
@@ -155,7 +155,7 @@ WITH RECURSIVE category_tree AS (
         kc.icon,
         ct.level + 1,
         ct.path || kc.id,
-        ct.breadcrumb || ' > ' || kc.name
+        ct.breadcrumb || ' > ' || CAST(kc.name AS TEXT)
     FROM knowledge_categories kc
     JOIN knowledge_category_relationships kcr ON kc.id = kcr.child_category_id
     JOIN category_tree ct ON kcr.parent_category_id = ct.id
@@ -173,7 +173,7 @@ CREATE INDEX IF NOT EXISTS idx_category_hierarchy_level ON knowledge_category_hi
 CREATE OR REPLACE FUNCTION refresh_category_hierarchy()
 RETURNS TRIGGER AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY knowledge_category_hierarchy;
+    REFRESH MATERIALIZED VIEW knowledge_category_hierarchy;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

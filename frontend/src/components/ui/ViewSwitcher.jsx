@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { MessageCircle, Calendar, BarChart3 } from 'lucide-react';
+import { MessageCircle, Calendar, CalendarRange } from 'lucide-react';
 
 const ViewSwitcher = ({ currentView, onViewChange, className = '', variant = 'default' }) => {
   // Different styling variants
@@ -15,12 +15,12 @@ const ViewSwitcher = ({ currentView, onViewChange, className = '', variant = 'de
         }`,
     },
     header: {
-      container: 'flex items-center bg-white/10 rounded-lg p-1',
+      container: 'flex items-center bg-white/20 rounded-lg p-1 min-w-max',
       button: (isActive) =>
-        `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+        `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
           isActive 
             ? 'bg-white text-slate-900 shadow-sm' 
-            : 'text-white hover:text-white hover:bg-white/20'
+            : 'text-white/90 bg-white/10 hover:text-white hover:bg-white/30'
         }`,
     }
   };
@@ -43,7 +43,7 @@ const ViewSwitcher = ({ currentView, onViewChange, className = '', variant = 'de
     {
       id: 'timeline',
       label: 'Timeline', 
-      icon: BarChart3,
+      icon: CalendarRange,
       title: 'Timeline View - Gantt Chart & Dependencies'
     }
   ];

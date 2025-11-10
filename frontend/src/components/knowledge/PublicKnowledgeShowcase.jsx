@@ -23,8 +23,8 @@ const PublicKnowledgeShowcase = ({ showPublicContent = false }) => {
       category: { name: "Best Practices", color: "#3B82F6" },
       views_count: 2847,
       created_at: "2024-01-15",
-      created_by_name: "ChatFlow Team",
-      created_by_avatar: "/api/placeholder/32/32",
+      created_by_name: "crew Team",
+      created_by_avatar: null,
       tags: [{ name: "communication" }, { name: "productivity" }, { name: "teamwork" }],
       is_featured: true,
       scope_name: "Public"
@@ -37,7 +37,7 @@ const PublicKnowledgeShowcase = ({ showPublicContent = false }) => {
       views_count: 1923,
       created_at: "2024-01-12",
       created_by_name: "Sarah Chen",
-      created_by_avatar: "/api/placeholder/32/32",
+      created_by_avatar: null,
       tags: [{ name: "knowledge" }, { name: "organization" }, { name: "scaling" }],
       is_featured: true,
       scope_name: "Public"
@@ -50,7 +50,7 @@ const PublicKnowledgeShowcase = ({ showPublicContent = false }) => {
       views_count: 3156,
       created_at: "2024-01-10",
       created_by_name: "Alex Rodriguez",
-      created_by_avatar: "/api/placeholder/32/32",
+      created_by_avatar: null,
       tags: [{ name: "remote" }, { name: "collaboration" }, { name: "culture" }],
       is_featured: true,
       scope_name: "Public"
@@ -127,11 +127,19 @@ const PublicKnowledgeShowcase = ({ showPublicContent = false }) => {
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
           <div className="flex items-center space-x-3">
-            <img 
-              src={item.created_by_avatar} 
-              alt={item.created_by_name}
-              className="w-8 h-8 rounded-full"
-            />
+            {item.created_by_avatar ? (
+              <img 
+                src={item.created_by_avatar} 
+                alt={item.created_by_name}
+                className="w-8 h-8 rounded-full"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-semibold">
+                  {item.created_by_name?.charAt(0) || 'U'}
+                </span>
+              </div>
+            )}
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">{item.created_by_name}</p>
               <p className="text-xs text-gray-500">{new Date(item.created_at).toLocaleDateString()}</p>

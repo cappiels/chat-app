@@ -253,7 +253,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`Search ${workspace?.name || 'ChatFlow'}`}
+            placeholder={`Search ${workspace?.name || 'crew'}`}
             className="w-full pl-10 pr-4 py-2 bg-white/20 border border-white/30 rounded-lg text-text-inverse placeholder-white/70 focus:bg-white focus:text-text-primary focus:border-white focus:placeholder-text-tertiary transition-all duration-200 outline-none"
           />
         </div>

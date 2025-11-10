@@ -19,74 +19,12 @@ if ! /opt/homebrew/opt/postgresql@15/bin/psql -lqt | cut -d \| -f 1 | grep -qw c
     /opt/homebrew/opt/postgresql@15/bin/createdb chat_app_dev
 fi
 
-# Run migrations on local database
-echo "📄 Running migrations on local database..."
+# Run complete migration suite to mirror production
+echo "📄 Running complete migration suite to mirror production..."
 cd backend
-DATABASE_URL="postgresql://localhost:5432/chat_app_dev" node -e "
-const { Pool } = require('pg');
-const fs = require('fs');
-const pool = new Pool({ connectionString: 'postgresql://localhost:5432/chat_app_dev' });
-
-async function runBasicMigrations() {
-  try {
-    console.log('🔧 Setting up local database schema...');
-    
-    // Create basic tables for development
-    await pool.query(\`
-      CREATE TABLE IF NOT EXISTS workspaces (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name VARCHAR(255) NOT NULL,
-        owner_user_id VARCHAR(128) NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        description TEXT,
-        settings JSONB DEFAULT '{}'
-      );
-      
-      CREATE TABLE IF NOT EXISTS users (
-        id VARCHAR(128) PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        display_name VARCHAR(255),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      
-      CREATE TABLE IF NOT EXISTS threads (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        workspace_id UUID NOT NULL REFERENCES workspaces(id),
-        name VARCHAR(255),
-        type VARCHAR(50) NOT NULL,
-        created_by VARCHAR(128) NOT NULL REFERENCES users(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      
-      CREATE TABLE IF NOT EXISTS channel_tasks (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        workspace_id UUID NOT NULL REFERENCES workspaces(id),
-        thread_id UUID NOT NULL REFERENCES threads(id),
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        due_date TIMESTAMP WITH TIME ZONE,
-        start_date TIMESTAMP WITH TIME ZONE,
-        end_date TIMESTAMP WITH TIME ZONE,
-        priority VARCHAR(20) DEFAULT 'medium',
-        status VARCHAR(50) DEFAULT 'pending',
-        assigned_to VARCHAR(128) REFERENCES users(id),
-        created_by VARCHAR(128) NOT NULL REFERENCES users(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        is_all_day BOOLEAN DEFAULT false
-      );
-    \`);
-    
-    console.log('✅ Local database ready!');
-    
-  } catch (error) {
-    console.error('❌ Migration failed:', error.message);
-  } finally {
-    await pool.end();
-  }
-}
-
-runBasicMigrations();
-"
+# Temporarily copy local env for migrations
+cp .env.local .env
+DATABASE_URL="postgresql://localhost:5432/chat_app_dev?sslmode=disable" node migrations/run-migrations.js
 
 # Return to root
 cd ..
@@ -94,10 +32,58 @@ cd ..
 echo ""
 echo "🎯 Local Development Environment Ready!"
 echo ""
-echo "📍 Next Steps:"
-echo "  1. Terminal 1: cd backend && DATABASE_URL='postgresql://localhost:5432/chat_app_dev' npm start"
-echo "  2. Terminal 2: cd frontend && npm run dev"
-echo "  3. Open: http://localhost:5173"
+
+# Function to cleanup processes on exit
+cleanup() {
+    echo ""
+    echo "🛑 Shutting down servers..."
+    if [ ! -z "$BACKEND_PID" ]; then
+        kill $BACKEND_PID 2>/dev/null || true
+    fi
+    if [ ! -z "$FRONTEND_PID" ]; then
+        kill $FRONTEND_PID 2>/dev/null || true
+    fi
+    echo "✅ Servers stopped"
+    exit 0
+}
+
+# Set trap to cleanup on script exit
+trap cleanup SIGINT SIGTERM EXIT
+
+echo "🚀 Starting backend server with local environment..."
+cd backend
+# Use local environment file for development
+cp .env.local .env
+npm start &
+BACKEND_PID=$!
+cd ..
+
+# Wait a moment for backend to start
+sleep 3
+
+echo "🚀 Starting frontend dev server..."
+cd frontend
+npm run dev &
+FRONTEND_PID=$!
+cd ..
+
+# Wait a moment for frontend to start
+sleep 3
+
 echo ""
-echo "✅ Safe local testing with empty database - no production risk!"
+echo "🎉 Development servers started!"
 echo ""
+echo "📍 Running Services:"
+echo "  • Backend:  http://localhost:8080 (PID: $BACKEND_PID)"
+echo "  • Frontend: http://localhost:5173 (PID: $FRONTEND_PID)"
+echo ""
+echo "🌐 Opening browser..."
+open http://localhost:5173
+
+echo ""
+echo "✅ Development environment is running!"
+echo "💡 Press Ctrl+C to stop all servers"
+echo ""
+
+# Keep script running and wait for user to stop
+wait

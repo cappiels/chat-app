@@ -13,7 +13,7 @@ const AppHeader = ({ workspace, onSignOut, searchPlaceholder = "Search" }) => {
           </span>
         </div>
         <div className="hidden sm:block min-w-0">
-          <h1 className="text-white font-semibold text-lg truncate">ChatFlow</h1>
+          <h1 className="text-white font-semibold text-lg truncate">crew</h1>
         </div>
       </div>
 

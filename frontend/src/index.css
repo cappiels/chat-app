@@ -89,7 +89,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  z-index: 100;
+  z-index: 1020;
+  position: relative;
 }
 
 .app-sidebar {
@@ -102,6 +103,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 240px;
+  z-index: 1000;
 }
 
 .main-content {
@@ -112,6 +114,7 @@ body {
   flex-direction: column;
   position: relative;
   min-width: 0; /* Allow flex shrinking */
+  z-index: 999;
 }
 
 .thread-panel {
@@ -568,6 +571,73 @@ body {
 
 .timeline-task-bar:hover {
   background-color: #2563eb;
+}
+
+/* ===== DROPDOWN COMPONENTS ===== */
+
+/* Dropdown Backdrop */
+.z-dropdown-backdrop {
+  z-index: 1040;
+}
+
+/* Dropdown Container */
+.dropdown {
+  position: absolute;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 38px -10px rgba(22, 23, 24, 0.35), 0 10px 20px -15px rgba(22, 23, 24, 0.2);
+  z-index: 1050;
+  min-width: 200px;
+  max-width: 320px;
+  overflow: hidden;
+  animation: slideUp 0.15s ease-out;
+}
+
+/* Dropdown Item */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.dropdown-item:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.dropdown-item:focus {
+  outline: none;
+  background-color: #f3f4f6;
+}
+
+.dropdown-item:active {
+  background-color: #e5e7eb;
+}
+
+/* Badge for notification counts */
+.badge-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background-color: #dc2626;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 8px;
+  line-height: 1;
 }
 
 /* ===== UTILITY CLASSES ===== */

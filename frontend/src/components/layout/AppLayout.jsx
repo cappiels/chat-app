@@ -528,6 +528,9 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
               <MessageComposer
                 channel={currentChannel}
                 onSendMessage={handleSendMessage}
+                workspace={workspace}
+                workspaceId={workspace?.id}
+                currentUser={user}
               />
             </div>
           </>

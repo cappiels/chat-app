@@ -625,9 +625,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                 
                 <button
                   type="button"
-                  onClick={() => setShowTaskDialog(true)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Calendar button clicked, opening task dialog');
+                    setShowTaskDialog(true);
+                  }}
                   className="btn-icon"
-                  title="Create task"
+                  title="Create task/event"
                 >
                   <Calendar className="w-5 h-5" />
                 </button>

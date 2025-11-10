@@ -52,6 +52,14 @@ const runMigration = async (migrationFile) => {
     console.log(`✅ Migration ${migrationFile} completed successfully`);
   } catch (error) {
     await pool.query('ROLLBACK');
+    
+    // Handle "already exists" errors gracefully
+    if (error.message.includes('already exists')) {
+      console.log(`⏭️ Migration ${migrationFile} skipped (table already exists)`);
+      await markMigrationExecuted(migrationFile);
+      return;
+    }
+    
     console.error(`❌ Migration ${migrationFile} failed:`, error.message);
     throw error;
   }

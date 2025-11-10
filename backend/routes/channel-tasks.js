@@ -17,7 +17,7 @@ const pool = new Pool({
 const requireChannelMembership = async (req, res, next) => {
   try {
     const { workspaceId, threadId } = req.params;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id instead of req.user.uid
 
     // Check if user is member of this channel
     const result = await pool.query(`
@@ -49,7 +49,7 @@ router.get('/', async (req, res) => {
   try {
     const { threadId } = req.params;
     const { status, assigned_to, start_date, end_date, limit = 100, offset = 0 } = req.query;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id
 
     let query = `
       SELECT 
@@ -191,7 +191,7 @@ router.get('/:taskId', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { threadId } = req.params;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id
     const { 
       title, 
       description, 
@@ -304,7 +304,7 @@ router.post('/', async (req, res) => {
 router.put('/:taskId', async (req, res) => {
   try {
     const { threadId, taskId } = req.params;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id
     const { 
       title, 
       description, 
@@ -467,7 +467,7 @@ router.get('/:taskId/subtasks', async (req, res) => {
 router.post('/:taskId/complete', async (req, res) => {
   try {
     const { taskId } = req.params;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id
 
     const result = await pool.query(
       'SELECT mark_task_complete_individual($1, $2)',
@@ -499,7 +499,7 @@ router.post('/:taskId/complete', async (req, res) => {
 router.delete('/:taskId/complete', async (req, res) => {
   try {
     const { taskId } = req.params;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id
 
     const result = await pool.query(
       'SELECT mark_task_incomplete_individual($1, $2)',
@@ -530,7 +530,7 @@ router.delete('/:taskId/complete', async (req, res) => {
 router.get('/:taskId/progress', async (req, res) => {
   try {
     const { threadId, taskId } = req.params;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id
 
     const result = await pool.query(`
       SELECT 
@@ -626,7 +626,7 @@ router.get('/../../teams', async (req, res) => {
 router.post('/../../teams', async (req, res) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id
     const { 
       name, 
       display_name, 
@@ -702,7 +702,7 @@ router.post('/../../teams', async (req, res) => {
 router.post('/../../teams/:teamId/members', async (req, res) => {
   try {
     const { teamId } = req.params;
-    const userId = req.user.uid;
+    const userId = req.user.id; // Fixed: use req.user.id
     const { user_id, role = 'member' } = req.body;
 
     if (!user_id) {
