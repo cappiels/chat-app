@@ -205,11 +205,17 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       return; // Stay expanded if clicking within composer
     }
     
+    // Don't collapse if task dialog is open
+    if (showTaskDialog) {
+      console.log('Skipping collapse because task dialog is open');
+      return;
+    }
+    
     // Add a small delay to prevent collapsing when clicking send button on mobile
     setTimeout(() => {
       // Only collapse if clicking completely outside the composer area
       // and we're not in the middle of sending a message
-      if (!sendingMessage && !document.activeElement?.closest('.composer-container')) {
+      if (!sendingMessage && !document.activeElement?.closest('.composer-container') && !showTaskDialog) {
         setIsExpanded(false);
         setIsFocused(false);
         stopTyping();
@@ -434,6 +440,16 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
     }
   };
 
+  // Debug showTaskDialog state changes
+  useEffect(() => {
+    console.log('📊 showTaskDialog state changed to:', showTaskDialog);
+    if (showTaskDialog) {
+      console.log('✅ Dialog should be open now');
+    } else {
+      console.log('❌ Dialog is closed');
+    }
+  }, [showTaskDialog]);
+
   // Clean up intervals on unmount
   useEffect(() => {
     return () => {
@@ -446,55 +462,93 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
   // Collapsed state (Slack-like minimal input)
   if (!isExpanded && !isFocused) {
     return (
-      <div className="message-input-container">
-        <div className="composer-container">
-          <div 
-            className="message-input-wrapper cursor-text"
-            onClick={handleContainerClick}
-          >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAttachment();
-              }}
-              className="btn-icon"
-              title="Add attachments"
+      <>
+        <div className="message-input-container">
+          <div className="composer-container">
+            <div 
+              className="message-input-wrapper cursor-text"
+              onClick={handleContainerClick}
             >
-              <Plus className="w-5 h-5" />
-            </button>
-            
-            <div className="flex-1 flex items-center" onClick={handleContainerClick}>
-              <Hash className="w-4 h-4 text-text-tertiary mr-1" />
-              <input
-                ref={editorRef}
-                value={message}
-                onChange={handleInputChange}
-                onFocus={handleInputFocus}
-                onBlur={handleInputBlur}
-                placeholder={placeholder || `Message #${channel?.name || 'general_chat'}`}
-                className="message-input"
-              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔥 CALENDAR BUTTON CLICKED - COLLAPSED STATE');
+                  console.log('showTaskDialog before:', showTaskDialog);
+                  setShowTaskDialog(true);
+                  console.log('setShowTaskDialog(true) called');
+                  setTimeout(() => {
+                    console.log('showTaskDialog after 100ms - checking current state...');
+                  }, 100);
+                }}
+                className="btn-icon"
+                title="Create task/event"
+              >
+                <Calendar className="w-5 h-5" />
+              </button>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAttachment();
+                }}
+                className="btn-icon"
+                title="Add attachments"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+              
+              <div className="flex-1 flex items-center" onClick={handleContainerClick}>
+                <Hash className="w-4 h-4 text-text-tertiary mr-1" />
+                <input
+                  ref={editorRef}
+                  value={message}
+                  onChange={handleInputChange}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                  placeholder={placeholder || `Message #${channel?.name || 'general_chat'}`}
+                  className="message-input"
+                />
+              </div>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleVoiceMessage();
+                }}
+                className={`btn-icon ${
+                  isRecording
+                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                    : ''
+                }`}
+                title={isRecording ? 'Stop recording' : 'Send voice message'}
+              >
+                {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
             </div>
-            
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleVoiceMessage();
-              }}
-              className={`btn-icon ${
-                isRecording
-                  ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                  : ''
-              }`}
-              title={isRecording ? 'Stop recording' : 'Send voice message'}
-            >
-              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
           </div>
         </div>
-      </div>
+
+        {/* Quick Task Dialog - Available in collapsed state */}
+        {console.log('🔍 QuickTaskDialog render check (COLLAPSED) - isOpen:', showTaskDialog, 'channel:', channel, 'workspaceId:', workspaceId || workspace?.id)}
+        <QuickTaskDialog
+          isOpen={showTaskDialog}
+          onClose={() => {
+            console.log('QuickTaskDialog onClose called');
+            setShowTaskDialog(false);
+          }}
+          channel={channel}
+          workspaceId={workspaceId || workspace?.id}
+          currentUser={currentUser}
+          onTaskCreated={(task) => {
+            console.log('Task created:', task);
+            setShowTaskDialog(false);
+          }}
+        />
+      </>
     );
   }
 
@@ -579,154 +633,126 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       )}
 
       <div className="message-input-container">
-        <form onSubmit={handleSubmit}>
-          <div className="message-input-wrapper composer-container">
-            {/* Blue accent bar */}
-            <div className="h-1 bg-accent-500" />
-            
-            <div className="p-3">
-              {/* Top row with buttons */}
-              <div className="flex items-center gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Safari fix: Use requestAnimationFrame to ensure proper timing
-                    requestAnimationFrame(() => {
-                      console.log('Attachment button clicked');
-                      handleAttachment();
-                    });
-                  }}
-                  // Safari fix: Prevent touch events from interfering
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className="btn-icon"
-                  title="Add attachments"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Safari fix: Use requestAnimationFrame to ensure proper timing
-                    requestAnimationFrame(() => {
-                      console.log('Formatting button clicked');
-                      handleFormatting();
-                    });
-                  }}
-                  // Safari fix: Prevent touch events from interfering
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className="btn-icon"
-                  title="Text formatting"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Safari fix: Use requestAnimationFrame to ensure proper timing
-                    requestAnimationFrame(() => {
-                      console.log('Emoji button clicked');
-                      handleEmoji();
-                    });
-                  }}
-                  // Safari fix: Prevent touch events from interfering
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className="btn-icon"
-                  title="Add emoji"
-                >
-                  <Smile className="w-5 h-5" />
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Safari fix: Use requestAnimationFrame to ensure proper timing
-                    requestAnimationFrame(() => {
-                      console.log('Mention button clicked');
-                      handleMention();
-                    });
-                  }}
-                  // Safari fix: Prevent touch events from interfering
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className="btn-icon"
-                  title="Mention someone"
-                >
-                  <AtSign className="w-5 h-5" />
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Safari fix: Use requestAnimationFrame to ensure proper timing
-                    requestAnimationFrame(() => {
-                      console.log('Calendar button clicked, opening task dialog', { 
-                        channel, 
-                        workspaceId: workspaceId || workspace?.id, 
-                        currentUser 
-                      });
-                      setShowTaskDialog(true);
-                    });
-                  }}
-                  // Safari fix: Prevent touch events from interfering
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className="btn-icon"
-                  title="Create task/event"
-                >
-                  <Calendar className="w-5 h-5" />
-                </button>
-                
-                <div className="flex-1" />
-                
-                <button
-                  type="button"
-                  onClick={handleVoiceMessage}
-                  className={`btn-icon mr-2 ${
-                    isRecording
-                      ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                      : ''
-                  }`}
-                  title={isRecording ? 'Stop recording' : 'Start voice recording'}
-                >
-                  {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                </button>
-                
-                <button
-                  type="submit"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Safari fix: Use requestAnimationFrame to ensure proper timing
-                    requestAnimationFrame(() => {
-                      if (message.trim() && !sendingMessage) {
-                        handleSubmit(e);
-                      }
-                    });
-                  }}
-                  // Safari fix: Prevent touch events from interfering
-                  onTouchStart={(e) => e.stopPropagation()}
-                  disabled={!message.trim() || sendingMessage}
-                  className={`btn-icon ${
-                    message.trim() && !sendingMessage
-                      ? 'bg-accent-600 hover:bg-accent-700 text-white shadow-md hover:shadow-lg'
-                      : 'bg-surface-tertiary text-text-tertiary cursor-not-allowed'
-                  }`}
-                  title={sendingMessage ? "Sending..." : "Send message"}
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
+        {/* Button toolbar - separate from form to prevent event conflicts */}
+        <div className="message-input-wrapper composer-container">
+          {/* Blue accent bar */}
+          <div className="h-1 bg-accent-500" />
+          
+          <div className="p-3">
+            {/* Top row with buttons */}
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔥 CALENDAR BUTTON CLICKED - FIXED');
+                  setShowTaskDialog(true);
+                }}
+                className="btn-icon"
+                title="Create task/event"
+              >
+                <Calendar className="w-5 h-5" />
+              </button>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Attachment button clicked');
+                  handleAttachment();
+                }}
+                className="btn-icon"
+                title="Add attachments"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Formatting button clicked');
+                  handleFormatting();
+                }}
+                className="btn-icon"
+                title="Text formatting"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Emoji button clicked');
+                  handleEmoji();
+                }}
+                className="btn-icon"
+                title="Add emoji"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Mention button clicked');
+                  handleMention();
+                }}
+                className="btn-icon"
+                title="Mention someone"
+              >
+                <AtSign className="w-5 h-5" />
+              </button>
+              
+              <div className="flex-1" />
+              
+              <button
+                type="button"
+                onClick={handleVoiceMessage}
+                className={`btn-icon mr-2 ${
+                  isRecording
+                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                    : ''
+                }`}
+                title={isRecording ? 'Stop recording' : 'Start voice recording'}
+              >
+                {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (message.trim() && !sendingMessage) {
+                    handleSubmit(e);
+                  }
+                }}
+                disabled={!message.trim() || sendingMessage}
+                className={`btn-icon ${
+                  message.trim() && !sendingMessage
+                    ? 'bg-accent-600 hover:bg-accent-700 text-white shadow-md hover:shadow-lg'
+                    : 'bg-surface-tertiary text-text-tertiary cursor-not-allowed'
+                }`}
+                title={sendingMessage ? "Sending..." : "Send message"}
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
 
+        {/* Form for message input - separate container */}
+        <form onSubmit={handleSubmit}>
+          <div className="message-input-wrapper composer-container" style={{ marginTop: '-1px' }}>
+            <div className="p-3 pt-0">
               {/* Message input area */}
               <div className="relative">
                 <textarea
@@ -747,9 +773,13 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       </div>
 
       {/* Quick Task Dialog */}
+      {console.log('🔍 QuickTaskDialog render check - isOpen:', showTaskDialog, 'channel:', channel, 'workspaceId:', workspaceId || workspace?.id)}
       <QuickTaskDialog
         isOpen={showTaskDialog}
-        onClose={() => setShowTaskDialog(false)}
+        onClose={() => {
+          console.log('QuickTaskDialog onClose called');
+          setShowTaskDialog(false);
+        }}
         channel={channel}
         workspaceId={workspaceId || workspace?.id}
         currentUser={currentUser}

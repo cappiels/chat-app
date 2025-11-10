@@ -101,15 +101,12 @@ const QuickTaskDialog = ({
 
   const handleClose = () => {
     console.log('QuickTaskDialog closing');
-    // Safari fix: Use requestAnimationFrame for proper timing
-    requestAnimationFrame(() => {
-      // Reset form when closing
-      setTitle('');
-      setDueDate('');
-      setPriority('medium');
-      setError(null);
-      onClose();
-    });
+    // Reset form when closing
+    setTitle('');
+    setDueDate('');
+    setPriority('medium');
+    setError(null);
+    onClose();
   };
 
   return (
@@ -184,10 +181,7 @@ const QuickTaskDialog = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // Safari fix: Use requestAnimationFrame for proper timing
-                requestAnimationFrame(() => {
-                  handleClose();
-                });
+                handleClose();
               }}
               // Safari fix: Prevent touch events from interfering
               onTouchStart={(e) => e.stopPropagation()}
@@ -201,12 +195,9 @@ const QuickTaskDialog = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // Safari fix: Use requestAnimationFrame for proper timing
-                requestAnimationFrame(() => {
-                  if (!loading && title.trim()) {
-                    handleSubmit(e);
-                  }
-                });
+                if (!loading && title.trim()) {
+                  handleSubmit(e);
+                }
               }}
               // Safari fix: Prevent touch events from interfering
               onTouchStart={(e) => e.stopPropagation()}

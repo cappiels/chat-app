@@ -10,10 +10,7 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && open) {
-        // Safari fix: Use requestAnimationFrame for proper timing
-        requestAnimationFrame(() => {
-          onClose?.();
-        });
+        onClose?.();
       }
     };
     
@@ -46,24 +43,18 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
     if (e.target === backdropRef.current) {
       e.preventDefault();
       e.stopPropagation();
-      // Safari fix: Use requestAnimationFrame for proper timing
-      requestAnimationFrame(() => {
-        onClose?.();
-      });
+      onClose?.();
     }
   };
   
   const handleCloseClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // Safari fix: Use requestAnimationFrame for proper timing
-    requestAnimationFrame(() => {
-      onClose?.();
-    });
+    onClose?.();
   };
   
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop */}
       <div 
         ref={backdropRef}
@@ -76,7 +67,7 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
       {/* Dialog content */}
       <div 
         ref={dialogRef}
-        className={`relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden z-[101] ${className}`}
+        className={`relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden z-[10000] ${className}`}
         // Safari fix: Prevent backdrop clicks from bubbling through dialog
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
