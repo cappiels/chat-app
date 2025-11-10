@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Calendar } from 'lucide-react';
 import { Dialog, DialogContent } from '../ui/Dialog';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '../../firebase';
 
 const QuickTaskDialog = ({ 
   isOpen, 
@@ -36,6 +38,20 @@ const QuickTaskDialog = ({
     setError(null);
 
     try {
+      // Get Firebase auth token
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      let token = null;
+      try {
+        token = await user.getIdToken(true); // Force refresh
+      } catch (tokenError) {
+        console.error('Failed to get auth token:', tokenError);
+        throw new Error('Authentication failed - please sign in again');
+      }
+
       const taskData = {
         title: title.trim(),
         due_date: dueDate || null,
@@ -44,12 +60,13 @@ const QuickTaskDialog = ({
         assigned_to: currentUser?.id || currentUser?.uid
       };
 
-      console.log('Creating task with data:', taskData);
+      console.log('Creating task with data:', taskData, 'Auth token available:', !!token);
 
       const response = await fetch(`/api/workspaces/${workspaceId}/threads/${channel.id}/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         credentials: 'include',
         body: JSON.stringify(taskData)
