@@ -392,6 +392,13 @@ body {
   transition: all 0.15s ease;
   border: none;
   cursor: pointer;
+  /* Safari-specific fixes */
+  -webkit-appearance: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn:focus {
@@ -446,6 +453,13 @@ body {
   color: #64748b;
   background-color: transparent;
   border-radius: 6px;
+  /* Safari-specific fixes */
+  -webkit-appearance: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-icon:hover:not(:disabled) {
@@ -837,4 +851,100 @@ body {
   color: #7c3aed; 
   background-color: #ede9fe; 
   border-color: #ddd6fe; 
+}
+
+/* ===== SAFARI COMPATIBILITY FIXES ===== */
+
+/* Safari-specific button and input fixes */
+@supports (-webkit-appearance: none) {
+  /* All interactive elements get Safari fixes */
+  button, 
+  input, 
+  textarea, 
+  select {
+    -webkit-appearance: none !important;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  
+  /* Specifically target all button classes */
+  .btn,
+  .btn-primary,
+  .btn-secondary, 
+  .btn-ghost,
+  .btn-icon {
+    -webkit-appearance: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    /* Force Safari to respect our styling */
+    background-clip: padding-box !important;
+    border: 0 !important;
+    cursor: pointer !important;
+  }
+  
+  /* Safari flexbox fixes for message composer */
+  .message-input-wrapper {
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+  }
+  
+  /* Safari z-index fixes */
+  .btn-icon {
+    position: relative;
+    z-index: 10;
+  }
+  
+  /* Safari event handling fixes */
+  .composer-container .btn-icon {
+    pointer-events: auto !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+  
+  /* Safari focus state fixes */
+  .btn:focus,
+  .btn-icon:focus {
+    outline: 2px solid #3b82f6 !important;
+    outline-offset: 2px !important;
+  }
+  
+  /* Safari hover state fixes */
+  .btn-icon:hover {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+  }
+  
+  /* Safari active state fixes */
+  .btn-icon:active {
+    background-color: #e2e8f0 !important;
+    transform: scale(0.98);
+  }
+}
+
+/* Safari-specific media query fixes */
+@media not all and (min-resolution:.001dpcm) {
+  @supports (-webkit-appearance:none) {
+    /* Safari-only styles */
+    .btn-icon {
+      /* Extra specificity for Safari button fixes */
+      -webkit-appearance: none !important;
+      appearance: none !important;
+      background: transparent !important;
+      border: none !important;
+      outline: none;
+      cursor: pointer !important;
+      -webkit-tap-highlight-color: transparent !important;
+      -webkit-user-select: none !important;
+      -webkit-touch-callout: none !important;
+    }
+    
+    /* Force Safari to handle clicks properly */
+    .message-input-wrapper .btn-icon {
+      position: relative !important;
+      z-index: 100 !important;
+      pointer-events: auto !important;
+    }
+  }
 }
