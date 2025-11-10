@@ -137,7 +137,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         {/* Mobile menu button */}
         <button
           onClick={onMenuClick}
-          className="btn-icon text-text-inverse hover:bg-white/15 md:hidden"
+          className="btn-icon text-text-secondary hover:bg-gray-100 md:hidden"
           aria-label="Toggle sidebar"
         >
           <Menu className="w-5 h-5" />
@@ -147,7 +147,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         <div className="relative">
           <button
             onClick={handleWorkspaceSwitcherToggle}
-            className="flex items-center gap-2 px-3 py-2 text-text-inverse hover:bg-white/15 rounded-lg transition-all duration-200 min-w-[160px]"
+            className="flex items-center gap-2 px-3 py-2 text-text-primary hover:bg-gray-100 rounded-lg transition-all duration-200 min-w-[160px]"
             title="Switch workspace"
           >
             <Briefcase className="w-4 h-4" />
@@ -248,13 +248,13 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
       {/* Center Section - Search */}
       <div className="flex-1 max-w-md mx-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none z-10" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none z-10" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={`Search ${workspace?.name || 'crew'}`}
-            className="w-full pl-10 pr-4 py-2 bg-white/20 border border-white/30 rounded-lg text-text-inverse placeholder-white/70 focus:bg-white focus:text-text-primary focus:border-white focus:placeholder-text-tertiary transition-all duration-200 outline-none"
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-text-primary placeholder-text-tertiary focus:bg-white focus:border-accent-500 focus:ring-2 focus:ring-accent-200 transition-all duration-200 outline-none"
           />
         </div>
       </div>
@@ -273,7 +273,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
 
         {/* Notifications */}
         <button 
-          className="btn-icon text-text-inverse hover:bg-white/15 relative"
+          className="btn-icon text-text-secondary hover:bg-gray-100 relative"
           onClick={() => setShowNotifications(!showNotifications)}
           title={`${totalUnreadCount} unread messages${totalMentions > 0 ? `, ${totalMentions} mentions` : ''}`}
         >
@@ -293,7 +293,7 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         {onInvite && (
           <button 
             onClick={onInvite}
-            className="btn-ghost text-text-inverse flex items-center gap-2 px-3 py-2"
+            className="btn-ghost text-text-primary hover:bg-gray-100 flex items-center gap-2 px-3 py-2"
             title="Invite people to workspace"
           >
             <UserPlus className="w-4 h-4" />
@@ -302,25 +302,25 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         )}
 
         {/* Help */}
-        <button className="btn-icon text-text-inverse hover:bg-white/15 hidden md:flex">
+        <button className="btn-icon text-text-secondary hover:bg-gray-100 hidden md:flex">
           <HelpCircle className="w-5 h-5" />
         </button>
 
         {/* User menu */}
         <div className="relative">
           <button 
-            className="flex items-center gap-2 p-1 rounded-lg hover:bg-white/15 transition-colors duration-200"
+            className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 transition-colors duration-200"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
             {user?.photoURL ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName}
-                className="w-8 h-8 rounded-lg border border-white/20"
+                className="w-8 h-8 rounded-lg border border-gray-200"
               />
             ) : (
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center border border-white/30">
-                <span className="text-text-inverse text-sm font-semibold">
+              <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center border border-gray-300">
+                <span className="text-text-primary text-sm font-semibold">
                   {user?.displayName?.charAt(0) || 'U'}
                 </span>
               </div>
