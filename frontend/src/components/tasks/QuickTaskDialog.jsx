@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar } from 'lucide-react';
 import { Dialog, DialogContent } from '../ui/Dialog';
-import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase';
 
 const QuickTaskDialog = ({ 
