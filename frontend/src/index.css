@@ -926,25 +926,40 @@ body {
 /* Safari-specific media query fixes */
 @media not all and (min-resolution:.001dpcm) {
   @supports (-webkit-appearance:none) {
-    /* Safari-only styles */
+    /* Safari-only styles - v2024.11.10 */
     .btn-icon {
       /* Extra specificity for Safari button fixes */
       -webkit-appearance: none !important;
       appearance: none !important;
       background: transparent !important;
       border: none !important;
-      outline: none;
+      outline: none !important;
       cursor: pointer !important;
       -webkit-tap-highlight-color: transparent !important;
       -webkit-user-select: none !important;
       -webkit-touch-callout: none !important;
+      /* Force Safari recomputation */
+      transform: translateZ(0) !important;
+      will-change: background-color !important;
     }
     
     /* Force Safari to handle clicks properly */
-    .message-input-wrapper .btn-icon {
+    .message-input-wrapper .btn-icon,
+    .composer-container .btn-icon {
       position: relative !important;
       z-index: 100 !important;
       pointer-events: auto !important;
+      /* Safari click fix */
+      -webkit-transform: translateZ(0) !important;
+      transform: translateZ(0) !important;
+    }
+    
+    /* Safari hover states with hardware acceleration */
+    .btn-icon:hover {
+      background-color: #f1f5f9 !important;
+      color: #475569 !important;
+      -webkit-transform: translateZ(0) !important;
+      transform: translateZ(0) !important;
     }
   }
 }
