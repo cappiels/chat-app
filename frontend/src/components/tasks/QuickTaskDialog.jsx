@@ -101,12 +101,15 @@ const QuickTaskDialog = ({
 
   const handleClose = () => {
     console.log('QuickTaskDialog closing');
-    // Reset form when closing
-    setTitle('');
-    setDueDate('');
-    setPriority('medium');
-    setError(null);
-    onClose();
+    // Safari fix: Use requestAnimationFrame for proper timing
+    requestAnimationFrame(() => {
+      // Reset form when closing
+      setTitle('');
+      setDueDate('');
+      setPriority('medium');
+      setError(null);
+      onClose();
+    });
   };
 
   return (
@@ -178,7 +181,16 @@ const QuickTaskDialog = ({
           <div className="flex items-center justify-end gap-3 pt-4">
             <button
               type="button"
-              onClick={handleClose}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Safari fix: Use requestAnimationFrame for proper timing
+                requestAnimationFrame(() => {
+                  handleClose();
+                });
+              }}
+              // Safari fix: Prevent touch events from interfering
+              onTouchStart={(e) => e.stopPropagation()}
               disabled={loading}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
@@ -186,6 +198,18 @@ const QuickTaskDialog = ({
             </button>
             <button
               type="submit"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Safari fix: Use requestAnimationFrame for proper timing
+                requestAnimationFrame(() => {
+                  if (!loading && title.trim()) {
+                    handleSubmit(e);
+                  }
+                });
+              }}
+              // Safari fix: Prevent touch events from interfering
+              onTouchStart={(e) => e.stopPropagation()}
               disabled={loading || !title.trim()}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
             >

@@ -592,9 +592,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Attachment button clicked');
-                    handleAttachment();
+                    // Safari fix: Use requestAnimationFrame to ensure proper timing
+                    requestAnimationFrame(() => {
+                      console.log('Attachment button clicked');
+                      handleAttachment();
+                    });
                   }}
+                  // Safari fix: Prevent touch events from interfering
+                  onTouchStart={(e) => e.stopPropagation()}
                   className="btn-icon"
                   title="Add attachments"
                 >
@@ -606,9 +611,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Formatting button clicked');
-                    handleFormatting();
+                    // Safari fix: Use requestAnimationFrame to ensure proper timing
+                    requestAnimationFrame(() => {
+                      console.log('Formatting button clicked');
+                      handleFormatting();
+                    });
                   }}
+                  // Safari fix: Prevent touch events from interfering
+                  onTouchStart={(e) => e.stopPropagation()}
                   className="btn-icon"
                   title="Text formatting"
                 >
@@ -620,9 +630,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Emoji button clicked');
-                    handleEmoji();
+                    // Safari fix: Use requestAnimationFrame to ensure proper timing
+                    requestAnimationFrame(() => {
+                      console.log('Emoji button clicked');
+                      handleEmoji();
+                    });
                   }}
+                  // Safari fix: Prevent touch events from interfering
+                  onTouchStart={(e) => e.stopPropagation()}
                   className="btn-icon"
                   title="Add emoji"
                 >
@@ -634,9 +649,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Mention button clicked');
-                    handleMention();
+                    // Safari fix: Use requestAnimationFrame to ensure proper timing
+                    requestAnimationFrame(() => {
+                      console.log('Mention button clicked');
+                      handleMention();
+                    });
                   }}
+                  // Safari fix: Prevent touch events from interfering
+                  onTouchStart={(e) => e.stopPropagation()}
                   className="btn-icon"
                   title="Mention someone"
                 >
@@ -648,13 +668,18 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Calendar button clicked, opening task dialog', { 
-                      channel, 
-                      workspaceId: workspaceId || workspace?.id, 
-                      currentUser 
+                    // Safari fix: Use requestAnimationFrame to ensure proper timing
+                    requestAnimationFrame(() => {
+                      console.log('Calendar button clicked, opening task dialog', { 
+                        channel, 
+                        workspaceId: workspaceId || workspace?.id, 
+                        currentUser 
+                      });
+                      setShowTaskDialog(true);
                     });
-                    setShowTaskDialog(true);
                   }}
+                  // Safari fix: Prevent touch events from interfering
+                  onTouchStart={(e) => e.stopPropagation()}
                   className="btn-icon"
                   title="Create task/event"
                 >
@@ -678,7 +703,18 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                 
                 <button
                   type="submit"
-                  onClick={handleSendClick}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Safari fix: Use requestAnimationFrame to ensure proper timing
+                    requestAnimationFrame(() => {
+                      if (message.trim() && !sendingMessage) {
+                        handleSubmit(e);
+                      }
+                    });
+                  }}
+                  // Safari fix: Prevent touch events from interfering
+                  onTouchStart={(e) => e.stopPropagation()}
                   disabled={!message.trim() || sendingMessage}
                   className={`btn-icon ${
                     message.trim() && !sendingMessage
