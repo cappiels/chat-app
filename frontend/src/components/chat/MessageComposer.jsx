@@ -589,7 +589,12 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               <div className="flex items-center gap-2 mb-3">
                 <button
                   type="button"
-                  onClick={handleAttachment}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Attachment button clicked');
+                    handleAttachment();
+                  }}
                   className="btn-icon"
                   title="Add attachments"
                 >
@@ -598,7 +603,12 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                 
                 <button
                   type="button"
-                  onClick={handleFormatting}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Formatting button clicked');
+                    handleFormatting();
+                  }}
                   className="btn-icon"
                   title="Text formatting"
                 >
@@ -607,7 +617,12 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                 
                 <button
                   type="button"
-                  onClick={handleEmoji}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Emoji button clicked');
+                    handleEmoji();
+                  }}
                   className="btn-icon"
                   title="Add emoji"
                 >
@@ -616,7 +631,12 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                 
                 <button
                   type="button"
-                  onClick={handleMention}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Mention button clicked');
+                    handleMention();
+                  }}
                   className="btn-icon"
                   title="Mention someone"
                 >
@@ -628,7 +648,11 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Calendar button clicked, opening task dialog');
+                    console.log('Calendar button clicked, opening task dialog', { 
+                      channel, 
+                      workspaceId: workspaceId || workspace?.id, 
+                      currentUser 
+                    });
                     setShowTaskDialog(true);
                   }}
                   className="btn-icon"
