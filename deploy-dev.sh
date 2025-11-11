@@ -50,6 +50,11 @@ cleanup() {
 # Set trap to cleanup on script exit
 trap cleanup SIGINT SIGTERM EXIT
 
+# Kill any existing process on port 8080 to prevent conflicts
+echo "🧹 Cleaning up existing processes on port 8080..."
+lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+sleep 1
+
 echo "🚀 Starting backend server with local environment..."
 cd backend
 # Use local environment file for development

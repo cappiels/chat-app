@@ -36,8 +36,12 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
   const [shouldFocusAfterExpand, setShouldFocusAfterExpand] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiButtonPosition, setEmojiButtonPosition] = useState({ top: 0, left: 0 });
   
   const editorRef = useRef(null);
+  const emojiButtonRef = useRef(null);
+  const buttonClickedRef = useRef(false);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
   const recordingIntervalRef = useRef(null);
@@ -211,16 +215,24 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       return;
     }
     
-    // Add a small delay to prevent collapsing when clicking send button on mobile
+    // Don't collapse if a button was just clicked
+    if (buttonClickedRef.current) {
+      console.log('Skipping collapse because button was clicked');
+      buttonClickedRef.current = false; // Reset flag
+      return;
+    }
+    
+    // Add a delay to ensure button clicks have time to execute
     setTimeout(() => {
       // Only collapse if clicking completely outside the composer area
       // and we're not in the middle of sending a message
-      if (!sendingMessage && !document.activeElement?.closest('.composer-container') && !showTaskDialog) {
+      if (!sendingMessage && !document.activeElement?.closest('.composer-container') && !showTaskDialog && !buttonClickedRef.current) {
         setIsExpanded(false);
         setIsFocused(false);
         stopTyping();
       }
-    }, 100);
+      buttonClickedRef.current = false; // Reset flag after delay
+    }, 150);
   };
 
   const handleContainerClick = () => {
@@ -296,21 +308,68 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
     }, 0);
   };
 
-  const handleEmoji = () => {
-    // Common emojis for quick access
-    const commonEmojis = ['😀', '😊', '😂', '❤️', '👍', '👎', '😢', '😮', '😡', '🎉'];
-    const emoji = commonEmojis[Math.floor(Math.random() * commonEmojis.length)];
-    
+  const handleEmojiSelect = (emoji) => {
     const inputRef = isExpanded ? editorRef : editorRef;
     if (!inputRef.current) return;
+    
     const cursorPos = inputRef.current.selectionStart;
     const newMessage = message.slice(0, cursorPos) + emoji + message.slice(cursorPos);
     setMessage(newMessage);
+    
+    // Close emoji picker and refocus input
+    setShowEmojiPicker(false);
     setTimeout(() => {
       inputRef.current.focus();
       inputRef.current.setSelectionRange(cursorPos + emoji.length, cursorPos + emoji.length);
     }, 0);
   };
+
+  const toggleEmojiPicker = () => {
+    if (!showEmojiPicker && emojiButtonRef.current) {
+      // Get button position to place picker above it
+      const rect = emojiButtonRef.current.getBoundingClientRect();
+      setEmojiButtonPosition({
+        top: rect.top - 200, // Position above button
+        left: rect.left - 150 // Center horizontally relative to button
+      });
+    }
+    setShowEmojiPicker(!showEmojiPicker);
+  };
+
+  // Business & Project Management focused emojis
+  const businessEmojis = [
+    // Project Status
+    { emoji: '✅', label: 'Done/Complete' },
+    { emoji: '⏳', label: 'In Progress' },
+    { emoji: '🔄', label: 'Review' },
+    { emoji: '❌', label: 'Blocked/Failed' },
+    { emoji: '⏸️', label: 'Paused' },
+    { emoji: '🚀', label: 'Launch/Deploy' },
+    
+    // Feedback & Reactions
+    { emoji: '👍', label: 'Approve/Good' },
+    { emoji: '👎', label: 'Disapprove/Bad' },
+    { emoji: '❗', label: 'Important/Urgent' },
+    { emoji: '❓', label: 'Question/Unclear' },
+    { emoji: '💡', label: 'Idea/Suggestion' },
+    { emoji: '⚠️', label: 'Warning/Caution' },
+    
+    // Priority & Alerts
+    { emoji: '🔥', label: 'High Priority/Hot' },
+    { emoji: '🎯', label: 'Goal/Target' },
+    { emoji: '📊', label: 'Metrics/Data' },
+    { emoji: '📈', label: 'Growth/Up' },
+    { emoji: '📉', label: 'Decline/Down' },
+    { emoji: '⚡', label: 'Fast/Quick' },
+    
+    // Communication
+    { emoji: '💬', label: 'Discussion' },
+    { emoji: '📝', label: 'Notes/Documentation' },
+    { emoji: '🔍', label: 'Investigation/Search' },
+    { emoji: '🎉', label: 'Celebration/Success' },
+    { emoji: '🤝', label: 'Agreement/Partnership' },
+    { emoji: '👀', label: 'Reviewing/Watching' }
+  ];
 
   const handleFormatting = () => {
     // Toggle between common formatting options
@@ -465,22 +524,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       <>
         <div className="message-input-container">
           <div className="composer-container">
-            <div 
-              className="message-input-wrapper cursor-text"
-              onClick={handleContainerClick}
-            >
+            <div className="message-input-wrapper cursor-text">
               <button
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('🔥 CALENDAR BUTTON CLICKED - COLLAPSED STATE');
-                  console.log('showTaskDialog before:', showTaskDialog);
+                  console.log('🔥 CALENDAR BUTTON CLICKED - COLLAPSED STATE - ONE CLICK');
                   setShowTaskDialog(true);
-                  console.log('setShowTaskDialog(true) called');
-                  setTimeout(() => {
-                    console.log('showTaskDialog after 100ms - checking current state...');
-                  }, 100);
                 }}
                 className="btn-icon"
                 title="Create task/event"
@@ -491,6 +542,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               <button
                 type="button"
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   handleAttachment();
                 }}
@@ -516,6 +568,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               <button
                 type="button"
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   handleVoiceMessage();
                 }}
@@ -573,6 +626,39 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
             >
               <MicOff className="w-6 h-6" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Business Emoji Picker */}
+      {showEmojiPicker && (
+        <div 
+          className="fixed bg-white rounded-lg shadow-xl border border-gray-200 p-3 z-50 w-72"
+          style={{ 
+            top: `${emojiButtonPosition.top}px`, 
+            left: `${emojiButtonPosition.left}px`
+          }}
+        >
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => setShowEmojiPicker(false)}
+              className="p-1 hover:bg-gray-100 rounded"
+              title="Close emoji picker"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+          <div className="grid grid-cols-8 gap-1">
+            {businessEmojis.map(({ emoji, label }, index) => (
+              <button
+                key={index}
+                onClick={() => handleEmojiSelect(emoji)}
+                className="p-2 hover:bg-blue-50 rounded text-lg transition-colors"
+                title={label}
+              >
+                {emoji}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -643,10 +729,13 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
             <div className="flex items-center gap-2 mb-3">
               <button
                 type="button"
+                onMouseDown={() => {
+                  buttonClickedRef.current = true;
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('🔥 CALENDAR BUTTON CLICKED - FIXED');
+                  console.log('🔥 CALENDAR BUTTON CLICKED - EXPANDED STATE');
                   setShowTaskDialog(true);
                 }}
                 className="btn-icon"
@@ -657,6 +746,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
+                onMouseDown={() => {
+                  buttonClickedRef.current = true;
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -671,6 +763,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
+                onMouseDown={() => {
+                  buttonClickedRef.current = true;
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -685,11 +780,15 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
+                ref={emojiButtonRef}
+                onMouseDown={() => {
+                  buttonClickedRef.current = true;
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   console.log('Emoji button clicked');
-                  handleEmoji();
+                  toggleEmojiPicker();
                 }}
                 className="btn-icon"
                 title="Add emoji"
@@ -699,6 +798,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
+                onMouseDown={() => {
+                  buttonClickedRef.current = true;
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -715,6 +817,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
+                onMouseDown={() => {
+                  buttonClickedRef.current = true;
+                }}
                 onClick={handleVoiceMessage}
                 className={`btn-icon mr-2 ${
                   isRecording
@@ -728,6 +833,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
+                onMouseDown={() => {
+                  buttonClickedRef.current = true;
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();

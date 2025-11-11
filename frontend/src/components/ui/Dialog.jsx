@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 // Simple, working dialog component with Safari fixes
@@ -6,7 +7,7 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
   const dialogRef = useRef(null);
   const backdropRef = useRef(null);
   
-  // Handle escape key
+  // Handle escape key and focus management
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && open) {
@@ -18,16 +19,8 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
       
-      // Safari fix: Focus trap to prevent focus issues
-      if (dialogRef.current) {
-        // Wait for dialog to render before focusing
-        requestAnimationFrame(() => {
-          const firstFocusable = dialogRef.current?.querySelector('input, button, textarea, select, [tabindex]:not([tabindex="-1"])');
-          if (firstFocusable) {
-            firstFocusable.focus();
-          }
-        });
-      }
+      // Let components handle their own focus with autoFocus attribute
+      // No automatic focus management to prevent conflicts
     }
     
     return () => {
@@ -53,12 +46,12 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
     onClose?.();
   };
   
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+  const dialogContent = (
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center">
       {/* Backdrop */}
       <div 
         ref={backdropRef}
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity" 
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity z-[100100]" 
         onClick={handleBackdropClick}
         // Safari fix: Prevent touch events from interfering
         onTouchStart={(e) => e.stopPropagation()}
@@ -67,7 +60,7 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
       {/* Dialog content */}
       <div 
         ref={dialogRef}
-        className={`relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden z-[10000] ${className}`}
+        className={`relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden z-[100200] ${className}`}
         // Safari fix: Prevent backdrop clicks from bubbling through dialog
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
@@ -76,7 +69,7 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
         <button
           onClick={handleCloseClick}
           onTouchStart={(e) => e.stopPropagation()}
-          className="absolute top-4 right-4 z-10 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="absolute top-4 right-4 z-[100300] p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title="Close dialog"
         >
           <X className="w-5 h-5 text-gray-500" />
@@ -89,6 +82,10 @@ const Dialog = ({ children, open, onClose, className = '' }) => {
       </div>
     </div>
   );
+  
+  // Use React Portal to render the dialog at document.body level
+  // This escapes any parent container z-index constraints
+  return createPortal(dialogContent, document.body);
 };
 
 // Compatibility components for existing usage

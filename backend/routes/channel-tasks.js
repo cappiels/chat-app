@@ -3,15 +3,10 @@ const router = express.Router({ mergeParams: true }); // Important: merge params
 
 // Middleware
 const { authenticateUser } = require('../middleware/auth');
-const { Pool } = require('pg');
+const { createPool } = require('../config/database');
 
 // Database connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+const pool = createPool();
 
 // Middleware to check if user is member of the channel/thread
 const requireChannelMembership = async (req, res, next) => {
@@ -276,14 +271,14 @@ router.post('/', async (req, res) => {
 
     const result = await pool.query(`
       INSERT INTO channel_tasks (
-        thread_id, title, description, start_date, end_date, due_date,
+        thread_id, workspace_id, title, description, start_date, end_date, due_date,
         assigned_to, assignees, assigned_teams, assignment_mode, requires_individual_response,
         status, priority, tags, estimated_hours, 
         is_all_day, start_time, end_time, parent_task_id, dependencies, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING id, created_at, updated_at
     `, [
-      threadId, title.trim(), description, start_date, end_date, due_date,
+      threadId, req.params.workspaceId, title.trim(), description, start_date, end_date, due_date,
       assigned_to, JSON.stringify(finalAssignees), JSON.stringify(assigned_teams), assignment_mode, requires_individual_response,
       status, priority, JSON.stringify(tags), estimated_hours,
       is_all_day, start_time, end_time, parent_task_id, JSON.stringify(dependencies), userId

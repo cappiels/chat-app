@@ -90,37 +90,854 @@
 
 ---
 
-## **📋 IMMEDIATE NEXT SESSION PRIORITIES**
+## **🚀 CRITICAL PRIORITY: GOOGLE CALENDAR & TASKS SYNC IMPLEMENTATION**
 
-### **Priority 1: Complete Message Interface Modernization**
-1. **Rebuild Message.jsx**: Apply modern message bubble classes
-   - Use: message, message-avatar, message-content, message-header, message-author, message-time, message-text
-   - Location: `frontend/src/components/chat/Message.jsx`
-   - Goal: Professional message bubbles with proper spacing and hover effects
+**EXPERT DEVELOPER FEEDBACK INTEGRATED - HIGH-IMPACT FIXES APPLIED**
 
-2. **Rebuild MessageComposer.jsx**: Apply modern input styling
-   - Use: message-input-container, message-input-wrapper, message-input classes
-   - Location: `frontend/src/components/chat/MessageComposer.jsx` 
-   - Goal: Beautiful input with focus states and modern placeholder styling
+### **Phase 1: Database Schema & Core Infrastructure (IMMEDIATE)**
 
-### **Priority 2: Complete Screen Components**
-3. **Rebuild WorkspaceScreen.jsx**: Modern workspace selection interface
-   - Location: `frontend/src/components/WorkspaceScreen.jsx`
-   - Goal: Professional workspace cards with modern buttons and layouts
+#### **1. Enhanced Database Schema for Google Sync**
+**File**: `backend/migrations/023_add_google_sync_infrastructure.sql`
+```sql
+-- Core sync tracking fields for channel_tasks
+ALTER TABLE channel_tasks 
+  ADD COLUMN google_task_id VARCHAR(255),
+  ADD COLUMN google_calendar_event_id VARCHAR(255), -- Already exists but ensure proper type
+  ADD COLUMN sync_strategy VARCHAR(20), -- 'calendar', 'tasks', 'both', 'none'
+  ADD COLUMN last_synced_at TIMESTAMPTZ,
+  ADD COLUMN sync_error TEXT,
+  ADD COLUMN sync_retry_count INT DEFAULT 0,
+  ADD COLUMN google_calendar_etag VARCHAR(255),
+  ADD COLUMN google_task_etag VARCHAR(255),
+  ADD COLUMN google_calendar_event_owner VARCHAR(255),
+  ADD COLUMN google_task_owner VARCHAR(255),
+  ADD COLUMN timezone VARCHAR(100) DEFAULT 'America/New_York';
 
-4. **Rebuild HomePage.jsx**: Modern landing page
-   - Location: `frontend/src/components/HomePage.jsx`
-   - Goal: Beautiful sign-in experience with modern branding
+-- Unique constraints to prevent duplicate syncs per user
+CREATE UNIQUE INDEX uniq_task_per_owner_event
+  ON channel_tasks (id, google_calendar_event_owner)
+  WHERE google_calendar_event_id IS NOT NULL;
 
-### **Priority 3: Multi-Assignee UI Enhancement**
-5. **Add Progress Indicators**: Show "2/7 done" in Calendar/Timeline
-   - Enhance: `frontend/src/components/calendar/ChannelCalendar.jsx`
-   - Enhance: `frontend/src/components/timeline/ChannelTimeline.jsx`
-   - Goal: Visual multi-assignee progress tracking
+CREATE UNIQUE INDEX uniq_task_per_owner_gtask
+  ON channel_tasks (id, google_task_owner)
+  WHERE google_task_id IS NOT NULL;
 
-6. **Build Team Assignment UI**: Team selection in task creation
-   - Create: `frontend/src/components/tasks/TaskAssignmentSelector.jsx`
-   - Goal: Multi-select interface for individuals + teams
+-- Workspace-level Google sync configuration
+CREATE TABLE workspace_google_sync_config (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    google_calendar_id VARCHAR(255), -- Secondary calendar per workspace
+    google_task_list_id VARCHAR(255),
+    sync_enabled BOOLEAN DEFAULT false,
+    auto_sync BOOLEAN DEFAULT true,
+    sync_frequency_minutes INTEGER DEFAULT 15,
+    last_full_sync_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(workspace_id)
+);
+
+-- User-level Google sync preferences and OAuth tokens
+CREATE TABLE user_google_sync_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id VARCHAR(255) NOT NULL UNIQUE,
+    google_calendar_enabled BOOLEAN DEFAULT true,
+    google_tasks_enabled BOOLEAN DEFAULT true,
+    preferred_calendar VARCHAR(255) DEFAULT 'primary',
+    preferred_task_list VARCHAR(255) DEFAULT 'primary',
+    conflict_resolution VARCHAR(50) DEFAULT 'last_modified_wins',
+    -- OAuth token storage (encrypted)
+    google_access_token TEXT,
+    google_refresh_token TEXT,
+    google_token_expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sync operation logging for debugging and monitoring
+CREATE TABLE google_sync_operations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id UUID REFERENCES channel_tasks(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL,
+    operation_type VARCHAR(50) NOT NULL, -- 'create', 'update', 'delete', 'sync_from_google'
+    google_service VARCHAR(20) NOT NULL, -- 'calendar', 'tasks'
+    google_id VARCHAR(255),
+    operation_status VARCHAR(20) NOT NULL, -- 'success', 'failed', 'retry'
+    error_message TEXT,
+    request_payload JSONB,
+    response_payload JSONB,
+    execution_time_ms INTEGER,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance indexes
+CREATE INDEX idx_google_sync_ops_task_id ON google_sync_operations(task_id);
+CREATE INDEX idx_google_sync_ops_status ON google_sync_operations(operation_status);
+CREATE INDEX idx_google_sync_ops_created_at ON google_sync_operations(created_at DESC);
+CREATE INDEX idx_channel_tasks_sync_strategy ON channel_tasks(sync_strategy);
+CREATE INDEX idx_channel_tasks_last_synced ON channel_tasks(last_synced_at);
+```
+
+#### **2. Smart Sync Strategy Algorithm (CORRECTED)**
+**File**: `backend/sync/mappers.js`
+```javascript
+export function determineGoogleSyncStrategy(task) {
+  const hasTimes  = !!(task.start_time && (task.end_time || task.start_time));
+  const hasSpan   = !!task.start_date || hasTimes || !!task.end_date;
+  const hasDue    = !!task.due_date;
+  const multiDay  = !!(task.start_date && task.end_date && task.start_date !== task.end_date);
+
+  if (hasTimes) return { calendar: true, tasks: false, reason: 'timed' };
+  if (multiDay && !hasDue) return { calendar: true, tasks: false, reason: 'multi-day' };
+  if (hasDue && !hasSpan) return { calendar: false, tasks: true, reason: 'deadline' };
+  if (!hasSpan && !hasDue) return { calendar: false, tasks: true, reason: 'unscheduled' };
+  if (hasSpan && hasDue) return { calendar: true, tasks: true, reason: 'time+deliverable' };
+  if (hasSpan) return { calendar: true, tasks: false, reason: 'scheduled' };
+  return { calendar: false, tasks: true, reason: 'fallback' };
+}
+
+// CRITICAL FIX: End-exclusive all-day events
+export function addOneDayISO(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// CRITICAL FIX: Proper Calendar mapping without emails
+export function mapTaskToCalendarEvent(task) {
+  const shared = {
+    source: 'syncup-chat-app',
+    sourceKey: `syncup:${task.id}`,     // De-dup identity
+    taskId: task.id,
+    threadId: task.thread_id,
+    workspaceId: task.workspace_id,
+    priority: task.priority,
+    status: task.status,
+    originalType: 'task'
+  };
+
+  const evt = {
+    summary: (task.title || '').slice(0, 250),
+    description: formatCalendarDescription(task),
+    extendedProperties: {
+      shared,
+      private: {
+        assignees: JSON.stringify(task.assignees || []),
+        teams: JSON.stringify(task.assigned_teams || [])
+      }
+    },
+    colorId: getPriorityColor(task.priority),
+    transparency: task.is_all_day ? 'transparent' : 'opaque'
+  };
+
+  if (task.start_time && (task.end_time || task.start_time)) {
+    // Timed event with proper timezone
+    const tz = task.timezone || 'America/New_York';
+    evt.start = { dateTime: `${task.start_date}T${task.start_time}:00`, timeZone: tz };
+    evt.end   = { dateTime: `${task.end_date || task.start_date}T${task.end_time || task.start_time}:00`, timeZone: tz };
+  } else if (task.start_date) {
+    // All-day (END-EXCLUSIVE - CRITICAL FIX)
+    const endDate = addOneDayISO(task.end_date || task.start_date);
+    evt.start = { date: task.start_date };
+    evt.end   = { date: endDate };
+  }
+
+  // CRITICAL: No attendees to avoid email spam
+  // Assignee info stored in extendedProperties only
+  
+  return evt;
+}
+
+// CRITICAL FIX: Proper Tasks mapping
+export function mapTaskToGoogleTask(task) {
+  return {
+    title: (task.title || '').replace(/[<>\u0000-\u001f]/g, '').slice(0, 1024),
+    notes: formatTaskNotes(task).slice(0, 8192),
+    due: task.due_date ? new Date(task.due_date).toISOString() : undefined,
+    status: task.status === 'completed' ? 'completed' : 'needsAction'
+  };
+}
+```
+
+### **Phase 2: Google API Provider Classes**
+
+#### **3. Google Calendar Provider**
+**File**: `backend/sync/google/CalendarProvider.js`
+```javascript
+import { google } from 'googleapis';
+
+export class GoogleCalendarProvider {
+  constructor(tokenStore, logger) {
+    this.tokenStore = tokenStore;
+    this.logger = logger;
+  }
+
+  async getClient(userId) {
+    const oauth2 = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+    const tokens = await this.tokenStore.get(userId, 'google');
+    oauth2.setCredentials({ 
+      access_token: tokens.access_token, 
+      refresh_token: tokens.refresh_token 
+    });
+    return google.calendar({ version: 'v3', auth: oauth2 });
+  }
+
+  async upsertEvent(userId, calendarId, resource, opts = {}) {
+    const client = await this.getClient(userId);
+    const base = { 
+      calendarId: calendarId || 'primary', 
+      sendUpdates: 'none' // CRITICAL: No email notifications
+    };
+
+    try {
+      if (opts.eventId) {
+        const { data } = await client.events.update({ 
+          ...base, 
+          eventId: opts.eventId, 
+          requestBody: resource, 
+          ifMatch: opts.etag 
+        });
+        return { id: data.id, etag: data.etag };
+      } else {
+        const { data } = await client.events.insert({ 
+          ...base, 
+          requestBody: resource 
+        });
+        return { id: data.id, etag: data.etag };
+      }
+    } catch (e) {
+      if (e.code === 412) throw new Error('ETAG_CONFLICT');
+      throw e;
+    }
+  }
+
+  // CRITICAL: Incremental sync with syncToken
+  async listChanges(userId, calendarId, syncToken) {
+    const client = await this.getClient(userId);
+    const items = [];
+    let pageToken;
+
+    while (true) {
+      const { data } = await client.events.list({
+        calendarId: calendarId || 'primary',
+        maxResults: 2500,
+        pageToken,
+        syncToken,
+        singleEvents: true,
+        showDeleted: true
+      });
+      items.push(...(data.items ?? []));
+      if (data.nextPageToken) { 
+        pageToken = data.nextPageToken; 
+        continue; 
+      }
+      return { items, nextSyncToken: data.nextSyncToken };
+    }
+  }
+}
+```
+
+#### **4. Google Tasks Provider**
+**File**: `backend/sync/google/TasksProvider.js`
+```javascript
+import { google } from 'googleapis';
+
+export class GoogleTasksProvider {
+  constructor(tokenStore) {
+    this.tokenStore = tokenStore;
+  }
+
+  async getClient(userId) {
+    const oauth2 = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+    const tokens = await this.tokenStore.get(userId, 'google');
+    oauth2.setCredentials({ 
+      access_token: tokens.access_token, 
+      refresh_token: tokens.refresh_token 
+    });
+    return google.tasks({ version: 'v1', auth: oauth2 });
+  }
+
+  async upsertTask(userId, tasklist, body, opts = {}) {
+    const client = await this.getClient(userId);
+    if (opts.taskId) {
+      const { data } = await client.tasks.update({ 
+        tasklist: tasklist || '@default', 
+        task: opts.taskId, 
+        requestBody: body 
+      });
+      return { id: data.id, etag: data.etag };
+    } else {
+      const { data } = await client.tasks.insert({ 
+        tasklist: tasklist || '@default', 
+        requestBody: body 
+      });
+      return { id: data.id, etag: data.etag };
+    }
+  }
+
+  // CRITICAL: Polling with updatedMin
+  async listUpdatedSince(userId, tasklist, updatedMinISO) {
+    const client = await this.getClient(userId);
+    const items = [];
+    let pageToken;
+    while (true) {
+      const { data } = await client.tasks.list({
+        tasklist: tasklist || '@default',
+        updatedMin: updatedMinISO,
+        showDeleted: true,
+        showCompleted: true,
+        pageToken,
+        maxResults: 100
+      });
+      items.push(...(data.items ?? []));
+      if (data.nextPageToken) { 
+        pageToken = data.nextPageToken; 
+        continue; 
+      }
+      return items;
+    }
+  }
+}
+```
+
+### **Phase 3: Sync Service with Error Handling**
+
+#### **5. Main Sync Service**
+**File**: `backend/sync/SyncService.js`
+```javascript
+import { mapTaskToCalendarEvent, mapTaskToGoogleTask, determineGoogleSyncStrategy } from './mappers.js';
+import { withBackoff } from '../utils/backoff.js';
+
+export class SyncService {
+  constructor(db, calProvider, tasksProvider) {
+    this.db = db;
+    this.calendar = calProvider;
+    this.tasks = tasksProvider;
+  }
+
+  async upsertTask(taskId, userId, prefs = {}) {
+    const task = await this.db.getTaskWithDetails(taskId);
+    const strategy = determineGoogleSyncStrategy(task);
+    const results = {};
+
+    if (strategy.calendar) {
+      const eventBody = mapTaskToCalendarEvent(task);
+      results.calendar = await withBackoff(() =>
+        this.calendar.upsertEvent(userId, prefs.calendarId, eventBody, {
+          eventId: task.google_calendar_event_id,
+          etag: task.google_calendar_etag
+        })
+      );
+      await this.db.updateTask(task.id, {
+        google_calendar_event_id: results.calendar.id,
+        google_calendar_etag: results.calendar.etag,
+        google_calendar_event_owner: userId,
+        last_synced_at: new Date(),
+        sync_strategy: strategy.calendar && strategy.tasks ? 'both' : 'calendar'
+      });
+    }
+
+    if (strategy.tasks) {
+      const taskBody = mapTaskToGoogleTask(task);
+      results.tasks = await withBackoff(() =>
+        this.tasks.upsertTask(userId, prefs.tasklistId, taskBody, { 
+          taskId: task.google_task_id 
+        })
+      );
+      await this.db.updateTask(task.id, {
+        google_task_id: results.tasks.id,
+        google_task_etag: results.tasks.etag,
+        google_task_owner: userId,
+        last_synced_at: new Date(),
+        sync_strategy: strategy.calendar && strategy.tasks ? 'both' : 'tasks'
+      });
+    }
+
+    return results;
+  }
+}
+```
+
+#### **6. Backoff Utility**
+**File**: `backend/utils/backoff.js`
+```javascript
+export async function withBackoff(fn, max = 5) {
+  let delay = 500;
+  for (let i = 0; i < max; i++) {
+    try { return await fn(); }
+    catch (e) {
+      const retriable = [429, 500, 502, 503, 504];
+      if (e?.code && retriable.includes(e.code)) {
+        await new Promise(r => setTimeout(r, delay));
+        delay = Math.min(delay * 2, 8000);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+```
+
+### **Phase 4: API Routes & OAuth**
+
+#### **7. Google Sync Routes**
+**File**: `backend/routes/googleSync.js`
+```javascript
+import express from 'express';
+
+export function mountGoogleSyncRoutes(app, deps) {
+  const r = express.Router();
+
+  // Manual sync trigger
+  r.post('/workspaces/:ws/threads/:th/tasks/:taskId/sync/google', async (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const prefs = await deps.db.getUserGooglePrefs(userId);
+      const result = await deps.sync.upsertTask(
+        req.params.taskId,
+        userId,
+        { 
+          calendarId: prefs.preferred_calendar, 
+          tasklistId: prefs.preferred_task_list 
+        }
+      );
+      res.json({ success: true, result });
+    } catch (e) { 
+      next(e); 
+    }
+  });
+
+  // Sync status
+  r.get('/workspaces/:ws/sync/google/status', async (req, res) => {
+    const metrics = await deps.db.getSyncMetrics(req.params.ws);
+    res.json(metrics);
+  });
+
+  app.use('/api', r);
+}
+```
+
+#### **8. OAuth Routes**
+**File**: `backend/routes/googleAuth.js`
+```javascript
+import express from 'express';
+import { google } from 'googleapis';
+
+export function mountGoogleAuthRoutes(app, deps) {
+  const r = express.Router();
+
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  );
+
+  r.get('/auth/google/authorize', (req, res) => {
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: [
+        'https://www.googleapis.com/auth/calendar.events',
+        'https://www.googleapis.com/auth/tasks'
+      ],
+      state: req.user.id // Pass user ID for security
+    });
+    res.redirect(authUrl);
+  });
+
+  r.get('/auth/google/callback', async (req, res) => {
+    try {
+      const { tokens } = await oauth2Client.getToken(req.query.code);
+      await deps.db.saveGoogleTokens(req.query.state, tokens);
+      res.redirect('/workspace?google_auth=success');
+    } catch (error) {
+      res.redirect('/workspace?google_auth=error');
+    }
+  });
+
+  app.use('/api', r);
+}
+```
+
+### **Phase 5: Environment & Configuration**
+
+#### **9. Environment Variables**
+**File**: `.env` (add these)
+```
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=https://your-app.com/api/auth/google/callback
+```
+
+#### **10. Package Dependencies**
+**File**: `backend/package.json` (add)
+```json
+{
+  "dependencies": {
+    "googleapis": "^128.0.0",
+    "node-cache": "^5.1.2"
+  }
+}
+```
+
+### **Phase 6: Production-Ready UI Implementation (EXPERT-REVIEWED)**
+
+**Updated based on expert developer feedback with production-grade TypeScript components, accessibility, and safety features.**
+
+#### **🎯 Goals**
+- Provider-agnostic UI (Google now, Outlook later)
+- No accidental attendee emails (UI warns when an action would notify others)
+- Clear admin vs. user control with safe defaults
+- Per-channel destinations and per-user overrides
+- Accessible, resilient, and observable (loading, errors, telemetry)
+
+#### **11. Multi-Provider Architecture (Future-Proof)**
+
+**File**: `frontend/src/components/integrations/ProviderCard.tsx`
+```tsx
+import React from "react";
+
+type ProviderStatus = "connected" | "disconnected" | "coming-soon" | "planned";
+
+export interface ProviderCardProps {
+  provider: "google" | "outlook" | "apple";
+  status: ProviderStatus;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+}
+
+export function ProviderCard({
+  provider, status, icon, title, description, onConnect, onDisconnect
+}: ProviderCardProps) {
+  const disabled = status === "coming-soon" || status === "planned";
+  return (
+    <div
+      className={`rounded-2xl border p-4 flex gap-3 items-start ${disabled ? "opacity-60" : ""}`}
+      role="group"
+      aria-disabled={disabled}
+      data-provider={provider}
+    >
+      <div className="mt-1">{icon}</div>
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold">{title}</h3>
+          <span className="text-xs rounded-full px-2 py-0.5 border">
+            {status.replace("-", " ")}
+          </span>
+        </div>
+        <p className="text-sm text-gray-600">{description}</p>
+        <div className="mt-3 flex gap-2">
+          {status === "connected" && (
+            <button className="rounded-xl border px-3 py-2 text-sm" onClick={onDisconnect}>
+              Disconnect
+            </button>
+          )}
+          {status === "disconnected" && (
+            <button className="rounded-xl bg-black text-white px-3 py-2 text-sm" onClick={onConnect}>
+              Connect
+            </button>
+          )}
+          {disabled && (
+            <span className="text-xs text-gray-500" aria-live="polite">
+              {status === "coming-soon" ? "Coming soon" : "Planned"}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+**File**: `frontend/src/pages/settings/Integrations.tsx`
+```tsx
+import React from "react";
+import { ProviderCard } from "../components/integrations/ProviderCard";
+import { GoogleIcon, OutlookIcon, AppleIcon } from "../components/icons";
+import { useProviders } from "../hooks/useProviders";
+
+export default function IntegrationsPage() {
+  const { google, outlook, apple, connect, disconnect } = useProviders();
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Integrations</h2>
+      <section aria-labelledby="cal-sync">
+        <h3 id="cal-sync" className="text-lg font-medium mb-2">Calendar & Task Sync</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ProviderCard
+            provider="google"
+            status={google.status}
+            icon={<GoogleIcon />}
+            title="Google Workspace"
+            description="Sync to Google Calendar & Tasks"
+            onConnect={() => connect("google")}
+            onDisconnect={() => disconnect("google")}
+          />
+          <ProviderCard
+            provider="outlook"
+            status={outlook.status}
+            icon={<OutlookIcon />}
+            title="Microsoft 365"
+            description="Sync to Outlook Calendar & To Do"
+          />
+          <ProviderCard
+            provider="apple"
+            status={apple.status}
+            icon={<AppleIcon />}
+            title="Apple (iCloud)"
+            description="Sync to iCloud Calendar"
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+```
+
+#### **12. Admin Control vs User Control Matrix**
+
+**File**: `frontend/src/pages/admin/WorkspaceSyncPolicies.tsx`
+```tsx
+import React from "react";
+import { useWorkspacePolicies } from "../hooks/useWorkspacePolicies";
+
+export default function WorkspaceSyncPolicies() {
+  const { policy, setPolicy, sharedCalendarDefaults, setSharedCalendarDefaults, providers, setProviderEnabled } =
+    useWorkspacePolicies();
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <h3 className="font-semibold">Sync Permissions</h3>
+        <fieldset className="mt-2 space-y-2">
+          {(["user-controlled","admin-defaults","admin-mandatory"] as const).map(v => (
+            <label key={v} className="flex gap-2 items-center">
+              <input
+                type="radio"
+                name="sync-policy"
+                checked={policy === v}
+                onChange={() => setPolicy(v)}
+                aria-describedby="sync-policy-desc"
+              />
+              <span className="capitalize">{v.replace("-", " ")}</span>
+            </label>
+          ))}
+        </fieldset>
+        <p id="sync-policy-desc" className="text-xs text-gray-600 mt-1">
+          Hybrid ("admin-defaults") lets users add personal destinations without breaking org rules.
+        </p>
+      </section>
+
+      <section>
+        <h3 className="font-semibold">Shared Calendars</h3>
+        <div className="mt-2 space-y-2">
+          <label className="flex items-center gap-2">
+            <input type="checkbox"
+              checked={sharedCalendarDefaults.autoCreatePerChannel}
+              onChange={e => setSharedCalendarDefaults({ ...sharedCalendarDefaults, autoCreatePerChannel: e.target.checked })}
+            />
+            Auto-create a shared calendar per channel
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox"
+              checked={sharedCalendarDefaults.publicByDefault}
+              onChange={e => setSharedCalendarDefaults({ ...sharedCalendarDefaults, publicByDefault: e.target.checked })}
+            />
+            Public by default (safe for read-only embeds)
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox"
+              checked={sharedCalendarDefaults.requireApprovalForExternal}
+              onChange={e => setSharedCalendarDefaults({ ...sharedCalendarDefaults, requireApprovalForExternal: e.target.checked })}
+            />
+            Require admin approval for external calendars
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h3 className="font-semibold">Supported Providers</h3>
+        <div className="mt-2 grid grid-cols-3 gap-3">
+          {Object.entries(providers).map(([name, enabled]) => (
+            <label key={name} className="flex items-center gap-2">
+              <input type="checkbox" checked={enabled} onChange={e => setProviderEnabled(name as any, e.target.checked)} />
+              <span className="capitalize">{name}</span>
+            </label>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+```
+
+#### **13. Task Creation with Sync Options (Production-Ready)**
+
+**File**: `frontend/src/components/tasks/TaskSyncOptions.tsx`
+```tsx
+import React, { useState } from "react";
+import { useSyncRules } from "../hooks/useSyncRules";
+
+export function TaskSyncOptions({
+  defaultStrategy = "smart",
+  availableDestinations
+}: {
+  defaultStrategy?: "smart" | "calendar-only" | "tasks-only" | "both";
+  availableDestinations: Array<{
+    id: string; 
+    label: string; 
+    visibility: "public"|"internal"|"external"; 
+    provider: "google"|"outlook"; 
+    type: "shared"|"personal" 
+  }>;
+}) {
+  const [strategy, setStrategy] = useState(defaultStrategy);
+  const { policy, notifyEmailOnAttendees } = useSyncRules();
+  const [selected, setSelected] = useState<string[]>(() => 
+    availableDestinations.filter(d => d.type === "shared").map(d => d.id)
+  );
+
+  const showNotifyWarning = notifyEmailOnAttendees && strategy !== "tasks-only";
+
+  return (
+    <section aria-labelledby="sync-options">
+      <h4 id="sync-options" className="font-medium mb-2">Calendar & Task Sync</h4>
+
+      <div className="space-y-2 mb-3">
+        {availableDestinations.map(d => (
+          <label key={d.id} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selected.includes(d.id)}
+              onChange={e => {
+                const next = new Set(selected);
+                e.target.checked ? next.add(d.id) : next.delete(d.id);
+                setSelected([...next]);
+              }}
+            />
+            <span>{d.label}</span>
+            <span className="text-xs rounded-full border px-2 py-0.5">{d.visibility}</span>
+            <span className="text-[10px] ml-1 opacity-70">{d.provider}</span>
+          </label>
+        ))}
+      </div>
+
+      <label className="block text-sm mb-1">Sync Strategy</label>
+      <select
+        value={strategy}
+        onChange={e => setStrategy(e.target.value as any)}
+        className="border rounded-md px-2 py-2 text-sm"
+      >
+        <option value="smart">Smart Auto-Sync</option>
+        <option value="calendar-only">Calendar Event Only</option>
+        <option value="tasks-only">Task List Only</option>
+        <option value="both">Both Calendar & Tasks</option>
+      </select>
+
+      {policy === "admin-mandatory" && (
+        <div className="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md p-2">
+          Admin policy enforces certain destinations. Your choices may be supplemented by workspace rules.
+        </div>
+      )}
+
+      {showNotify
+
+---
+
+## **📋 DETAILED IMPLEMENTATION CHECKLIST**
+
+### **Backend Implementation (Priority 1)**
+- [ ] **Create migration 023**: Database schema with all sync fields and tables
+- [ ] **Install googleapis**: `npm install googleapis@^128.0.0 node-cache@^5.1.2`
+- [ ] **Create mappers.js**: Smart sync strategy with end-exclusive dates and timezone handling
+- [ ] **Create CalendarProvider.js**: Google Calendar API client with proper error handling
+- [ ] **Create TasksProvider.js**: Google Tasks API client with incremental sync
+- [ ] **Create SyncService.js**: Main sync orchestration with backoff retry logic
+- [ ] **Create backoff.js**: Exponential backoff utility for API rate limits
+- [ ] **Create googleSync.js routes**: Manual sync triggers and status endpoints
+- [ ] **Create googleAuth.js routes**: OAuth flow for Google authentication
+- [ ] **Update .env**: Add Google OAuth credentials
+- [ ] **Test database migration**: Ensure all new tables and indexes work correctly
+
+### **OAuth & Security (Priority 2)**
+- [ ] **Google Cloud Console**: Create OAuth 2.0 credentials with proper redirect URIs
+- [ ] **Token encryption**: Implement secure token storage (consider using crypto)
+- [ ] **Refresh token handling**: Automatic token refresh before expiration
+- [ ] **Scope validation**: Ensure minimal required scopes (calendar.events, tasks)
+- [ ] **Rate limiting**: Implement per-user API rate limiting
+- [ ] **Error logging**: Comprehensive sync operation logging
+
+### **Frontend Integration (Priority 3)**
+- [ ] **GoogleSyncButton.jsx**: Manual sync trigger component
+- [ ] **SyncStatus.jsx**: Visual sync status indicators in task list
+- [ ] **AuthFlow.jsx**: Google OAuth authorization flow UI
+- [ ] **Settings integration**: Add Google sync preferences to workspace settings
+- [ ] **Calendar view enhancement**: Show sync status in ChannelCalendar.jsx
+- [ ] **Timeline view enhancement**: Show sync status in ChannelTimeline.jsx
+
+### **Testing & Validation (Priority 4)**
+- [ ] **Unit tests**: Test sync strategy algorithm with various task configurations
+- [ ] **Integration tests**: Test full sync flow from task creation to Google
+- [ ] **Error handling tests**: Verify graceful handling of API failures
+- [ ] **Timezone tests**: Verify correct timezone handling across different regions
+- [ ] **De-duplication tests**: Ensure sourceKey prevents duplicate events
+- [ ] **Performance tests**: Verify sync completes within 2 second target
+
+---
+
+## **🚨 CRITICAL IMPLEMENTATION NOTES**
+
+### **Expert Developer Fixes Applied:**
+1. **✅ End-exclusive dates**: All-day events use `end.date = start.date + 1 day`
+2. **✅ No email spam**: Removed attendees field, store assignees in extendedProperties
+3. **✅ De-duplication**: Added `sourceKey: "syncup:${task.id}"` for conflict prevention
+4. **✅ Timezone handling**: Proper timeZone field with dateTime events
+5. **✅ Incremental sync**: Calendar uses syncToken, Tasks uses updatedMin
+6. **✅ Per-workspace calendars**: Support for secondary calendars per workspace
+7. **✅ Field-level conflicts**: Title/notes overwritable, completion status protected
+
+### **File Structure Created:**
+```
+backend/
+├── sync/
+│   ├── mappers.js              # Core sync strategy & mapping logic
+│   └── google/
+│       ├── CalendarProvider.js # Google Calendar API wrapper
+│       └── TasksProvider.js    # Google Tasks API wrapper
+├── utils/
+│   └── backoff.js             # Exponential backoff for API calls
+├── routes/
+│   ├── googleSync.js          # Sync endpoints
+│   └── googleAuth.js          # OAuth flow
+└── migrations/
+    └── 023_add_google_sync_infrastructure.sql
+
+frontend/src/components/sync/
+├── GoogleSyncButton.jsx       # Manual sync trigger
+├── SyncStatus.jsx            # Visual sync indicators
+└── AuthFlow.jsx              # OAuth UI flow
+```
+
+### **Success Metrics:**
+- **Sync Accuracy**: >95% successful operations
+- **Performance**: <2 second sync completion
+- **No Email Spam**: Zero unintended notifications
+- **Conflict Rate**: <2% of operations
+- **De-duplication**: 100% prevention of duplicate events
+
+**🎯 NEXT SESSION**: Start with migration 023 and mappers.js - these are the foundation for the entire Google sync system.
 
 ---
 

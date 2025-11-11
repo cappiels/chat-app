@@ -857,10 +857,23 @@ body {
 
 /* Safari-specific button and input fixes */
 @supports (-webkit-appearance: none) {
-  /* All interactive elements get Safari fixes */
-  button, 
+  /* Only apply to buttons - NOT inputs/textareas */
+  button {
+    -webkit-appearance: none !important;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  
+  /* Allow text selection in form inputs */
   input, 
-  textarea, 
+  textarea {
+    -webkit-appearance: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    /* DO NOT disable user-select for text inputs */
+  }
+  
+  /* Selects can disable user-select */
   select {
     -webkit-appearance: none !important;
     -webkit-user-select: none;

@@ -1,7 +1,7 @@
 # Cline Rules for Crew Revolutionary Features
 
 ## Project Context
-Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams system, and full Calendar/Timeline integration.
+Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams system, and full Calendar/Timeline integration + **CRITICAL PRIORITY: Google Calendar & Tasks Sync Implementation**.
 
 ## 📋 WORKFLOW INSTRUCTIONS
 
@@ -9,6 +9,7 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 1. `.clinerules` - Current project context and deployment status
 2. `SYNCUP-MIGRATION-PLAN.md` - Technical architecture and implementation plan
 3. `SYNCUP-TODO.md` - Detailed accomplishments and next priorities
+4. `SYNCUP_GOOGLE_CALENDAR_AND_TASKS_SYNC_STRATEGY.md` - **NEW** Expert-reviewed Google sync strategy
 
 ### **Update These Files After Making Changes:**
 - `SYNCUP-TODO.md` - Add new accomplishments and update status
@@ -34,7 +35,7 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 5. **Database**: PostgreSQL cluster on DigitalOcean with enhanced multi-assignee schema
 6. **Testing**: Always test in development first, then user deploys to production
 
-### **Current Deployment Status (Nov 8, 2025):**
+### **Current Deployment Status (Nov 10, 2025 - EXPERT DEVELOPER FEEDBACK INTEGRATED):**
 - ✅ **BUILD FIXED**: All build issues resolved (BarChart3Icon, Node.js, CSS)
 - ✅ **CSS LOADING**: Tailwind PostCSS configuration fixed - 84.76kB CSS generation
 - ✅ **PORT BINDING**: Fixed 0.0.0.0 host binding for DigitalOcean health checks
@@ -43,8 +44,9 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - ✅ **WORKSPACE FIX**: Copied package-lock.json to backend for DigitalOcean isolation build
 - ✅ **NODE.JS MODERNIZED**: Upgraded to Node.js 24+ for better performance and security
 - ✅ **Latest Deploy**: Commit 497210e - CRITICAL side-channel dependency fix deployed
-- 📊 **Migration 018**: Multi-assignee + teams schema will execute on first app startup  
-- 🎯 **STATUS**: Revolutionary features + modern UI fully operational - DEPENDENCY FIX IN PROGRESS
+- 📊 **Migration 018**: Multi-assignee + teams schema executed successfully
+- 🎯 **CRITICAL PRIORITY**: Google Calendar & Tasks sync implementation with expert fixes
+- 🚨 **NEXT MIGRATION**: 023_add_google_sync_infrastructure.sql (IMMEDIATE PRIORITY)
 
 ## 🎉 REVOLUTIONARY FEATURES DEPLOYED
 ### **🎯 Multi-Assignee Tasks with Individual Progress Tracking:**
@@ -65,21 +67,38 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - **Seamless View Switching**: Chat/Calendar/Timeline buttons in headers
 - **Multi-Channel Support**: View multiple channels simultaneously
 
+### **🔄 GOOGLE SYNC SYSTEM (IN DEVELOPMENT - CRITICAL PRIORITY):**
+- **Expert Developer Fixes Applied**: End-exclusive dates, no email spam, timezone handling
+- **Smart Strategy Algorithm**: Auto-determines Calendar vs Tasks vs Both based on task attributes
+- **De-duplication System**: sourceKey prevents duplicate events/tasks
+- **Incremental Sync**: Calendar uses syncToken, Tasks uses updatedMin for efficiency
+- **Per-Workspace Calendars**: Secondary calendars to avoid primary calendar spam
+- **Field-Level Conflict Resolution**: Title/notes overwritable, completion status protected
+
 ## Architecture Decisions
 - **Channel-Based Projects**: Each channel IS a project (simple, scalable)
 - **Multi-Assignee Innovation**: Two modes for task completion tracking
 - **Team-Based Collaboration**: Groups can be assigned and @mentioned
 - **Professional Design**: Modern color system with channel color coding
 - **Zero Learning Curve**: Familiar chat interface with powerful new views
+- **Google Sync Integration**: Intelligent sync to Calendar (time-blocking) and Tasks (completion tracking)
 
-## Database Schema (Current)
+## Database Schema (Current + Planned)
+### **Current (Live):**
 - ✅ `channel_tasks` table: Enhanced with multi-assignee support
 - ✅ `workspace_teams` table: Team/group definitions
 - ✅ `workspace_team_members` table: Team membership relationships
 - ✅ **Views**: `channel_tasks_with_progress`, `user_task_assignments`
 - ✅ **Functions**: `is_task_assignee()`, `get_task_completion_progress()`, `mark_task_complete_individual()`
 
+### **Planned (Migration 023 - IMMEDIATE):**
+- 🔄 `channel_tasks` enhanced: google_task_id, google_calendar_event_id, sync_strategy, timezone
+- 🔄 `workspace_google_sync_config` table: Per-workspace sync configuration
+- 🔄 `user_google_sync_preferences` table: User OAuth tokens and preferences
+- 🔄 `google_sync_operations` table: Operation logging and debugging
+
 ## Key API Endpoints
+### **Current (Multi-Assignee):**
 - `GET /api/workspaces/:id/threads/:id/tasks` - Enhanced with multi-assignee data
 - `POST /api/workspaces/:id/threads/:id/tasks` - Create with assignees/teams
 - `POST /api/workspaces/:id/threads/:id/tasks/:id/complete` - Individual completion
@@ -87,7 +106,14 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - `GET /api/workspaces/:id/teams` - Team management
 - `POST /api/workspaces/:id/teams` - Create teams
 
+### **Planned (Google Sync - IMMEDIATE PRIORITY):**
+- `POST /api/workspaces/:ws/threads/:th/tasks/:taskId/sync/google` - Manual sync trigger
+- `GET /api/workspaces/:ws/sync/google/status` - Sync health monitoring
+- `GET /api/auth/google/authorize` - OAuth authorization flow
+- `GET /api/auth/google/callback` - OAuth callback handling
+
 ## Testing Checklist (Production)
+### **Current Revolutionary Features:**
 1. ✅ **View Switching**: Click Chat/Calendar/Timeline buttons in channel headers
 2. 🔄 **Calendar View**: See real tasks from API in monthly calendar format
 3. 🔄 **Timeline View**: Gantt chart with task dependencies and progress bars
@@ -96,13 +122,32 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 6. 🔄 **Individual Completion**: Each assignee marks done separately
 7. 🔄 **@Team Mentions**: Type @team-name in chat (future iteration)
 
-## File Locations (Production Ready)
+### **Google Sync Testing (NEXT PHASE):**
+8. 🔄 **Google OAuth**: Authorize Google Calendar + Tasks access
+9. 🔄 **Smart Strategy**: Verify tasks sync to appropriate Google service
+10. 🔄 **No Email Spam**: Confirm no unintended email notifications
+11. 🔄 **De-duplication**: Prevent duplicate events using sourceKey
+12. 🔄 **Timezone Handling**: Proper timezone conversion in events
+13. 🔄 **Conflict Resolution**: Handle simultaneous edits gracefully
+
+## File Locations (Production Ready + Planned)
+### **Current:**
 - **Calendar**: `frontend/src/components/calendar/ChannelCalendar.jsx`
 - **Timeline**: `frontend/src/components/timeline/ChannelTimeline.jsx` 
 - **Multi-Channel**: `frontend/src/components/calendar/ChannelDropdown.jsx`
 - **API**: `backend/routes/channel-tasks.js` (enhanced with multi-assignee)
 - **Migration**: `backend/migrations/018_add_multi_assignee_and_groups.sql`
 - **Design System**: `frontend/tailwind.config.js` (professional color palette)
+
+### **Google Sync Implementation (IMMEDIATE PRIORITY):**
+- **Migration**: `backend/migrations/023_add_google_sync_infrastructure.sql`
+- **Core Logic**: `backend/sync/mappers.js` (strategy algorithm + data mapping)
+- **Calendar Provider**: `backend/sync/google/CalendarProvider.js`
+- **Tasks Provider**: `backend/sync/google/TasksProvider.js`
+- **Main Service**: `backend/sync/SyncService.js`
+- **Backoff Utility**: `backend/utils/backoff.js`
+- **Routes**: `backend/routes/googleSync.js`, `backend/routes/googleAuth.js`
+- **Frontend**: `frontend/src/components/sync/GoogleSyncButton.jsx`
 
 ## Deployment Process
 1. **Develop Locally**: Make changes and test
@@ -118,3 +163,28 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - **Check Logs**: DigitalOcean App Platform → Runtime Logs
 - **Database Access**: Use provided DigitalOcean database credentials
 - **Migration Issues**: Check `backend/migrations/` files and execution order
+
+## 🚨 CRITICAL NEXT SESSION PRIORITIES
+
+### **Phase 1: Database & Core Infrastructure (START HERE):**
+1. **Create Migration 023**: `backend/migrations/023_add_google_sync_infrastructure.sql`
+2. **Install Dependencies**: `npm install googleapis@^128.0.0 node-cache@^5.1.2`
+3. **Create Mappers**: `backend/sync/mappers.js` with expert fixes (end-exclusive dates, timezone handling)
+
+### **Phase 2: Google API Providers:**
+4. **Calendar Provider**: `backend/sync/google/CalendarProvider.js` with syncToken support
+5. **Tasks Provider**: `backend/sync/google/TasksProvider.js` with updatedMin polling
+6. **Backoff Utility**: `backend/utils/backoff.js` for API rate limiting
+
+### **Phase 3: Service Layer:**
+7. **Sync Service**: `backend/sync/SyncService.js` main orchestration
+8. **Routes**: `backend/routes/googleSync.js` and `backend/routes/googleAuth.js`
+
+### **Success Metrics (Expert Developer Requirements):**
+- **Sync Accuracy**: >95% successful operations
+- **Performance**: <2 second sync completion  
+- **No Email Spam**: Zero unintended notifications
+- **De-duplication**: 100% prevention of duplicate events
+- **Conflict Rate**: <2% of operations requiring manual resolution
+
+**🎯 IMMEDIATE FOCUS**: Start with Migration 023 and mappers.js - these form the foundation for the entire Google sync system with expert developer fixes applied.
