@@ -47,43 +47,56 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
   const recordingIntervalRef = useRef(null);
   const selectionRef = useRef(null);
 
-  // Auto-resize editor and handle focus after expand
+  // Auto-resize editor and handle focus after expand - optimized
   useEffect(() => {
     if (editorRef.current && isExpanded) {
-      const maxHeight = 120;
-      editorRef.current.style.height = 'auto';
-      editorRef.current.style.height = Math.min(editorRef.current.scrollHeight, maxHeight) + 'px';
-      
-      // If we should focus after expanding, do it now
-      if (shouldFocusAfterExpand) {
-        editorRef.current.focus();
-        setShouldFocusAfterExpand(false);
-      }
+      // Use requestAnimationFrame for smoother DOM updates
+      requestAnimationFrame(() => {
+        if (editorRef.current) {
+          const maxHeight = 120;
+          editorRef.current.style.height = 'auto';
+          editorRef.current.style.height = Math.min(editorRef.current.scrollHeight, maxHeight) + 'px';
+          
+          // If we should focus after expanding, do it now
+          if (shouldFocusAfterExpand) {
+            editorRef.current.focus();
+            setShouldFocusAfterExpand(false);
+          }
+        }
+      });
     }
   }, [message, isExpanded, shouldFocusAfterExpand]);
 
-  // Handle text selection for formatting toolbar
+  // Handle text selection for formatting toolbar - debounced for performance
   useEffect(() => {
+    let selectionTimeout;
     const handleSelection = () => {
-      const selection = window.getSelection();
-      if (selection.rangeCount > 0 && selection.toString().length > 0) {
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        if (editorRef.current && editorRef.current.contains(selection.anchorNode)) {
-          setToolbarPosition({
-            top: rect.top - 50,
-            left: rect.left + rect.width / 2
-          });
-          setShowFormatToolbar(true);
-          selectionRef.current = { range, selection };
+      // Debounce to prevent excessive firing
+      clearTimeout(selectionTimeout);
+      selectionTimeout = setTimeout(() => {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0 && selection.toString().length > 0) {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (editorRef.current && editorRef.current.contains(selection.anchorNode)) {
+            setToolbarPosition({
+              top: rect.top - 50,
+              left: rect.left + rect.width / 2
+            });
+            setShowFormatToolbar(true);
+            selectionRef.current = { range, selection };
+          }
+        } else {
+          setShowFormatToolbar(false);
         }
-      } else {
-        setShowFormatToolbar(false);
-      }
+      }, 150); // Debounce by 150ms
     };
 
     document.addEventListener('selectionchange', handleSelection);
-    return () => document.removeEventListener('selectionchange', handleSelection);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelection);
+      clearTimeout(selectionTimeout);
+    };
   }, []);
 
   // Typing indicator handlers
@@ -134,7 +147,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
     };
   }, [channel?.id]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (message.trim() && !sendingMessage) {
       setSendingMessage(true);
@@ -148,22 +161,22 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         
         // Reset message content but keep composer expanded and focused
         setMessage('');
-        if (editorRef.current) {
-          editorRef.current.style.height = 'auto';
-          // Keep focus on the input for better UX - user can continue typing
-          setTimeout(() => {
-            if (editorRef.current) {
-              editorRef.current.focus();
-            }
-          }, 100);
-        }
+        
+        // Use requestAnimationFrame for smoother updates
+        requestAnimationFrame(() => {
+          if (editorRef.current) {
+            editorRef.current.style.height = 'auto';
+            // Immediate focus without setTimeout to prevent iOS keyboard delays
+            editorRef.current.focus();
+          }
+        });
       } catch (error) {
         console.error('Failed to send message:', error);
       } finally {
         setSendingMessage(false);
       }
     }
-  };
+  }, [message, sendingMessage, stopTyping, onSendMessage]);
 
   const handleSendClick = (e) => {
     e.preventDefault();
@@ -173,26 +186,27 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     } else if (e.key !== 'Enter') {
       startTyping();
     }
-  };
+  }, [handleSubmit, startTyping]);
 
-  const handleInputChange = (e) => {
-    setMessage(e.target.value);
+  const handleInputChange = useCallback((e) => {
+    const newValue = e.target.value;
+    setMessage(newValue);
     
-    if (e.target.value.trim() && !isTypingRef.current) {
+    if (newValue.trim() && !isTypingRef.current) {
       startTyping();
-    } else if (!e.target.value.trim() && isTypingRef.current) {
+    } else if (!newValue.trim() && isTypingRef.current) {
       stopTyping();
     }
-  };
+  }, [startTyping, stopTyping]);
 
-  const handleInputFocus = () => {
+  const handleInputFocus = useCallback(() => {
     if (!isExpanded) {
       // When expanding from collapsed state, expand AND focus immediately
       setIsExpanded(true);
@@ -204,9 +218,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
     if (message.trim()) {
       startTyping();
     }
-  };
+  }, [isExpanded, message, startTyping]);
 
-  const handleInputBlur = (e) => {
+  const handleInputBlur = useCallback((e) => {
     // Don't collapse if user is clicking the send button or other composer controls
     if (e.relatedTarget && e.relatedTarget.closest('.composer-container')) {
       return; // Stay expanded if clicking within composer
@@ -214,38 +228,35 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
     
     // Don't collapse if task dialog is open
     if (showTaskDialog) {
-      console.log('Skipping collapse because task dialog is open');
       return;
     }
     
     // Don't collapse if a button was just clicked
     if (buttonClickedRef.current) {
-      console.log('Skipping collapse because button was clicked');
       buttonClickedRef.current = false; // Reset flag
       return;
     }
     
-    // Add a delay to ensure button clicks have time to execute
+    // Simplified blur handling for better iOS performance
+    // Use shorter timeout to prevent delay stacking
     setTimeout(() => {
-      // Only collapse if clicking completely outside the composer area
-      // and we're not in the middle of sending a message
-      if (!sendingMessage && !document.activeElement?.closest('.composer-container') && !showTaskDialog && !buttonClickedRef.current) {
+      if (!sendingMessage && !showTaskDialog && !buttonClickedRef.current) {
         setIsExpanded(false);
         setIsFocused(false);
         stopTyping();
       }
-      buttonClickedRef.current = false; // Reset flag after delay
-    }, 150);
-  };
+      buttonClickedRef.current = false;
+    }, 50); // Reduced from 150ms to 50ms
+  }, [showTaskDialog, sendingMessage, stopTyping]);
 
-  const handleContainerClick = () => {
+  const handleContainerClick = useCallback(() => {
     // When clicking anywhere on the collapsed composer, expand and focus
     if (!isExpanded && !isFocused) {
       setIsExpanded(true);
       setIsFocused(true);
       setShouldFocusAfterExpand(true);
     }
-  };
+  }, [isExpanded, isFocused]);
 
   const handleAttachment = async () => {
     const input = document.createElement('input');

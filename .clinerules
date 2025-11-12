@@ -35,6 +35,24 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 5. **Database**: PostgreSQL cluster on DigitalOcean with migration system in `backend/migrations/`
 6. **Testing**: Always test in development first, then user deploys to production
 
+### **⚡ FAST-TRACK DEPLOYMENT (Minor Patches Only):**
+**SAFE to skip deploy-dev.sh for:**
+- ✅ CSS/styling fixes (colors, spacing, fonts)
+- ✅ Text/copy changes (labels, messages, tooltips)  
+- ✅ Minor UI tweaks (button positions, icons)
+- ✅ Frontend-only configuration changes
+- ✅ Documentation updates
+- ✅ Version bumps without logic changes
+
+**⚠️ NEVER skip deploy-dev.sh for:**
+- ❌ Database migrations or schema changes
+- ❌ API endpoint modifications
+- ❌ Authentication/security changes
+- ❌ Backend logic changes
+- ❌ New features or components
+- ❌ Environment variable changes
+- ❌ Dependency updates
+
 ### **Current Deployment Status (Nov 12, 2025 - EMERGENCY KNOWLEDGE SYSTEM FIX):**
 - ✅ **BUILD FIXED**: All build issues resolved (BarChart3Icon, Node.js, CSS)
 - ✅ **CSS LOADING**: Tailwind PostCSS configuration fixed - 84.76kB CSS generation
