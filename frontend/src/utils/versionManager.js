@@ -386,13 +386,13 @@ class VersionManager {
   }
 
   startPeriodicCheck() {
-    // Check every 10 minutes for updates - more reasonable frequency
+    // Check every 30 minutes for updates - much less aggressive
     this.checkInterval = setInterval(() => {
       if (!this.isChecking) {
         console.log('⏰ Periodic version check...');
         this.checkForUpdates();
       }
-    }, 600000); // Check every 10 minutes (600000ms) - much less aggressive
+    }, 1800000); // Check every 30 minutes (1800000ms) - very conservative
   }
 
   async checkForUpdates() {

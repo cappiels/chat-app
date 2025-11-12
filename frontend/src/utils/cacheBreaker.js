@@ -1,12 +1,24 @@
 // Immediate cache breaker - forces refresh if version mismatch detected
-const CURRENT_VERSION = '1.8.7'; // This will be updated by bumpv.sh
+// Version will be dynamically fetched from package.json to avoid hardcoding issues
 
 class CacheBreaker {
   constructor() {
+    this.currentVersion = null;
     this.init();
   }
 
-  init() {
+  async getCurrentVersion() {
+    try {
+      // Try to get version from package.json via import
+      const packageJson = await import('../../package.json');
+      return packageJson.version || '1.0.0';
+    } catch (error) {
+      console.warn('Could not get package version:', error);
+      return '1.0.0';
+    }
+  }
+
+  async init() {
     // Disable cache breaker in development
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       console.log('🛠️ Cache breaker disabled in development');
@@ -15,40 +27,68 @@ class CacheBreaker {
     
     console.log('🔍 Cache breaker checking version...');
     
+    // Get current version dynamically
+    this.currentVersion = await this.getCurrentVersion();
+    
     // Get stored version
     const storedVersion = localStorage.getItem('appVersion');
+    const lastCacheClear = localStorage.getItem('lastCacheClear');
+    const now = Date.now();
+    
     console.log('💾 Stored version:', storedVersion);
-    console.log('📦 Current version:', CURRENT_VERSION);
+    console.log('📦 Current version:', this.currentVersion);
+    console.log('🧹 Last cache clear:', lastCacheClear ? new Date(parseInt(lastCacheClear)) : 'never');
+    
+    // Don't force refresh if cache was cleared recently (within 1 hour)
+    if (lastCacheClear) {
+      const timeSinceClear = now - parseInt(lastCacheClear);
+      const oneHour = 60 * 60 * 1000;
+      if (timeSinceClear < oneHour) {
+        console.log('⏰ Cache cleared recently, skipping version check');
+        localStorage.setItem('appVersion', this.currentVersion);
+        return;
+      }
+    }
     
     // Only force refresh for significant version changes (major/minor, not patch)
-    if (storedVersion && storedVersion !== CURRENT_VERSION) {
+    if (storedVersion && storedVersion !== this.currentVersion) {
       const [storedMajor, storedMinor] = storedVersion.split('.');
-      const [currentMajor, currentMinor] = CURRENT_VERSION.split('.');
+      const [currentMajor, currentMinor] = this.currentVersion.split('.');
       
+      // Only refresh for major or minor version changes
       if (storedMajor !== currentMajor || storedMinor !== currentMinor) {
-        console.log('🚨 Major version change detected! Forcing cache clear and refresh...');
+        console.log('🚨 Major/minor version change detected! Forcing cache clear and refresh...');
+        console.log(`📊 Version change: ${storedVersion} → ${this.currentVersion}`);
         this.forceRefresh();
         return;
       } else {
         console.log('📦 Patch version change detected, updating silently...');
+        console.log(`📊 Patch update: ${storedVersion} → ${this.currentVersion}`);
       }
     }
     
     // Update stored version to current
-    localStorage.setItem('appVersion', CURRENT_VERSION);
+    localStorage.setItem('appVersion', this.currentVersion);
     console.log('✅ Version check passed');
   }
 
   forceRefresh() {
+    // Mark when we're clearing cache to prevent loops
+    localStorage.setItem('lastCacheClear', Date.now().toString());
+    
     // Clear all possible caches
     try {
-      // Clear localStorage except for auth data
+      // Clear localStorage except for auth data and cache clear timestamp
       const authData = localStorage.getItem('firebase:authUser');
       const userPrefs = localStorage.getItem('userPreferences');
+      const cacheClearTime = localStorage.getItem('lastCacheClear');
+      
       localStorage.clear();
+      
       if (authData) localStorage.setItem('firebase:authUser', authData);
       if (userPrefs) localStorage.setItem('userPreferences', userPrefs);
-      localStorage.setItem('appVersion', CURRENT_VERSION);
+      if (cacheClearTime) localStorage.setItem('lastCacheClear', cacheClearTime);
+      localStorage.setItem('appVersion', this.currentVersion);
       
       // Clear sessionStorage
       sessionStorage.clear();
