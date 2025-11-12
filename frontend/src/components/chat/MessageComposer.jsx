@@ -146,13 +146,16 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         
         await onSendMessage(message.trim());
         
-        // Reset after successful send
+        // Reset message content but keep composer expanded and focused
         setMessage('');
-        setIsExpanded(false);
-        setIsFocused(false);
         if (editorRef.current) {
           editorRef.current.style.height = 'auto';
-          editorRef.current.blur();
+          // Keep focus on the input for better UX - user can continue typing
+          setTimeout(() => {
+            if (editorRef.current) {
+              editorRef.current.focus();
+            }
+          }, 100);
         }
       } catch (error) {
         console.error('Failed to send message:', error);
