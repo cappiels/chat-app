@@ -28,6 +28,14 @@
 
 **🔗 Production URL**: https://crewchat.elbarriobk.com
 
+### **🚨 PRODUCTION MIGRATION EMERGENCY RESOLVED (Nov 11, 2025 - v1.8.22):**
+- ✅ **CRITICAL FIX DEPLOYED**: Migration 018 was failing with "could not identify an equality operator for type json"
+- ✅ **Root Cause**: user_task_assignments view used SELECT DISTINCT with json column (progress_info)
+- ✅ **Solution**: Created migration 028 to fix the view by removing problematic json column from DISTINCT
+- ✅ **Type Issues Fixed**: UNION type mismatches between NULL and integer columns resolved
+- ✅ **Production Status**: v1.8.22 deployed successfully, all migrations now working
+- ✅ **Result**: Multi-assignee system and revolutionary features are now fully operational in production
+
 ---
 
 ## **✅ REVOLUTIONARY FEATURES DEPLOYED (Nov 8, 2025)**

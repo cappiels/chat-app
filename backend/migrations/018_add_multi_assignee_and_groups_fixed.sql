@@ -316,15 +316,14 @@ SELECT DISTINCT
   ct.thread_id,
   u.id as user_id,
   'individual' as assignment_type,
-  NULL as team_id,
-  NULL as team_name,
+  NULL::integer as team_id,
+  NULL::varchar(100) as team_name,
   ct.assignment_mode,
   ct.requires_individual_response,
   CASE 
     WHEN ct.individual_completions ? u.id THEN true
     ELSE false
   END as user_completed,
-  ct.progress_info,
   ct.is_complete
 FROM channel_tasks_with_progress ct
 CROSS JOIN LATERAL jsonb_array_elements_text(ct.assignees) as u(id)
@@ -345,7 +344,6 @@ SELECT DISTINCT
     WHEN ct.individual_completions ? wtm.user_id THEN true
     ELSE false
   END as user_completed,
-  ct.progress_info,
   ct.is_complete
 FROM channel_tasks_with_progress ct
 CROSS JOIN LATERAL jsonb_array_elements_text(ct.assigned_teams) as t(id)
