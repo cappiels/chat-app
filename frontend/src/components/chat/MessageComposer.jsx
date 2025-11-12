@@ -727,16 +727,13 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
           <div className="p-3">
             {/* Top row with buttons - mobile responsive */}
             <div className="flex items-center gap-1 sm:gap-2 mb-3 overflow-x-auto">
-              {/* Primary buttons - always visible */}
+              {/* All buttons visible - fix container width, not button count */}
               <button
                 type="button"
-                onMouseDown={() => {
-                  buttonClickedRef.current = true;
-                }}
+                onMouseDown={() => { buttonClickedRef.current = true; }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('🔥 CALENDAR BUTTON CLICKED - EXPANDED STATE');
                   setShowTaskDialog(true);
                 }}
                 className="btn-icon flex-shrink-0"
@@ -747,13 +744,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
-                onMouseDown={() => {
-                  buttonClickedRef.current = true;
-                }}
+                onMouseDown={() => { buttonClickedRef.current = true; }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Attachment button clicked');
                   handleAttachment();
                 }}
                 className="btn-icon flex-shrink-0"
@@ -765,13 +759,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               <button
                 type="button"
                 ref={emojiButtonRef}
-                onMouseDown={() => {
-                  buttonClickedRef.current = true;
-                }}
+                onMouseDown={() => { buttonClickedRef.current = true; }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Emoji button clicked');
                   toggleEmojiPicker();
                 }}
                 className="btn-icon flex-shrink-0"
@@ -780,16 +771,13 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                 <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               
-              {/* Secondary buttons - hidden on small screens to save space */}
+              {/* Secondary buttons - visible on larger mobile screens */}
               <button
                 type="button"
-                onMouseDown={() => {
-                  buttonClickedRef.current = true;
-                }}
+                onMouseDown={() => { buttonClickedRef.current = true; }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Formatting button clicked');
                   handleFormatting();
                 }}
                 className="btn-icon flex-shrink-0 hidden sm:inline-flex"
@@ -800,13 +788,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
-                onMouseDown={() => {
-                  buttonClickedRef.current = true;
-                }}
+                onMouseDown={() => { buttonClickedRef.current = true; }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Mention button clicked');
                   handleMention();
                 }}
                 className="btn-icon flex-shrink-0 hidden sm:inline-flex"
@@ -820,14 +805,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               {/* Voice and Send buttons - always visible */}
               <button
                 type="button"
-                onMouseDown={() => {
-                  buttonClickedRef.current = true;
-                }}
+                onMouseDown={() => { buttonClickedRef.current = true; }}
                 onClick={handleVoiceMessage}
                 className={`btn-icon flex-shrink-0 ${
-                  isRecording
-                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                    : ''
+                  isRecording ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' : ''
                 }`}
                 title={isRecording ? 'Stop recording' : 'Start voice recording'}
               >
@@ -836,9 +817,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               <button
                 type="button"
-                onMouseDown={() => {
-                  buttonClickedRef.current = true;
-                }}
+                onMouseDown={() => { buttonClickedRef.current = true; }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -874,7 +853,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   onFocus={handleInputFocus}
                   onBlur={handleInputBlur}
                   placeholder={placeholder || `Message #${channel?.name || 'general_chat'}`}
-                  className="message-input"
+                  className="message-input text-sm md:text-base"
                   rows="1"
                 />
               </div>

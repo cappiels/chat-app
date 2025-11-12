@@ -8,6 +8,10 @@ class VersionManager {
     this.forceRefreshOnMismatch = true;
     this.lastNotifiedVersion = null; // Track last version we showed notification for
     this.bannerShown = false; // Track if banner is currently shown
+    this.lastCheckTime = 0; // Track last check to prevent rapid consecutive checks
+    this.checkCooldown = 60000; // Minimum 1 minute between checks
+    this.notificationCooldown = 300000; // 5 minutes before showing another notification
+    this.lastNotificationTime = 0; // Track when last notification was shown
     
     // Check for version immediately and then periodically
     this.init();
@@ -102,13 +106,23 @@ class VersionManager {
         localStorage.setItem('appVersion', data.version);
         console.log('📱 App version stored:', data.version);
       } else if (data.version !== this.currentVersion) {
-        // Only handle new version if versions actually differ
+        // Only handle new version if versions actually differ AND enough time has passed
+        const now = Date.now();
+        const timeSinceLastNotification = now - this.lastNotificationTime;
+        
+        if (timeSinceLastNotification < this.notificationCooldown) {
+          console.log('🚫 Skipping version update notification - in cooldown period');
+          return data;
+        }
+        
         console.log('🚀 NEW VERSION DETECTED!', {
           old: this.currentVersion,
           new: data.version,
-          shouldUpdate: true
+          shouldUpdate: true,
+          timeSinceLastNotification
         });
         
+        this.lastNotificationTime = now;
         console.log('🔔 Calling handleNewVersion...');
         this.handleNewVersion(data.version);
       } else {
@@ -260,13 +274,13 @@ class VersionManager {
       }, 300);
     };
     
-    // Auto-refresh after 30 seconds if user doesn't act
+    // Auto-refresh after 2 minutes if user doesn't act (increased from 30 seconds)
     setTimeout(() => {
       if (document.getElementById('version-update-banner')) {
         console.log('🔄 Auto-refreshing for version update...');
         this.refreshApp();
       }
-    }, 30000);
+    }, 120000); // 2 minutes instead of 30 seconds
   }
 
   refreshApp() {
@@ -372,19 +386,29 @@ class VersionManager {
   }
 
   startPeriodicCheck() {
-    // Check every 2 minutes for updates - reasonable frequency
+    // Check every 10 minutes for updates - more reasonable frequency
     this.checkInterval = setInterval(() => {
       if (!this.isChecking) {
         console.log('⏰ Periodic version check...');
         this.checkForUpdates();
       }
-    }, 120000); // Check every 2 minutes (120000ms)
+    }, 600000); // Check every 10 minutes (600000ms) - much less aggressive
   }
 
   async checkForUpdates() {
     if (this.isChecking) return;
     
+    // Implement cooldown to prevent rapid consecutive checks
+    const now = Date.now();
+    const timeSinceLastCheck = now - this.lastCheckTime;
+    
+    if (timeSinceLastCheck < this.checkCooldown) {
+      console.log(`🚫 Skipping version check - in cooldown period (${Math.round((this.checkCooldown - timeSinceLastCheck) / 1000)}s remaining)`);
+      return;
+    }
+    
     this.isChecking = true;
+    this.lastCheckTime = now;
     
     try {
       await this.getCurrentVersion();

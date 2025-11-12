@@ -131,30 +131,20 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
   };
 
   return (
-    <div className="flex items-center justify-between px-4 h-full w-full">
-      {/* Left Section */}
-      <div className="flex items-center gap-3">
-        {/* Mobile menu button */}
-        <button
-          onClick={onMenuClick}
-          className="btn-icon text-text-secondary hover:bg-gray-100 md:hidden"
-          aria-label="Toggle sidebar"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
-        {/* Workspace Switcher */}
+    <div className="flex items-center justify-between h-full w-full px-3 md:px-4">
+      {/* Left Section - Workspace Switcher (far left on mobile) */}
+      <div className="flex items-center">
         <div className="relative">
           <button
             onClick={handleWorkspaceSwitcherToggle}
-            className="flex items-center gap-2 px-3 py-2 text-text-primary hover:bg-gray-100 rounded-lg transition-all duration-200 min-w-[160px]"
+            className="flex items-center gap-1 md:gap-2 px-1.5 md:px-3 py-1.5 md:py-2 text-text-primary hover:bg-gray-100 rounded-lg transition-all duration-200"
             title="Switch workspace"
           >
             <Briefcase className="w-4 h-4" />
-            <span className="font-medium truncate">
+            <span className="font-medium truncate text-xs md:text-base max-w-[80px] md:max-w-none">
               {workspace?.name || 'crew'}
             </span>
-            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showWorkspaceSwitcher ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 transition-transform duration-200 ${showWorkspaceSwitcher ? 'rotate-180' : ''}`} />
           </button>
           
           {/* Workspace Dropdown */}
@@ -245,82 +235,90 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
         </div>
       </div>
 
-      {/* Center Section - Search */}
-      <div className="flex-1 max-w-md mx-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none z-10" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`Search ${workspace?.name || 'crew'}`}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-text-primary placeholder-text-tertiary focus:bg-white focus:border-accent-500 focus:ring-2 focus:ring-accent-200 transition-all duration-200 outline-none"
-          />
+      {/* Right Section - Compact mobile layout */}
+      <div className="flex items-center gap-0.5 md:gap-2">
+        {/* Desktop: Full search input */}
+        <div className="hidden md:block mr-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none z-10" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={`Search ${workspace?.name || 'crew'}`}
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-text-primary placeholder-text-tertiary focus:bg-white focus:border-accent-500 focus:ring-2 focus:ring-accent-200 transition-all duration-200 outline-none"
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Right Section */}
-      <div className="flex items-center gap-2">
+        {/* Mobile: Search button in right section */}
+        <button 
+          className="md:hidden btn-icon text-text-secondary hover:bg-gray-100 p-1.5"
+          title="Search"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+
         {/* View Switcher - only show when a channel is selected */}
         {currentChannel && onViewChange && (
           <ViewSwitcher
             currentView={currentView}
             onViewChange={onViewChange}
             variant="header"
-            className="mr-2"
+            className=""
           />
         )}
 
-        {/* Notifications */}
+        {/* Notifications - compact on mobile */}
         <button 
-          className="btn-icon text-text-secondary hover:bg-gray-100 relative"
+          className="btn-icon text-text-secondary hover:bg-gray-100 relative p-1.5"
           onClick={() => setShowNotifications(!showNotifications)}
           title={`${totalUnreadCount} unread messages${totalMentions > 0 ? `, ${totalMentions} mentions` : ''}`}
         >
-          <Bell className="w-5 h-5" />
+          <Bell className="w-4 h-4 md:w-5 md:h-5" />
           {totalMentions > 0 ? (
-            <div className="badge-count absolute -top-1 -right-1 bg-error-500">
+            <div className="badge-count absolute -top-1 -right-1 bg-error-500 text-xs">
               {totalMentions}
             </div>
           ) : totalUnreadCount > 0 ? (
-            <div className="badge-count absolute -top-1 -right-1">
+            <div className="badge-count absolute -top-1 -right-1 text-xs">
               {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
             </div>
           ) : null}
         </button>
 
-        {/* Invite users */}
+        {/* Invite users - compact on mobile */}
         {onInvite && (
           <button 
             onClick={onInvite}
-            className="btn-ghost text-text-primary hover:bg-gray-100 flex items-center gap-2 px-3 py-2"
+            className="btn-icon text-text-primary hover:bg-gray-100 p-1.5 md:px-3 md:py-2 md:gap-2"
             title="Invite people to workspace"
           >
             <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline text-sm font-medium">Invite</span>
+            <span className="hidden md:inline text-sm font-medium ml-1">Invite</span>
           </button>
         )}
 
-        {/* Help */}
-        <button className="btn-icon text-text-secondary hover:bg-gray-100 hidden md:flex">
+        {/* Help - hidden on mobile to save space */}
+        <button className="btn-icon text-text-secondary hover:bg-gray-100 hidden lg:flex p-1.5">
           <HelpCircle className="w-5 h-5" />
         </button>
 
-        {/* User menu */}
-        <div className="relative">
+        {/* User menu - compact on mobile */}
+        <div className="relative ml-1">
           <button 
-            className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+            className="flex items-center p-1 rounded-lg hover:bg-gray-100 transition-colors duration-200"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
             {user?.photoURL ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName}
-                className="w-8 h-8 rounded-lg border border-gray-200"
+                className="w-7 h-7 md:w-8 md:h-8 rounded-lg border border-gray-200"
               />
             ) : (
-              <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center border border-gray-300">
-                <span className="text-text-primary text-sm font-semibold">
+              <div className="w-7 h-7 md:w-8 md:h-8 bg-gray-200 rounded-lg flex items-center justify-center border border-gray-300">
+                <span className="text-text-primary text-xs md:text-sm font-semibold">
                   {user?.displayName?.charAt(0) || 'U'}
                 </span>
               </div>
