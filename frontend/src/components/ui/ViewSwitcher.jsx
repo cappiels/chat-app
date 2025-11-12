@@ -15,9 +15,9 @@ const ViewSwitcher = ({ currentView, onViewChange, className = '', variant = 'de
         }`,
     },
     header: {
-      container: 'flex items-center bg-gray-100 rounded-lg p-1 min-w-max',
+      container: 'flex items-center bg-gray-100 rounded-lg p-1 overflow-hidden',
       button: (isActive) =>
-        `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+        `flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex-shrink-0 ${
           isActive 
             ? 'bg-white text-slate-900 shadow-sm' 
             : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'

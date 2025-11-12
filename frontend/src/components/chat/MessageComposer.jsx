@@ -725,8 +725,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
           <div className="h-1 bg-accent-500" />
           
           <div className="p-3">
-            {/* Top row with buttons */}
-            <div className="flex items-center gap-2 mb-3">
+            {/* Top row with buttons - mobile responsive */}
+            <div className="flex items-center gap-1 sm:gap-2 mb-3 overflow-x-auto">
+              {/* Primary buttons - always visible */}
               <button
                 type="button"
                 onMouseDown={() => {
@@ -738,10 +739,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   console.log('🔥 CALENDAR BUTTON CLICKED - EXPANDED STATE');
                   setShowTaskDialog(true);
                 }}
-                className="btn-icon"
+                className="btn-icon flex-shrink-0"
                 title="Create task/event"
               >
-                <Calendar className="w-5 h-5" />
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               
               <button
@@ -755,27 +756,10 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   console.log('Attachment button clicked');
                   handleAttachment();
                 }}
-                className="btn-icon"
+                className="btn-icon flex-shrink-0"
                 title="Add attachments"
               >
-                <Plus className="w-5 h-5" />
-              </button>
-              
-              <button
-                type="button"
-                onMouseDown={() => {
-                  buttonClickedRef.current = true;
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Formatting button clicked');
-                  handleFormatting();
-                }}
-                className="btn-icon"
-                title="Text formatting"
-              >
-                <Edit3 className="w-4 h-4" />
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               
               <button
@@ -790,10 +774,28 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   console.log('Emoji button clicked');
                   toggleEmojiPicker();
                 }}
-                className="btn-icon"
+                className="btn-icon flex-shrink-0"
                 title="Add emoji"
               >
-                <Smile className="w-5 h-5" />
+                <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              
+              {/* Secondary buttons - hidden on small screens to save space */}
+              <button
+                type="button"
+                onMouseDown={() => {
+                  buttonClickedRef.current = true;
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Formatting button clicked');
+                  handleFormatting();
+                }}
+                className="btn-icon flex-shrink-0 hidden sm:inline-flex"
+                title="Text formatting"
+              >
+                <Edit3 className="w-4 h-4" />
               </button>
               
               <button
@@ -807,21 +809,22 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   console.log('Mention button clicked');
                   handleMention();
                 }}
-                className="btn-icon"
+                className="btn-icon flex-shrink-0 hidden sm:inline-flex"
                 title="Mention someone"
               >
-                <AtSign className="w-5 h-5" />
+                <AtSign className="w-4 h-4" />
               </button>
               
-              <div className="flex-1" />
+              <div className="flex-1 min-w-2" />
               
+              {/* Voice and Send buttons - always visible */}
               <button
                 type="button"
                 onMouseDown={() => {
                   buttonClickedRef.current = true;
                 }}
                 onClick={handleVoiceMessage}
-                className={`btn-icon mr-2 ${
+                className={`btn-icon flex-shrink-0 ${
                   isRecording
                     ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
                     : ''
@@ -844,7 +847,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   }
                 }}
                 disabled={!message.trim() || sendingMessage}
-                className={`btn-icon ${
+                className={`btn-icon flex-shrink-0 ${
                   message.trim() && !sendingMessage
                     ? 'bg-accent-600 hover:bg-accent-700 text-white shadow-md hover:shadow-lg'
                     : 'bg-surface-tertiary text-text-tertiary cursor-not-allowed'

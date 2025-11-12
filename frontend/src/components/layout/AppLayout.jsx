@@ -469,6 +469,46 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     setShowWorkspaceSettings(true);
   };
 
+  // Import calendar and timeline components at the top level
+  const ChannelCalendar = React.lazy(() => import('../calendar/ChannelCalendar'));
+  const WeeklyCalendar = React.lazy(() => import('../calendar/WeeklyCalendar'));
+  const ChannelTimeline = React.lazy(() => import('../timeline/ChannelTimeline'));
+
+  // Helper function to render full-screen views
+  const renderFullScreenView = () => {
+    const commonProps = {
+      channel: currentChannel,
+      workspace: workspace,
+      workspaceId: workspace.id,
+      currentUser: user
+    };
+
+    switch(currentView) {
+      case 'calendar':
+        return (
+          <React.Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading calendar...</div>}>
+            <ChannelCalendar {...commonProps} />
+          </React.Suspense>
+        );
+      case 'week':
+        return (
+          <React.Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading weekly calendar...</div>}>
+            <WeeklyCalendar {...commonProps} />
+          </React.Suspense>
+        );
+      case 'timeline':
+        return (
+          <React.Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading timeline...</div>}>
+            <ChannelTimeline {...commonProps} />
+          </React.Suspense>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const isFullScreenView = ['calendar', 'week', 'timeline'].includes(currentView);
+
   return (
     <div className="app-shell">
       {/* Modern Header */}
@@ -487,69 +527,78 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         />
       </div>
 
-      {/* Mobile overlay */}
-      {isMobile && sidebarOpen && (
-        <div 
-          className="mobile-overlay visible"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Modern Sidebar */}
-      <div className={`app-sidebar ${isMobile && sidebarOpen ? 'open' : ''}`}>
-        <Sidebar
-          workspace={workspace}
-          channels={channels}
-          currentChannel={currentChannel}
-          onChannelSelect={handleChannelSelect}
-          onAddChannel={handleAddChannelClick}
-          onWorkspaceSettings={handleWorkspaceSettingsOpen}
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
-      </div>
-
-      {/* Modern Main Content */}
-      <div className="main-content">
-        {currentChannel ? (
-          <>
-            <MessageList
-              channel={currentChannel}
-              messages={messages}
-              onThreadClick={handleThreadOpen}
-              currentUser={user}
-              typingUsers={typingUsers}
-              lastReadMessageId={currentChannel.last_read_id}
-              workspace={workspace}
-              workspaceId={workspace.id}
-              currentView={currentView}
+      {/* Full-screen view for calendar/timeline modes */}
+      {isFullScreenView && currentChannel ? (
+        <div className="flex-1 overflow-hidden">
+          {renderFullScreenView()}
+        </div>
+      ) : (
+        <>
+          {/* Mobile overlay */}
+          {isMobile && sidebarOpen && (
+            <div 
+              className="mobile-overlay visible"
+              onClick={() => setSidebarOpen(false)}
             />
-            <div className="message-input-container">
-              <MessageComposer
-                channel={currentChannel}
-                onSendMessage={handleSendMessage}
-                workspace={workspace}
-                workspaceId={workspace?.id}
-                currentUser={user}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8">
-              <div className="w-16 h-16 bg-surface-tertiary rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">💬</span>
-              </div>
-              <h3 className="text-lg font-semibold text-text-primary mb-2">
-                Select a channel
-              </h3>
-              <p className="text-text-secondary">
-                Choose a channel from the sidebar to start messaging
-              </p>
-            </div>
+          )}
+
+          {/* Modern Sidebar */}
+          <div className={`app-sidebar ${isMobile && sidebarOpen ? 'open' : ''}`}>
+            <Sidebar
+              workspace={workspace}
+              channels={channels}
+              currentChannel={currentChannel}
+              onChannelSelect={handleChannelSelect}
+              onAddChannel={handleAddChannelClick}
+              onWorkspaceSettings={handleWorkspaceSettingsOpen}
+              isOpen={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+            />
           </div>
-        )}
-      </div>
+
+          {/* Modern Main Content */}
+          <div className="main-content">
+            {currentChannel ? (
+              <>
+                <MessageList
+                  channel={currentChannel}
+                  messages={messages}
+                  onThreadClick={handleThreadOpen}
+                  currentUser={user}
+                  typingUsers={typingUsers}
+                  lastReadMessageId={currentChannel.last_read_id}
+                  workspace={workspace}
+                  workspaceId={workspace.id}
+                  currentView={currentView}
+                />
+                <div className="message-input-container">
+                  <MessageComposer
+                    channel={currentChannel}
+                    onSendMessage={handleSendMessage}
+                    workspace={workspace}
+                    workspaceId={workspace?.id}
+                    currentUser={user}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center p-8">
+                  <div className="w-16 h-16 bg-surface-tertiary rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">💬</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-text-primary mb-2">
+                    Select a channel
+                  </h3>
+                  <p className="text-text-secondary">
+                    Choose a channel from the sidebar to start messaging
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Modern Thread Panel */}
       {threadOpen && (

@@ -31,11 +31,11 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 1. **Development**: Use `./deploy-dev.sh patch "description"` for local testing
 2. **Production Deploy**: User deploys to production after successful dev testing
 3. **Auto-Deploy**: DigitalOcean App Platform automatically rebuilds on production deploy
-4. **Migration Execution**: All SQL migrations run automatically on deployment
-5. **Database**: PostgreSQL cluster on DigitalOcean with enhanced multi-assignee schema
+4. **Database Schema**: REVERTED TO MIGRATIONS - Complete schema had critical bugs and syntax errors
+5. **Database**: PostgreSQL cluster on DigitalOcean with migration system in `backend/migrations/`
 6. **Testing**: Always test in development first, then user deploys to production
 
-### **Current Deployment Status (Nov 10, 2025 - EXPERT DEVELOPER FEEDBACK INTEGRATED):**
+### **Current Deployment Status (Nov 11, 2025 - REVERTED TO MIGRATION SYSTEM):**
 - ✅ **BUILD FIXED**: All build issues resolved (BarChart3Icon, Node.js, CSS)
 - ✅ **CSS LOADING**: Tailwind PostCSS configuration fixed - 84.76kB CSS generation
 - ✅ **PORT BINDING**: Fixed 0.0.0.0 host binding for DigitalOcean health checks
@@ -43,10 +43,12 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - ✅ **DEPENDENCY FIX**: Added complete Express dependency chain (function-bind, side-channel, etc.)
 - ✅ **WORKSPACE FIX**: Copied package-lock.json to backend for DigitalOcean isolation build
 - ✅ **NODE.JS MODERNIZED**: Upgraded to Node.js 24+ for better performance and security
-- ✅ **Latest Deploy**: Commit 497210e - CRITICAL side-channel dependency fix deployed
-- 📊 **Migration 018**: Multi-assignee + teams schema executed successfully
+- ✅ **Latest Deploy**: Commit baccc2b - v1.8.14 with UUID fixes deployed
+- ❌ **COMPLETE SCHEMA FAILED**: Reverted due to PostgreSQL syntax errors, view conflicts, and trigger bugs
+- ✅ **MIGRATIONS RESTORED**: Back to reliable migration system in `backend/migrations/run-migrations.js`
+- ✅ **UUID FUNCTIONS**: Fixed mark_task_complete_individual() and mark_task_incomplete_individual() 
 - 🎯 **CRITICAL PRIORITY**: Google Calendar & Tasks sync implementation with expert fixes
-- 🚨 **NEXT MIGRATION**: 023_add_google_sync_infrastructure.sql (IMMEDIATE PRIORITY)
+- 📋 **MIGRATIONS BACK**: All future database changes use individual migration files
 
 ## 🎉 REVOLUTIONARY FEATURES DEPLOYED
 ### **🎯 Multi-Assignee Tasks with Individual Progress Tracking:**
@@ -132,15 +134,17 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 
 ## File Locations (Production Ready + Planned)
 ### **Current:**
+- **Database Schema**: `backend/migrations/` (BACK TO MIGRATION SYSTEM)
+- **Database Setup**: `backend/setup-database.js` (uses migrations via run-migrations.js)
+- **Migration Runner**: `backend/migrations/run-migrations.js` (core database setup)
 - **Calendar**: `frontend/src/components/calendar/ChannelCalendar.jsx`
 - **Timeline**: `frontend/src/components/timeline/ChannelTimeline.jsx` 
 - **Multi-Channel**: `frontend/src/components/calendar/ChannelDropdown.jsx`
 - **API**: `backend/routes/channel-tasks.js` (enhanced with multi-assignee)
-- **Migration**: `backend/migrations/018_add_multi_assignee_and_groups.sql`
 - **Design System**: `frontend/tailwind.config.js` (professional color palette)
 
 ### **Google Sync Implementation (IMMEDIATE PRIORITY):**
-- **Migration**: `backend/migrations/023_add_google_sync_infrastructure.sql`
+- **Schema Enhancement**: Create new migration files in `backend/migrations/`
 - **Core Logic**: `backend/sync/mappers.js` (strategy algorithm + data mapping)
 - **Calendar Provider**: `backend/sync/google/CalendarProvider.js`
 - **Tasks Provider**: `backend/sync/google/TasksProvider.js`
@@ -150,24 +154,24 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - **Frontend**: `frontend/src/components/sync/GoogleSyncButton.jsx`
 
 ## Deployment Process
-1. **Develop Locally**: Make changes and test
+1. **Develop Locally**: Make changes and test using `backend/setup-database.js` (runs migrations)
 2. **Git Commit**: `git add . && git commit -m "description"`
 3. **Deploy to Dev**: `./deploy-dev.sh patch "work completed description"`
 4. **Test in Dev**: Validate features in development environment
 5. **User Deploys to Production**: After successful dev testing, user will deploy to production
 6. **Auto-Build**: DigitalOcean rebuilds app automatically on production deploy
-7. **Migration**: New SQL migrations execute on app startup
+7. **Migration Execution**: Migrations in `backend/migrations/` execute on startup
 
 ## Emergency Procedures
 - **Rollback**: `git revert HEAD && git push origin main`
 - **Check Logs**: DigitalOcean App Platform → Runtime Logs
 - **Database Access**: Use provided DigitalOcean database credentials
-- **Migration Issues**: Check `backend/migrations/` files and execution order
+- **Migration Issues**: Check individual migration files in `backend/migrations/` for any syntax errors
 
 ## 🚨 CRITICAL NEXT SESSION PRIORITIES
 
 ### **Phase 1: Database & Core Infrastructure (START HERE):**
-1. **Create Migration 023**: `backend/migrations/023_add_google_sync_infrastructure.sql`
+1. **Create Google Sync Migration**: New migration file in `backend/migrations/026_google_sync_final.sql`
 2. **Install Dependencies**: `npm install googleapis@^128.0.0 node-cache@^5.1.2`
 3. **Create Mappers**: `backend/sync/mappers.js` with expert fixes (end-exclusive dates, timezone handling)
 
@@ -187,4 +191,4 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - **De-duplication**: 100% prevention of duplicate events
 - **Conflict Rate**: <2% of operations requiring manual resolution
 
-**🎯 IMMEDIATE FOCUS**: Start with Migration 023 and mappers.js - these form the foundation for the entire Google sync system with expert developer fixes applied.
+**🎯 IMMEDIATE FOCUS**: Create migration 026 for Google sync tables - this is the foundation for the entire Google sync system with expert developer fixes applied.

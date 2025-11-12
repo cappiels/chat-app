@@ -8,6 +8,6 @@
 ```
 
 **Local**: http://localhost:5173  
-**Production**: https://crew.elbarriobk.com
+**Production**: https://crewchat.elbarriobk.com
 
 **deploy-prod.sh** commits to main branch → auto-deploys to DigitalOcean

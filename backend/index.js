@@ -120,7 +120,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- Database Connection Test ---
+// --- Database Connection and Setup ---
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
@@ -128,8 +128,8 @@ const pool = new Pool({
   }
 });
 
-// Test database connection on startup (non-fatal)
-const testConnection = async () => {
+// Database setup and migration runner
+const setupDatabaseOnStartup = async () => {
   try {
     const client = await pool.connect();
     console.log('✅ Database connected successfully');
@@ -139,20 +139,47 @@ const testConnection = async () => {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('users', 'workspaces', 'workspace_members', 'threads', 'messages')
+      AND table_name IN ('users', 'workspaces', 'workspace_members', 'threads', 'messages', 'channel_tasks')
       ORDER BY table_name;
     `);
     
-    console.log(`📋 Found ${result.rows.length} core tables:`, result.rows.map(r => r.table_name));
+    const foundTables = result.rows.map(r => r.table_name);
+    console.log(`📋 Found ${foundTables.length} core tables:`, foundTables);
+    
+    // If core tables are missing, run migrations (both dev and production)
+    if (foundTables.length < 6) {
+      console.log('🔧 Core tables missing, running migrations...');
+      const { runMigrations } = require('./migrations/run-migrations');
+      await runMigrations();
+      console.log('✅ Migration setup complete');
+    } else {
+      console.log('📋 Core tables present, checking for pending migrations...');
+      // Always run migrations to catch any new ones
+      const { runMigrations } = require('./migrations/run-migrations');
+      await runMigrations();
+    }
+    
     client.release();
   } catch (error) {
-    console.error('⚠️  Database connection failed during startup:', error.message);
+    console.error('⚠️  Database setup failed during startup:', error.message);
     console.log('📡 Server will continue starting - database may be initializing');
+    
+    // In development, try to run migrations as fallback
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.log('🔧 Attempting migration setup as fallback...');
+        const { runMigrations } = require('./migrations/run-migrations');
+        await runMigrations();
+        console.log('✅ Fallback migration setup complete');
+      } catch (migrationError) {
+        console.error('❌ Migration fallback also failed:', migrationError.message);
+      }
+    }
     // Don't exit - let server start anyway for health checks
   }
 };
 
-testConnection();
+setupDatabaseOnStartup();
 
 // --- API Routes ---
 
