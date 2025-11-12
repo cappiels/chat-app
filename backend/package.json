@@ -1,6 +1,6 @@
 {
   "name": "crew-backend",
-  "version": "1.8.11",
+  "version": "1.8.12",
   "description": "Backend API for bleeding-edge chat application with real-time messaging and advanced knowledge base",
   "main": "index.js",
   "scripts": {
@@ -36,6 +36,7 @@
     "googleapis": "^154.1.0",
     "helmet": "^8.0.0",
     "multer": "^2.0.2",
+    "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^6.9.14",
     "pg": "^8.16.3",

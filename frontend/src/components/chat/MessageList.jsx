@@ -7,6 +7,7 @@ import TypingIndicator from './TypingIndicator';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
 import ChannelCalendar from '../calendar/ChannelCalendar';
+import WeeklyCalendar from '../calendar/WeeklyCalendar';
 import ChannelTimeline from '../timeline/ChannelTimeline';
 
 const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, typingUsers: externalTypingUsers, workspace, workspaceId, currentView }) => {
@@ -172,6 +173,16 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
             channel={channel}
             workspace={workspace}
             workspaceId={workspaceId || workspace?.id}
+          />
+        );
+        
+      case 'week':
+        return (
+          <WeeklyCalendar 
+            channel={channel}
+            workspace={workspace}
+            workspaceId={workspaceId || workspace?.id}
+            currentUser={currentUser}
           />
         );
         

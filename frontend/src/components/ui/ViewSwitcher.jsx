@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { MessageCircle, Calendar, CalendarRange } from 'lucide-react';
+import { MessageCircle, Calendar, CalendarDays, CalendarRange } from 'lucide-react';
 
 const ViewSwitcher = ({ currentView, onViewChange, className = '', variant = 'default' }) => {
   // Different styling variants
@@ -36,9 +36,15 @@ const ViewSwitcher = ({ currentView, onViewChange, className = '', variant = 'de
     },
     {
       id: 'calendar',
-      label: 'Calendar',
+      label: 'Month',
       icon: Calendar,
-      title: 'Calendar View - Channel Tasks & Events'
+      title: 'Monthly Calendar View - Channel Tasks & Events'
+    },
+    {
+      id: 'week',
+      label: 'Week',
+      icon: CalendarDays,
+      title: 'Weekly Calendar View - Drag & Drop Tasks'
     },
     {
       id: 'timeline',

@@ -269,6 +269,40 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Convert empty strings to null for timestamp fields (PostgreSQL requirement)
+    const cleanStartDate = start_date === '' ? null : start_date;
+    const cleanEndDate = end_date === '' ? null : end_date;
+    const cleanDueDate = due_date === '' ? null : due_date;
+    const cleanStartTime = start_time === '' ? null : start_time;
+    const cleanEndTime = end_time === '' ? null : end_time;
+    const cleanEstimatedHours = estimated_hours === '' ? null : estimated_hours;
+    const cleanParentTaskId = parent_task_id === '' ? null : parent_task_id;
+
+    console.log('Creating task with cleaned data:', {
+      threadId, 
+      workspaceId: req.params.workspaceId, 
+      title: title.trim(), 
+      description, 
+      start_date: cleanStartDate, 
+      end_date: cleanEndDate, 
+      due_date: cleanDueDate,
+      assigned_to, 
+      finalAssignees, 
+      assigned_teams, 
+      assignment_mode, 
+      requires_individual_response,
+      status, 
+      priority, 
+      tags, 
+      estimated_hours: cleanEstimatedHours,
+      is_all_day, 
+      start_time: cleanStartTime, 
+      end_time: cleanEndTime, 
+      parent_task_id: cleanParentTaskId, 
+      dependencies, 
+      userId
+    });
+
     const result = await pool.query(`
       INSERT INTO channel_tasks (
         thread_id, workspace_id, title, description, start_date, end_date, due_date,
@@ -278,10 +312,10 @@ router.post('/', async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING id, created_at, updated_at
     `, [
-      threadId, req.params.workspaceId, title.trim(), description, start_date, end_date, due_date,
+      threadId, req.params.workspaceId, title.trim(), description, cleanStartDate, cleanEndDate, cleanDueDate,
       assigned_to, JSON.stringify(finalAssignees), JSON.stringify(assigned_teams), assignment_mode, requires_individual_response,
-      status, priority, JSON.stringify(tags), estimated_hours,
-      is_all_day, start_time, end_time, parent_task_id, JSON.stringify(dependencies), userId
+      status, priority, JSON.stringify(tags), cleanEstimatedHours,
+      is_all_day, cleanStartTime, cleanEndTime, cleanParentTaskId, JSON.stringify(dependencies), userId
     ]);
 
     res.status(201).json({
@@ -290,7 +324,13 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating channel task:', error);
-    res.status(500).json({ error: 'Failed to create channel task' });
+    console.error('SQL Error details:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error constraint:', error.constraint);
+    res.status(500).json({ 
+      error: 'Failed to create channel task',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -339,7 +379,7 @@ router.put('/:taskId', async (req, res) => {
       }
     }
 
-    // Build dynamic update query
+    // Build dynamic update query - convert empty strings to null for PostgreSQL
     const updates = [];
     const values = [];
     let paramCount = 0;
@@ -348,7 +388,12 @@ router.put('/:taskId', async (req, res) => {
       if (value !== undefined) {
         paramCount++;
         updates.push(`${field} = $${paramCount}`);
-        values.push(value);
+        // Convert empty strings to null for timestamp and numeric fields
+        if (value === '' && ['start_date', 'end_date', 'due_date', 'start_time', 'end_time', 'estimated_hours', 'actual_hours', 'parent_task_id', 'completed_at'].includes(field)) {
+          values.push(null);
+        } else {
+          values.push(value);
+        }
       }
     };
 
@@ -573,181 +618,5 @@ router.get('/:taskId/progress', async (req, res) => {
   }
 });
 
-// === TEAM MANAGEMENT ENDPOINTS ===
-
-// GET /api/workspaces/:workspaceId/teams
-// Get all teams in workspace
-router.get('/../../teams', async (req, res) => {
-  try {
-    const { workspaceId } = req.params;
-
-    const result = await pool.query(`
-      SELECT 
-        wt.*,
-        (
-          SELECT json_agg(
-            json_build_object(
-              'user_id', wtm.user_id,
-              'role', wtm.role,
-              'display_name', u.display_name,
-              'email', u.email,
-              'joined_at', wtm.joined_at
-            )
-          )
-          FROM workspace_team_members wtm
-          JOIN users u ON u.id = wtm.user_id
-          WHERE wtm.team_id = wt.id AND wtm.is_active = true
-          ORDER BY wtm.role DESC, u.display_name
-        ) as members,
-        (
-          SELECT count(*)
-          FROM workspace_team_members wtm
-          WHERE wtm.team_id = wt.id AND wtm.is_active = true
-        ) as member_count
-      FROM workspace_teams wt
-      WHERE wt.workspace_id = $1 AND wt.is_active = true
-      ORDER BY wt.display_name
-    `, [workspaceId]);
-
-    res.json({ teams: result.rows });
-  } catch (error) {
-    console.error('Error fetching teams:', error);
-    res.status(500).json({ error: 'Failed to fetch teams' });
-  }
-});
-
-// POST /api/workspaces/:workspaceId/teams
-// Create a new team
-router.post('/../../teams', async (req, res) => {
-  try {
-    const { workspaceId } = req.params;
-    const userId = req.user.id; // Fixed: use req.user.id
-    const { 
-      name, 
-      display_name, 
-      description, 
-      color = 'blue',
-      members = []
-    } = req.body;
-
-    // Validation
-    if (!name || !display_name) {
-      return res.status(400).json({ error: 'Team name and display name are required' });
-    }
-
-    // Validate name format (lowercase with hyphens)
-    if (!/^[a-z0-9-]+$/.test(name)) {
-      return res.status(400).json({ error: 'Team name must be lowercase with hyphens only' });
-    }
-
-    // Validate color
-    const validColors = ['blue', 'green', 'purple', 'orange', 'pink', 'teal', 'indigo', 'red', 'yellow', 'cyan', 'rose', 'violet'];
-    if (!validColors.includes(color)) {
-      return res.status(400).json({ error: 'Invalid team color' });
-    }
-
-    // Check if team name already exists in workspace
-    const existingTeam = await pool.query(
-      'SELECT id FROM workspace_teams WHERE workspace_id = $1 AND name = $2',
-      [workspaceId, name]
-    );
-
-    if (existingTeam.rows.length > 0) {
-      return res.status(409).json({ error: 'Team name already exists in this workspace' });
-    }
-
-    // Create team
-    const teamResult = await pool.query(`
-      INSERT INTO workspace_teams (workspace_id, name, display_name, description, color, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `, [workspaceId, name, display_name, description, color, userId]);
-
-    const team = teamResult.rows[0];
-
-    // Add members if provided
-    if (members.length > 0) {
-      const memberValues = members.map((member, index) => 
-        `($1, $${index * 3 + 2}, $${index * 3 + 3}, $${index * 3 + 4})`
-      ).join(', ');
-
-      const memberParams = [team.id];
-      members.forEach(member => {
-        memberParams.push(member.user_id, member.role || 'member', userId);
-      });
-
-      await pool.query(`
-        INSERT INTO workspace_team_members (team_id, user_id, role, joined_by)
-        VALUES ${memberValues}
-      `, memberParams);
-    }
-
-    res.status(201).json({
-      message: 'Team created successfully',
-      team: team
-    });
-  } catch (error) {
-    console.error('Error creating team:', error);
-    res.status(500).json({ error: 'Failed to create team' });
-  }
-});
-
-// POST /api/workspaces/:workspaceId/teams/:teamId/members
-// Add member to team
-router.post('/../../teams/:teamId/members', async (req, res) => {
-  try {
-    const { teamId } = req.params;
-    const userId = req.user.id; // Fixed: use req.user.id
-    const { user_id, role = 'member' } = req.body;
-
-    if (!user_id) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    // Check if user exists
-    const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user_id]);
-    if (userCheck.rows.length === 0) {
-      return res.status(400).json({ error: 'User does not exist' });
-    }
-
-    // Check if team exists
-    const teamCheck = await pool.query('SELECT id FROM workspace_teams WHERE id = $1', [teamId]);
-    if (teamCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Team not found' });
-    }
-
-    // Add member
-    await pool.query(`
-      INSERT INTO workspace_team_members (team_id, user_id, role, joined_by)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (team_id, user_id) 
-      DO UPDATE SET role = $3, is_active = true, joined_at = CURRENT_TIMESTAMP
-    `, [teamId, user_id, role, userId]);
-
-    res.json({ message: 'Team member added successfully' });
-  } catch (error) {
-    console.error('Error adding team member:', error);
-    res.status(500).json({ error: 'Failed to add team member' });
-  }
-});
-
-// DELETE /api/workspaces/:workspaceId/teams/:teamId/members/:memberId
-// Remove member from team
-router.delete('/../../teams/:teamId/members/:memberId', async (req, res) => {
-  try {
-    const { teamId, memberId } = req.params;
-
-    await pool.query(`
-      UPDATE workspace_team_members 
-      SET is_active = false 
-      WHERE team_id = $1 AND user_id = $2
-    `, [teamId, memberId]);
-
-    res.json({ message: 'Team member removed successfully' });
-  } catch (error) {
-    console.error('Error removing team member:', error);
-    res.status(500).json({ error: 'Failed to remove team member' });
-  }
-});
 
 module.exports = router;

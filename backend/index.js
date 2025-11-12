@@ -18,6 +18,9 @@ const uploadRoutes = require('./routes/upload');
 const emailNotificationRoutes = require('./routes/emailNotifications');
 const nuclearCacheBusterRoutes = require('./routes/nuclear-cache-buster');
 const versionTrackingRoutes = require('./routes/version-tracking');
+const tagColorsRoutes = require('./routes/tagColors');
+const googleAuthRoutes = require('./routes/googleAuth');
+const googleSyncRoutes = require('./routes/googleSync');
 
 // Import Socket.IO server
 const SocketServer = require('./socket/socketServer');
@@ -205,6 +208,9 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/email-notifications', emailNotificationRoutes);
 app.use('/api/nuke-cache', nuclearCacheBusterRoutes);
 app.use('/api/version-tracking', versionTrackingRoutes);
+app.use('/api', tagColorsRoutes); // Tag color management routes
+app.use('/api/auth/google', googleAuthRoutes); // Google OAuth routes
+app.use('/api/sync/google', googleSyncRoutes); // Google sync routes
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {

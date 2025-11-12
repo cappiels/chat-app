@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar, MapPin } from 'lucide-react';
 import { Dialog, DialogContent } from '../ui/Dialog';
+import TagsInput from '../ui/TagsInput';
 import { auth } from '../../firebase';
 
 const QuickTaskDialog = ({ 
@@ -12,6 +13,8 @@ const QuickTaskDialog = ({
   onTaskCreated 
 }) => {
   const [title, setTitle] = useState('');
+  const [location, setLocation] = useState('');
+  const [tags, setTags] = useState([]);
   const [startDate, setStartDate] = useState('');
   const [endDueDate, setEndDueDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -63,6 +66,8 @@ const QuickTaskDialog = ({
       // Smart logic based on user input
       let taskData = {
         title: title.trim(),
+        location: location.trim() || null,
+        tags: tags.length > 0 ? tags : [],
         priority,
         status: 'pending',
         assigned_to: currentUser?.id || currentUser?.uid
@@ -125,6 +130,8 @@ const QuickTaskDialog = ({
       
       // Reset form
       setTitle('');
+      setLocation('');
+      setTags([]);
       setStartDate('');
       setEndDueDate('');
       setStartTime('');
@@ -150,6 +157,8 @@ const QuickTaskDialog = ({
     console.log('QuickTaskDialog closing');
     // Reset form when closing
     setTitle('');
+    setLocation('');
+    setTags([]);
     setStartDate('');
     setEndDueDate('');
     setStartTime('');
@@ -191,6 +200,40 @@ const QuickTaskDialog = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               autoFocus
               required
+            />
+          </div>
+
+          {/* Location Field */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <MapPin className="w-4 h-4 text-gray-500" />
+              Location
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Conference Room A, Home Office, Remote..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+          </div>
+
+          {/* Tags Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tags
+            </label>
+            <TagsInput
+              value={tags}
+              onChange={setTags}
+              placeholder="Add tags..."
+              suggestions={[
+                'meeting', 'urgent', 'development', 'design', 'marketing', 
+                'review', 'testing', 'deployment', 'bug', 'feature'
+              ]}
+              allowNew={true}
+              maxTags={8}
+              className="w-full"
             />
           </div>
 
