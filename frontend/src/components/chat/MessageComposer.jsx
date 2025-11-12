@@ -207,6 +207,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
   }, [startTyping, stopTyping]);
 
   const handleInputFocus = useCallback(() => {
+    // Cancel any pending blur timeout to prevent conflicts
+    buttonClickedRef.current = false;
+    
     if (!isExpanded) {
       // When expanding from collapsed state, expand AND focus immediately
       setIsExpanded(true);
@@ -237,16 +240,28 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       return;
     }
     
-    // Simplified blur handling for better iOS performance
-    // Use shorter timeout to prevent delay stacking
-    setTimeout(() => {
+    // Immediate collapse for better responsiveness - only delay for iOS Safari edge cases
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const delay = isIOS ? 10 : 0; // Minimal delay only for iOS
+    
+    if (delay > 0) {
+      setTimeout(() => {
+        if (!sendingMessage && !showTaskDialog && !buttonClickedRef.current) {
+          setIsExpanded(false);
+          setIsFocused(false);
+          stopTyping();
+        }
+        buttonClickedRef.current = false;
+      }, delay);
+    } else {
+      // Immediate collapse on non-iOS devices
       if (!sendingMessage && !showTaskDialog && !buttonClickedRef.current) {
         setIsExpanded(false);
         setIsFocused(false);
         stopTyping();
       }
       buttonClickedRef.current = false;
-    }, 50); // Reduced from 150ms to 50ms
+    }
   }, [showTaskDialog, sendingMessage, stopTyping]);
 
   const handleContainerClick = useCallback(() => {
