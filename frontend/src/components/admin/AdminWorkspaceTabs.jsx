@@ -166,43 +166,49 @@ const AdminWorkspaceTabs = ({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Simple Admin Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6">
+      {/* Mobile-Friendly Admin Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 sm:p-6">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center">
-              <Crown className="h-6 w-6 mr-2" />
-              <h1 className="text-2xl font-bold">Site Administration</h1>
+              <Crown className="h-5 w-5 sm:h-6 sm:w-6 mr-2 flex-shrink-0" />
+              <h1 className="text-lg sm:text-2xl font-bold">Site Administration</h1>
             </div>
-            <div className="text-sm opacity-90">
+            <div className="text-xs sm:text-sm opacity-90 truncate">
               Welcome, {user.displayName}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200">
+      {/* Mobile-Responsive Tab Navigation */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto">
-          <nav className="flex space-x-8">
+          <nav className="flex overflow-x-auto scrollbar-hide">
             {[
-              { id: 'my-workspaces', label: 'My Workspaces', icon: MessageCircle },
-              { id: 'all-workspaces', label: 'All Workspaces', icon: Settings },
-              { id: 'users', label: 'Users', icon: Users }
+              { id: 'my-workspaces', label: 'My Workspaces', shortLabel: 'My', icon: MessageCircle },
+              { id: 'all-workspaces', label: 'All Workspaces', shortLabel: 'All', icon: Settings },
+              { id: 'users', label: 'Users', shortLabel: 'Users', icon: Users }
             ].map((tab) => {
               const Icon = tab.icon;
+              const tabLabel = getTabLabel(tab);
+              const displayLabel = window.innerWidth < 640 ? 
+                (tab.shortLabel + (tabLabel.includes('(') ? ` ${tabLabel.match(/\(([^)]+)\)/)?.[1] || ''}` : '')) : 
+                tabLabel;
+              
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-4 py-4 border-b-2 font-medium text-sm ${
+                  className={`flex items-center px-3 sm:px-4 py-3 sm:py-4 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-purple-500 text-purple-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <Icon className="h-5 w-5 mr-2" />
-                  {getTabLabel(tab)}
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2 flex-shrink-0" />
+                  <span className="hidden sm:inline">{tabLabel}</span>
+                  <span className="sm:hidden">{displayLabel}</span>
                 </button>
               );
             })}
@@ -211,16 +217,16 @@ const AdminWorkspaceTabs = ({
       </div>
 
       {/* Tab Content */}
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6">
         {activeTab === 'my-workspaces' && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">Your Personal Workspaces</h2>
-              <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <h2 className="text-lg sm:text-xl font-semibold">Your Personal Workspaces</h2>
+              <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs sm:text-sm font-medium self-start">
                 {personalWorkspaces.length} workspaces
               </div>
             </div>
@@ -264,15 +270,15 @@ const AdminWorkspaceTabs = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">System Workspaces</h2>
-              <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <h2 className="text-lg sm:text-xl font-semibold">System Workspaces</h2>
+              <div className="flex flex-wrap gap-2 sm:gap-4">
                 {adminStats && (
                   <>
-                    <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                       {allWorkspaces.length} total
                     </div>
-                    <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="bg-green-100 text-green-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                       {adminStats.subscription_breakdown.filter(p => p.plan !== 'free').reduce((sum, p) => sum + parseInt(p.count), 0)} paying
                     </div>
                   </>
@@ -310,7 +316,8 @@ const AdminWorkspaceTabs = ({
 
             {/* All Workspaces Table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -371,7 +378,8 @@ const AdminWorkspaceTabs = ({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           </motion.div>
         )}
@@ -382,18 +390,18 @@ const AdminWorkspaceTabs = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">System Users</h2>
-              <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <h2 className="text-lg sm:text-xl font-semibold">System Users</h2>
+              <div className="flex flex-wrap gap-2 sm:gap-4">
                 {adminStats && (
                   <>
-                    <div className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="bg-gray-100 text-gray-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                       {adminStats.total_users} total
                     </div>
-                    <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="bg-green-100 text-green-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                       {adminStats.active_users_7d} active (7d)
                     </div>
-                    <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="bg-purple-100 text-purple-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                       {adminStats.subscription_breakdown.filter(p => p.plan !== 'free').reduce((sum, p) => sum + parseInt(p.count), 0)} paying
                     </div>
                   </>
@@ -431,7 +439,8 @@ const AdminWorkspaceTabs = ({
 
             {/* All Users Table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -495,7 +504,8 @@ const AdminWorkspaceTabs = ({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           </motion.div>
         )}

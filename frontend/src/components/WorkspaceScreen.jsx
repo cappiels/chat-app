@@ -36,10 +36,18 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [selectedWorkspaceForSettings, setSelectedWorkspaceForSettings] = useState(null);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showNewUserOnboarding, setShowNewUserOnboarding] = useState(false);
 
   useEffect(() => {
     loadWorkspaces();
   }, []);
+
+  // Check if this is a new user who needs onboarding
+  useEffect(() => {
+    if (!loading && workspaces.length === 0 && !canCreateWorkspace() && !isSiteAdmin()) {
+      setShowNewUserOnboarding(true);
+    }
+  }, [loading, workspaces, canCreateWorkspace, isSiteAdmin]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -546,6 +554,82 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
           showRedeemPass={true}
           onClose={() => setShowSubscriptionGate(false)}
         />
+      )}
+
+      {/* New User Onboarding Modal */}
+      {showNewUserOnboarding && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center">
+                <Crown className="h-6 w-6 text-blue-500 mr-2" />
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Welcome to crew!
+                </h2>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <Users className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  You're on the Free Plan
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Perfect for joining existing workspaces and collaborating with teams that invite you.
+                </p>
+              </div>
+
+              {/* Options */}
+              <div className="space-y-4">
+                {/* Free Plan Benefits */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-medium text-green-900 mb-2">What you can do now:</h4>
+                  <ul className="text-sm text-green-700 space-y-1">
+                    <li>• Join workspaces when invited by others</li>
+                    <li>• Participate in team channels and conversations</li>
+                    <li>• View tasks, calendar, and knowledge bases</li>
+                    <li>• Upload files up to 5MB</li>
+                  </ul>
+                </div>
+
+                {/* Upgrade Option */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-900 mb-2">Want to create your own workspaces?</h4>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Upgrade to a paid plan to create unlimited workspaces and invite team members.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowNewUserOnboarding(false);
+                      setShowSubscriptionGate(true);
+                    }}
+                    className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    View Upgrade Options
+                  </button>
+                </div>
+              </div>
+
+              {/* Continue Button */}
+              <div className="mt-6 pt-4 border-t">
+                <button
+                  onClick={() => setShowNewUserOnboarding(false)}
+                  className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+                >
+                  Continue with Free Plan
+                </button>
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  You'll be notified when someone invites you to a workspace
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

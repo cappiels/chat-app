@@ -25,15 +25,20 @@ export const SubscriptionProvider = ({ children }) => {
     console.log('🔍 SubscriptionContext: fetchSubscriptionStatus called', { user: user?.email, hasToken: !!user?.token });
     
     if (!user?.token) {
-      console.log('🔍 No user token, setting to null and not loading');
-      setSubscriptionData(null);
+      console.log('🔍 No user token, setting default free plan');
+      setSubscriptionData({
+        hasSubscription: false,
+        plan: 'free',
+        status: 'none'
+      });
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      console.log('🔍 Making subscription API call...');
+      console.log('🔍 Making subscription API call for user:', user.email);
+      
       const response = await fetch('/api/subscriptions/status', {
         headers: {
           'Authorization': `Bearer ${user.token}`,
@@ -42,7 +47,8 @@ export const SubscriptionProvider = ({ children }) => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch subscription status');
+        console.log('🔍 Subscription API response not OK:', response.status, response.statusText);
+        throw new Error(`Failed to fetch subscription status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -52,7 +58,8 @@ export const SubscriptionProvider = ({ children }) => {
     } catch (err) {
       console.error('Error fetching subscription:', err);
       setError(err.message);
-      // Default to free plan on error
+      // Default to free plan on error - this allows new users to continue
+      console.log('🔍 Setting default free plan due to error');
       setSubscriptionData({
         hasSubscription: false,
         plan: 'free',
