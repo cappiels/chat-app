@@ -10,20 +10,26 @@ import {
   MoreVertical,
   Archive,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Crown
 } from 'lucide-react';
 import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import { logAbsoluteTiming, logTiming } from '../utils/timing.js';
 import WorkspaceSettingsDialog from './WorkspaceSettingsDialog';
 import { getVersionString } from '../utils/version';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import SubscriptionGate from './subscription/SubscriptionGate';
+import AdminWorkspaceTabs from './admin/AdminWorkspaceTabs';
 
 // Beautiful workspace selection screen
 const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
+  const { canCreateWorkspace, isSiteAdmin, getCurrentPlan } = useSubscription();
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showSubscriptionGate, setShowSubscriptionGate] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState('');
@@ -243,6 +249,19 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
     );
   }
 
+  // Site admin gets special admin interface
+  if (isSiteAdmin()) {
+    return (
+      <AdminWorkspaceTabs
+        user={user}
+        personalWorkspaces={workspaces}
+        onSelectWorkspace={onSelectWorkspace}
+        onShowCreateForm={() => setShowCreateForm(true)}
+      />
+    );
+  }
+
+  // Regular users get standard workspace selection
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -434,7 +453,13 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
             transition={{ duration: 0.6, delay: 0.6 }}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => setShowCreateForm(true)}
+            onClick={() => {
+              if (canCreateWorkspace()) {
+                setShowCreateForm(true);
+              } else {
+                setShowSubscriptionGate(true);
+              }
+            }}
           >
             <div className="text-center py-8">
               {showCreateForm ? (
@@ -511,6 +536,17 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
         onWorkspaceDeleted={handleWorkspaceDeleted}
         onMemberRemoved={handleMemberRemoved}
       />
+
+      {/* Subscription Gate */}
+      {showSubscriptionGate && (
+        <SubscriptionGate
+          action="Create workspace"
+          title="Upgrade to Create Workspaces"
+          description="Creating workspaces requires a paid subscription. You can still join and participate in channels you've been invited to."
+          showRedeemPass={true}
+          onClose={() => setShowSubscriptionGate(false)}
+        />
+      )}
     </div>
   );
 };

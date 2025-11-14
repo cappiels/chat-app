@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { auth, googleProvider } from './firebase';
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import toast, { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import AppShell from './components/layout/AppShell';
 import ChatInterface from './components/ChatInterface';
 import InviteAcceptance from './components/InviteAcceptance';
@@ -26,70 +26,10 @@ const ModernLoading = () => (
   </div>
 );
 
-// Main App component with modern layout
-function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+// App Router component using contexts
+const AppRouter = () => {
+  const { user, loading, signInWithGoogle, handleSignOut } = useAuth();
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
-  
-  useEffect(() => {
-    let isMounted = true;
-    let unsubscribe = null;
-    let authResolved = false;
-    
-    const resolveAuth = (user) => {
-      if (authResolved || !isMounted) return;
-      authResolved = true;
-      setUser(user);
-      setLoading(false);
-      console.log('🔐 Auth resolved:', user ? 'signed in' : 'signed out');
-    };
-
-    unsubscribe = onAuthStateChanged(auth, resolveAuth, (error) => {
-      console.error('❌ Auth error:', error);
-      resolveAuth(null);
-    });
-
-    // Fast timeout for immediate UI response
-    const timeoutId = setTimeout(() => {
-      if (!authResolved && isMounted) {
-        console.log('⚡ Auth timeout: proceeding with current state');
-        resolveAuth(auth.currentUser);
-      }
-    }, 1000);
-
-    return () => {
-      isMounted = false;
-      authResolved = true;
-      clearTimeout(timeoutId);
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, []);
-
-  const signInWithGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      setUser(result.user);
-      toast.success(`Welcome, ${result.user.displayName}! 🎉`);
-    } catch (error) {
-      console.error("Error signing in with Google", error);
-      toast.error("Failed to sign in. Please try again.");
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      setUser(null);
-      setSelectedWorkspace(null);
-      toast.success("Signed out successfully");
-    } catch (error) {
-      console.error("Error signing out", error);
-      toast.error("Failed to sign out");
-    }
-  };
 
   const handleWorkspaceSwitch = (workspace) => {
     setSelectedWorkspace(workspace);
@@ -188,6 +128,17 @@ function App() {
         }}
       />
     </Router>
+  );
+};
+
+// Main App component with context providers
+function App() {
+  return (
+    <AuthProvider>
+      <SubscriptionProvider>
+        <AppRouter />
+      </SubscriptionProvider>
+    </AuthProvider>
   );
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "crew-backend",
-  "version": "1.8.32",
+  "version": "1.8.33",
   "description": "Backend API for bleeding-edge chat application with real-time messaging and advanced knowledge base",
   "main": "index.js",
   "scripts": {
@@ -42,7 +42,8 @@
     "pg": "^8.16.3",
     "qs": "^6.13.0",
     "side-channel": "^1.1.0",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "stripe": "^14.25.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

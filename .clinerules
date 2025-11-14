@@ -1,5 +1,10 @@
 # Cline Rules for Crew Revolutionary Features
 
+## Development Environment
+- **Local Development**: Mac environment
+- **Local Testing**: `./deploy-dev.sh` for development deployment and testing
+- **Production Deploy**: `./deploy-prod.sh` pushes to git main → DigitalOcean App Platform auto-pulls and rebuilds
+
 ## Project Context
 Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams system, and full Calendar/Timeline integration + **CRITICAL PRIORITY: Google Calendar & Tasks Sync Implementation**.
 
@@ -26,6 +31,16 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - **Next Steps**: Concrete priorities for the next session with file locations
 - **Testing Status**: What needs to be validated in development first, then production
 - **Deployment Info**: Current dev status and readiness for user production deploy
+
+### **📝 DOCUMENTATION STANDARDS:**
+**Create lean, execution-focused markdown files:**
+- ✅ **Include ALL technical details** needed for developer execution
+- ✅ **Complete code examples, schemas, dependencies, commands**
+- ✅ **Precise timelines, effort estimates, success metrics**
+- ❌ **NO excessive explanations or marketing language**
+- ❌ **NO repetitive clarifications for humans**
+- ❌ **NO verbose reasoning - just actionable facts**
+- **Goal**: Developer can execute from documentation alone without additional context
 
 ## 🚀 DEVELOPMENT & DEPLOYMENT WORKFLOW
 1. **Development**: Use `./deploy-dev.sh patch "description"` for local testing

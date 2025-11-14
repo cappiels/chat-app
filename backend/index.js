@@ -21,6 +21,8 @@ const versionTrackingRoutes = require('./routes/version-tracking');
 const tagColorsRoutes = require('./routes/tagColors');
 const googleAuthRoutes = require('./routes/googleAuth');
 const googleSyncRoutes = require('./routes/googleSync');
+const subscriptionRoutes = require('./routes/subscriptions');
+const adminRoutes = require('./routes/admin');
 
 // Import Socket.IO server
 const SocketServer = require('./socket/socketServer');
@@ -239,6 +241,8 @@ app.use('/api/version-tracking', versionTrackingRoutes);
 app.use('/api', tagColorsRoutes); // Tag color management routes
 app.use('/api/auth/google', googleAuthRoutes); // Google OAuth routes
 app.use('/api/sync/google', googleSyncRoutes); // Google sync routes
+app.use('/api/subscriptions', subscriptionRoutes); // Stripe subscription routes
+app.use('/api/admin', adminRoutes); // Site admin routes
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {
