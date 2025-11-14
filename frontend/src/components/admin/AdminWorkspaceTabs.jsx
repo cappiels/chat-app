@@ -165,9 +165,9 @@ const AdminWorkspaceTabs = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* Mobile-Friendly Admin Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 sm:p-6">
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 sm:p-6 flex-shrink-0">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center">
@@ -182,7 +182,7 @@ const AdminWorkspaceTabs = ({
       </div>
 
       {/* Mobile-Responsive Tab Navigation */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 flex-shrink-0">
         <div className="max-w-6xl mx-auto">
           <nav className="flex overflow-x-auto scrollbar-hide">
             {[
@@ -192,15 +192,12 @@ const AdminWorkspaceTabs = ({
             ].map((tab) => {
               const Icon = tab.icon;
               const tabLabel = getTabLabel(tab);
-              const displayLabel = window.innerWidth < 640 ? 
-                (tab.shortLabel + (tabLabel.includes('(') ? ` ${tabLabel.match(/\(([^)]+)\)/)?.[1] || ''}` : '')) : 
-                tabLabel;
               
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-3 sm:px-4 py-3 sm:py-4 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+                  className={`flex items-center px-3 sm:px-4 py-3 sm:py-4 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
                     activeTab === tab.id
                       ? 'border-purple-500 text-purple-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -208,7 +205,7 @@ const AdminWorkspaceTabs = ({
                 >
                   <Icon className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2 flex-shrink-0" />
                   <span className="hidden sm:inline">{tabLabel}</span>
-                  <span className="sm:hidden">{displayLabel}</span>
+                  <span className="sm:hidden">{tab.shortLabel}</span>
                 </button>
               );
             })}
@@ -216,8 +213,9 @@ const AdminWorkspaceTabs = ({
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="max-w-6xl mx-auto p-4 sm:p-6">
+      {/* Tab Content - Scrollable Area */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-6xl mx-auto p-4 sm:p-6">
         {activeTab === 'my-workspaces' && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -509,6 +507,7 @@ const AdminWorkspaceTabs = ({
             </div>
           </motion.div>
         )}
+        </div>
       </div>
     </div>
   );
