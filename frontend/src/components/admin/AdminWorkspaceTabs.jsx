@@ -149,18 +149,27 @@ const AdminWorkspaceTabs = ({
     return matchesSearch && matchesPlan;
   });
 
-  const tabs = [
-    { id: 'my-workspaces', label: 'My Workspaces', icon: MessageCircle },
-    { id: 'all-workspaces', label: 'All Workspaces', icon: Settings },
-    { id: 'users', label: 'Users', icon: Users }
-  ];
+  const getTabLabel = (tab) => {
+    let count = 0;
+    let label = tab.label;
+
+    if (tab.id === 'my-workspaces') {
+      count = personalWorkspaces.length;
+    } else if (tab.id === 'all-workspaces') {
+      count = allWorkspaces.length;
+    } else if (tab.id === 'users') {
+      count = allUsers.length;
+    }
+
+    return count > 0 ? `${label} (${count})` : label;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Admin Header with Stats */}
+      {/* Simple Admin Header */}
       <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Crown className="h-6 w-6 mr-2" />
               <h1 className="text-2xl font-bold">Site Administration</h1>
@@ -169,49 +178,6 @@ const AdminWorkspaceTabs = ({
               Welcome, {user.displayName}
             </div>
           </div>
-          
-          {adminStats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-              <div className="bg-white/10 rounded-lg p-4 backdrop-blur">
-                <div className="flex items-center">
-                  <Users className="h-8 w-8 mr-3" />
-                  <div>
-                    <div className="text-2xl font-bold">{adminStats.total_users}</div>
-                    <div className="text-sm opacity-90">Total Users</div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white/10 rounded-lg p-4 backdrop-blur">
-                <div className="flex items-center">
-                  <MessageCircle className="h-8 w-8 mr-3" />
-                  <div>
-                    <div className="text-2xl font-bold">{adminStats.total_workspaces}</div>
-                    <div className="text-sm opacity-90">Total Workspaces</div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white/10 rounded-lg p-4 backdrop-blur">
-                <div className="flex items-center">
-                  <BarChart3 className="h-8 w-8 mr-3" />
-                  <div>
-                    <div className="text-2xl font-bold">{adminStats.active_users_7d}</div>
-                    <div className="text-sm opacity-90">Active (7d)</div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white/10 rounded-lg p-4 backdrop-blur">
-                <div className="flex items-center">
-                  <Crown className="h-8 w-8 mr-3" />
-                  <div>
-                    <div className="text-2xl font-bold">
-                      {adminStats.subscription_breakdown.filter(p => p.plan !== 'free').reduce((sum, p) => sum + parseInt(p.count), 0)}
-                    </div>
-                    <div className="text-sm opacity-90">Paying Users</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -219,7 +185,11 @@ const AdminWorkspaceTabs = ({
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto">
           <nav className="flex space-x-8">
-            {tabs.map((tab) => {
+            {[
+              { id: 'my-workspaces', label: 'My Workspaces', icon: MessageCircle },
+              { id: 'all-workspaces', label: 'All Workspaces', icon: Settings },
+              { id: 'users', label: 'Users', icon: Users }
+            ].map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
@@ -232,7 +202,7 @@ const AdminWorkspaceTabs = ({
                   }`}
                 >
                   <Icon className="h-5 w-5 mr-2" />
-                  {tab.label}
+                  {getTabLabel(tab)}
                 </button>
               );
             })}
@@ -248,7 +218,12 @@ const AdminWorkspaceTabs = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <h2 className="text-xl font-semibold mb-4">Your Personal Workspaces</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">Your Personal Workspaces</h2>
+              <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                {personalWorkspaces.length} workspaces
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {personalWorkspaces.map((workspace) => (
                 <div
@@ -289,6 +264,22 @@ const AdminWorkspaceTabs = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">System Workspaces</h2>
+              <div className="flex gap-4">
+                {adminStats && (
+                  <>
+                    <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                      {allWorkspaces.length} total
+                    </div>
+                    <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                      {adminStats.subscription_breakdown.filter(p => p.plan !== 'free').reduce((sum, p) => sum + parseInt(p.count), 0)} paying
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            
             {/* Search and Filter */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1">
@@ -391,6 +382,25 @@ const AdminWorkspaceTabs = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">System Users</h2>
+              <div className="flex gap-4">
+                {adminStats && (
+                  <>
+                    <div className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">
+                      {adminStats.total_users} total
+                    </div>
+                    <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                      {adminStats.active_users_7d} active (7d)
+                    </div>
+                    <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                      {adminStats.subscription_breakdown.filter(p => p.plan !== 'free').reduce((sum, p) => sum + parseInt(p.count), 0)} paying
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            
             {/* Search and Filter */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1">
