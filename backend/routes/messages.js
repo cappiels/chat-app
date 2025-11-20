@@ -522,10 +522,11 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
       socketServer.io.to(`thread:${threadId}`).emit('new_message', {
         message: socketMessage,
         threadId,
+        workspaceId,
         timestamp: new Date()
       });
 
-      console.log(`🚀 Socket event emitted for new message in thread ${threadId}`);
+      console.log(`🚀 Socket event emitted for new message in thread ${threadId}, workspace ${workspaceId}`);
 
       // Handle notification updates for users not currently viewing this thread
       try {
