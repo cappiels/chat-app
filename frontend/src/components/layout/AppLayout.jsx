@@ -383,11 +383,33 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     if (!currentChannel || !content.trim()) return;
     
     try {
-      // Send message via API
-      await messageAPI.sendMessage(workspace.id, currentChannel.id, {
-        content: content.trim(),
+      // Get pending attachments from MessageComposer
+      const attachments = window.pendingAttachments || [];
+      
+      // Remove attachment prefix from message content before sending
+      const cleanContent = content.replace(/^📎 \d+ files? attached\n\n/, '').trim();
+      
+      // Build message payload
+      const messagePayload = {
+        content: cleanContent,
         message_type: 'text'
-      });
+      };
+      
+      // Add attachments if any exist
+      if (attachments.length > 0) {
+        messagePayload.attachments = attachments.map(file => ({
+          file_name: file.name,
+          file_url: file.url,
+          mime_type: file.type,
+          file_size_bytes: file.size
+        }));
+      }
+      
+      // Send message via API
+      await messageAPI.sendMessage(workspace.id, currentChannel.id, messagePayload);
+      
+      // Clear pending attachments after successful send
+      window.pendingAttachments = [];
       
       // Reload messages to get the real message with proper ID and timestamp
       await loadChannelMessages(currentChannel);

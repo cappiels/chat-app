@@ -308,20 +308,22 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         }
         
         const result = await response.json();
-        console.log('✅ Upload successful to Google Drive:', result.files);
+        console.log('✅ Upload successful:', result.files);
         
-        // Add uploaded files to message as links
-        const attachmentText = result.files.map(file => 
-          `📎 [${file.name}](${file.url}) - ${(file.size / 1024 / 1024).toFixed(2)}MB`
-        ).join('\n');
+        // Store attachment metadata for sending with message (don't add to message text)
+        if (!window.pendingAttachments) {
+          window.pendingAttachments = [];
+        }
+        window.pendingAttachments.push(...result.files);
         
+        // Show visual feedback that files are attached
+        const attachmentCount = window.pendingAttachments.length;
         setMessage(prev => {
-          const newMessage = prev ? `${prev}\n\n${attachmentText}` : attachmentText;
-          return newMessage;
+          const prefix = `📎 ${attachmentCount} file${attachmentCount > 1 ? 's' : ''} attached\n\n`;
+          // Remove old attachment prefix if exists
+          const cleaned = prev.replace(/^📎 \d+ files? attached\n\n/, '');
+          return prefix + cleaned;
         });
-        
-        // Store attachment metadata for sending with message
-        window.pendingAttachments = result.files;
         
       } catch (error) {
         console.error('File upload error:', error);
