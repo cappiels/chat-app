@@ -1,18 +1,8 @@
 const express = require('express');
 const multer = require('multer');
-const AWS = require('aws-sdk');
-const path = require('path');
 const crypto = require('crypto');
 const router = express.Router();
-
-// Configure DigitalOcean Spaces (S3-compatible)
-const spacesEndpoint = new AWS.Endpoint(process.env.SPACES_ENDPOINT || 'nyc3.digitaloceanspaces.com');
-const s3 = new AWS.S3({
-  endpoint: spacesEndpoint,
-  accessKeyId: process.env.SPACES_KEY,
-  secretAccessKey: process.env.SPACES_SECRET,
-  region: process.env.SPACES_REGION || 'nyc3'
-});
+const googleDriveHelper = require('../utils/googleDriveHelper');
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -41,82 +31,86 @@ const upload = multer({
   }
 });
 
-// Generate unique filename
-const generateFileName = (originalName) => {
-  const timestamp = Date.now();
-  const random = crypto.randomBytes(8).toString('hex');
-  const ext = path.extname(originalName);
-  const name = path.basename(originalName, ext).replace(/[^a-zA-Z0-9]/g, '-');
-  return `${timestamp}-${random}-${name}${ext}`;
-};
-
-// Upload single file
+// Upload single file to Google Drive
 router.post('/file', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' });
     }
 
-    const fileName = generateFileName(req.file.originalname);
-    const fileKey = `chat-uploads/${fileName}`;
+    // Get workspace and channel names from request body or headers
+    const workspaceName = req.body.workspaceName || req.headers['x-workspace-name'] || 'Default Workspace';
+    const channelName = req.body.channelName || req.headers['x-channel-name'] || 'Default Channel';
+    const uploaderEmail = req.body.uploaderEmail || req.headers['x-uploader-email'] || req.user?.email;
 
-    // Upload to DigitalOcean Spaces
-    const uploadParams = {
-      Bucket: process.env.SPACES_BUCKET,
-      Key: fileKey,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
-      ACL: 'public-read', // Make files publicly accessible
-      CacheControl: 'max-age=31536000' // 1 year cache
-    };
+    console.log(`📤 Uploading file to Google Drive: ${req.file.originalname}`);
+    console.log(`   Workspace: ${workspaceName}, Channel: ${channelName}`);
 
-    const result = await s3.upload(uploadParams).promise();
+    // Upload to Google Drive
+    const driveFile = await googleDriveHelper.uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      workspaceName,
+      channelName,
+      uploaderEmail
+    );
 
     // Return file information
     res.json({
       id: crypto.randomUUID(),
-      name: req.file.originalname,
-      size: req.file.size,
-      type: req.file.mimetype,
-      url: result.Location,
-      key: fileKey
+      name: driveFile.fileName,
+      size: driveFile.size,
+      type: driveFile.mimeType,
+      url: driveFile.directUrl || driveFile.webViewLink, // Use directUrl for inline display
+      webViewLink: driveFile.webViewLink, // Keep original for opening in browser
+      downloadUrl: driveFile.webContentLink,
+      fileId: driveFile.fileId,
+      source: 'google_drive'
     });
 
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    res.status(500).json({ 
+      error: 'Upload failed',
+      details: error.message 
+    });
   }
 });
 
-// Upload multiple files
+// Upload multiple files to Google Drive
 router.post('/files', upload.array('files', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files provided' });
     }
 
+    // Get workspace and channel names from request body or headers
+    const workspaceName = req.body.workspaceName || req.headers['x-workspace-name'] || 'Default Workspace';
+    const channelName = req.body.channelName || req.headers['x-channel-name'] || 'Default Channel';
+    const uploaderEmail = req.body.uploaderEmail || req.headers['x-uploader-email'] || req.user?.email;
+
+    console.log(`📤 Uploading ${req.files.length} files to Google Drive`);
+    console.log(`   Workspace: ${workspaceName}, Channel: ${channelName}`);
+
     const uploadPromises = req.files.map(async (file) => {
-      const fileName = generateFileName(file.originalname);
-      const fileKey = `chat-uploads/${fileName}`;
-
-      const uploadParams = {
-        Bucket: process.env.SPACES_BUCKET,
-        Key: fileKey,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read',
-        CacheControl: 'max-age=31536000'
-      };
-
-      const result = await s3.upload(uploadParams).promise();
+      const driveFile = await googleDriveHelper.uploadFile(
+        file.buffer,
+        file.originalname,
+        workspaceName,
+        channelName,
+        uploaderEmail
+      );
 
       return {
         id: crypto.randomUUID(),
-        name: file.originalname,
-        size: file.size,
-        type: file.mimetype,
-        url: result.Location,
-        key: fileKey
+        name: driveFile.fileName,
+        size: driveFile.size,
+        type: driveFile.mimeType,
+        url: driveFile.directUrl || driveFile.webViewLink, // Use directUrl for inline display
+        webViewLink: driveFile.webViewLink, // Keep original for opening in browser
+        downloadUrl: driveFile.webContentLink,
+        fileId: driveFile.fileId,
+        source: 'google_drive'
       };
     });
 
@@ -125,26 +119,122 @@ router.post('/files', upload.array('files', 10), async (req, res) => {
 
   } catch (error) {
     console.error('Multi-upload error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    res.status(500).json({ 
+      error: 'Upload failed',
+      details: error.message 
+    });
   }
 });
 
-// Delete file
-router.delete('/file/:key', async (req, res) => {
+// Create Google Doc
+router.post('/create-doc', async (req, res) => {
   try {
-    const fileKey = decodeURIComponent(req.params.key);
+    const { title, workspaceName, channelName, uploaderEmail } = req.body;
 
-    const deleteParams = {
-      Bucket: process.env.SPACES_BUCKET,
-      Key: fileKey
-    };
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
 
-    await s3.deleteObject(deleteParams).promise();
+    console.log(`📝 Creating Google Doc: ${title}`);
+    console.log(`   Workspace: ${workspaceName}, Channel: ${channelName}`);
+
+    const doc = await googleDriveHelper.createGoogleDoc(
+      title,
+      workspaceName || 'Default Workspace',
+      channelName || 'Default Channel',
+      uploaderEmail
+    );
+
+    res.json({
+      id: crypto.randomUUID(),
+      name: doc.fileName,
+      type: doc.mimeType,
+      url: doc.webViewLink,
+      fileId: doc.fileId,
+      source: 'google_drive',
+      docType: 'google_doc'
+    });
+
+  } catch (error) {
+    console.error('Create Doc error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create Google Doc',
+      details: error.message 
+    });
+  }
+});
+
+// Create Google Sheet
+router.post('/create-sheet', async (req, res) => {
+  try {
+    const { title, workspaceName, channelName, uploaderEmail } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    console.log(`📊 Creating Google Sheet: ${title}`);
+    console.log(`   Workspace: ${workspaceName}, Channel: ${channelName}`);
+
+    const sheet = await googleDriveHelper.createGoogleSheet(
+      title,
+      workspaceName || 'Default Workspace',
+      channelName || 'Default Channel',
+      uploaderEmail
+    );
+
+    res.json({
+      id: crypto.randomUUID(),
+      name: sheet.fileName,
+      type: sheet.mimeType,
+      url: sheet.webViewLink,
+      fileId: sheet.fileId,
+      source: 'google_drive',
+      docType: 'google_sheet'
+    });
+
+  } catch (error) {
+    console.error('Create Sheet error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create Google Sheet',
+      details: error.message 
+    });
+  }
+});
+
+// Delete file from Google Drive
+router.delete('/file/:fileId', async (req, res) => {
+  try {
+    const fileId = req.params.fileId;
+
+    console.log(`🗑️  Deleting file from Google Drive: ${fileId}`);
+
+    await googleDriveHelper.deleteFile(fileId);
     res.json({ success: true });
 
   } catch (error) {
     console.error('Delete error:', error);
-    res.status(500).json({ error: 'Delete failed' });
+    res.status(500).json({ 
+      error: 'Delete failed',
+      details: error.message 
+    });
+  }
+});
+
+// Get file metadata
+router.get('/file/:fileId/metadata', async (req, res) => {
+  try {
+    const fileId = req.params.fileId;
+
+    const metadata = await googleDriveHelper.getFileMetadata(fileId);
+    res.json(metadata);
+
+  } catch (error) {
+    console.error('Get metadata error:', error);
+    res.status(500).json({ 
+      error: 'Failed to get metadata',
+      details: error.message 
+    });
   }
 });
 

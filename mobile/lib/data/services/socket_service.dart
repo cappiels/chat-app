@@ -124,15 +124,43 @@ class SocketService extends ChangeNotifier {
         await leaveThread();
       }
 
-      debugPrint('💬 Joining thread: $threadId in workspace: $workspaceId');
+      debugPrint('💬 REQUESTING to join thread: $threadId in workspace: $workspaceId');
+      
+      // Create a completer to wait for confirmation
+      final completer = Completer<bool>();
+      
+      // Set up one-time listener for confirmation
+      void confirmationHandler(dynamic data) {
+        debugPrint('✅ CONFIRMED: Joined thread successfully');
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      }
+      
+      // Listen for confirmation
+      _socket?.once('thread_joined', confirmationHandler);
+      
+      // Emit the join request
       _socket?.emit('join_thread', {
         'workspaceId': workspaceId,
         'threadId': threadId,
       });
       
+      // Update state immediately (optimistic)
       _currentWorkspaceId = workspaceId;
       _currentThreadId = threadId;
-      return true;
+      
+      // Wait for confirmation with timeout
+      final result = await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('⚠️ Thread join confirmation timeout - continuing anyway');
+          return true;
+        },
+      );
+      
+      debugPrint('🎯 Thread join complete, ready to receive messages');
+      return result;
     } catch (e) {
       debugPrint('❌ Error joining thread: $e');
       return false;
@@ -344,11 +372,18 @@ class SocketService extends ChangeNotifier {
     // Message events
     _socket!.on('new_message', (data) {
       try {
+        debugPrint('📨 Raw new_message event data: $data');
+        debugPrint('📨 Message data: ${data['message']}');
+        debugPrint('📨 Thread ID: ${data['threadId']}');
+        debugPrint('📨 Workspace ID: ${data['workspaceId']}');
+        
         final message = Message.fromJson(data['message']);
-        debugPrint('📨 New message received: ${message.id}');
+        debugPrint('✅ Message parsed successfully: ${message.id} for thread ${message.threadId}');
         _messageStreamController.add(message);
-      } catch (e) {
+      } catch (e, stackTrace) {
         debugPrint('❌ Error parsing new message: $e');
+        debugPrint('❌ Stack trace: $stackTrace');
+        debugPrint('❌ Raw data was: $data');
       }
     });
 
@@ -457,11 +492,22 @@ class SocketService extends ChangeNotifier {
 
     // Workspace/Thread events
     _socket!.on('workspace_joined', (data) {
-      debugPrint('📝 Joined workspace: ${data['workspaceName']}');
+      debugPrint('✅ CONFIRMED: Joined workspace: ${data['workspaceName']}');
+      debugPrint('   Workspace ID: ${data['workspaceId']}');
     });
 
     _socket!.on('thread_joined', (data) {
-      debugPrint('💬 Joined thread: ${data['threadName']}');
+      debugPrint('✅ CONFIRMED: Joined thread: ${data['threadName']}');
+      debugPrint('   Thread ID: ${data['threadId']}');
+      debugPrint('   Is Member: ${data['isMember']}');
+      debugPrint('   🔔 Now listening for new_message events on this thread');
+    });
+    
+    // Add a generic listener to catch ALL events for debugging
+    _socket!.onAny((event, data) {
+      if (event != 'user_typing') {  // Filter out typing spam
+        debugPrint('🎯 Socket event received: $event');
+      }
     });
   }
 

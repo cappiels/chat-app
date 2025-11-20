@@ -137,15 +137,26 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
     
     // Handle images
     if (attachment.type.startsWith('image/') && !imageError[attachment.id]) {
+      // Generate direct URL for Google Drive images if not already present
+      let imageUrl = attachment.url;
+      
+      // If URL is a Google Drive view link, convert to direct link
+      if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('/file/d/')) {
+        const fileIdMatch = imageUrl.match(/\/file\/d\/([^/]+)/);
+        if (fileIdMatch && fileIdMatch[1]) {
+          imageUrl = `https://drive.google.com/uc?export=view&id=${fileIdMatch[1]}`;
+        }
+      }
+      
       return (
         <div key={attachment.id} className="mt-2 max-w-sm">
           <img
-            src={attachment.url}
+            src={imageUrl}
             alt={attachment.name}
             className="rounded-lg shadow-sm max-w-full h-auto cursor-pointer hover:shadow-md transition-shadow"
             style={{ maxHeight: '300px', objectFit: 'cover' }}
             onError={() => handleImageError(attachment.id)}
-            onClick={() => openImageModal(attachment.url, attachment.name, attachment.name)}
+            onClick={() => openImageModal(imageUrl, attachment.name, attachment.name)}
           />
           <div className="flex items-center justify-between text-xs text-gray-500 mt-1 px-1">
             <span>{attachment.name}</span>
@@ -217,32 +228,34 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
 
   return (
     <div 
-      className="message"
+      className={`message ${isCurrentUser ? 'message-current-user' : ''}`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      {/* Avatar */}
-      <div className="flex-shrink-0">
-        {showAvatar && (
-          <div className="message-avatar">
-            {message.user.avatar ? (
-              <img
-                src={message.user.avatar}
-                alt={message.user.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-sm font-semibold text-slate-700">
-                {message.user.initials}
-              </span>
-            )}
-            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
-              message.user.status === 'online' ? 'bg-green-500' : 
-              message.user.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-            }`} />
-          </div>
-        )}
-      </div>
+      {/* Avatar - Show on left for others, right for current user */}
+      {!isCurrentUser && (
+        <div className="flex-shrink-0">
+          {showAvatar && (
+            <div className="message-avatar">
+              {message.user.avatar ? (
+                <img
+                  src={message.user.avatar}
+                  alt={message.user.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-slate-700">
+                  {message.user.initials}
+                </span>
+              )}
+              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
+                message.user.status === 'online' ? 'bg-green-500' : 
+                message.user.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
+              }`} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Message Content */}
       <div className="message-content">
@@ -357,6 +370,31 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
           </button>
         )}
       </div>
+
+      {/* Avatar for current user - on the right */}
+      {isCurrentUser && (
+        <div className="flex-shrink-0">
+          {showAvatar && (
+            <div className="message-avatar">
+              {message.user.avatar ? (
+                <img
+                  src={message.user.avatar}
+                  alt={message.user.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-slate-700">
+                  {message.user.initials}
+                </span>
+              )}
+              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
+                message.user.status === 'online' ? 'bg-green-500' : 
+                message.user.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
+              }`} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Message Actions */}
       {showActions && (

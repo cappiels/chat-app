@@ -18,7 +18,9 @@ import {
   Code,
   X,
   MicOff,
-  Calendar
+  Calendar,
+  FileText,
+  Table
 } from 'lucide-react';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
@@ -291,6 +293,11 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
           formData.append('files', file);
         });
         
+        // Add workspace and channel info
+        formData.append('workspaceName', workspace?.name || 'Default Workspace');
+        formData.append('channelName', channel?.name || 'Default Channel');
+        formData.append('uploaderEmail', currentUser?.email || '');
+        
         const response = await fetch('/api/upload/files', {
           method: 'POST',
           body: formData
@@ -301,11 +308,11 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         }
         
         const result = await response.json();
-        console.log('Upload successful:', result.files);
+        console.log('✅ Upload successful to Google Drive:', result.files);
         
-        // Add uploaded files to message as attachments
+        // Add uploaded files to message as links
         const attachmentText = result.files.map(file => 
-          `📎 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`
+          `📎 [${file.name}](${file.url}) - ${(file.size / 1024 / 1024).toFixed(2)}MB`
         ).join('\n');
         
         setMessage(prev => {
@@ -314,15 +321,94 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         });
         
         // Store attachment metadata for sending with message
-        // TODO: We'll need to modify the message sending to include attachments
         window.pendingAttachments = result.files;
         
       } catch (error) {
         console.error('File upload error:', error);
-        alert('Failed to upload files. Please try again.');
+        alert('Failed to upload files to Google Drive. Please try again.');
       }
     };
     input.click();
+  };
+
+  const handleCreateGoogleDoc = async () => {
+    const title = prompt('Enter document name:', 'Untitled Document');
+    if (!title) return;
+
+    try {
+      console.log('📝 Creating Google Doc:', title);
+      
+      const response = await fetch('/api/upload/create-doc', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          workspaceName: workspace?.name || 'Default Workspace',
+          channelName: channel?.name || 'Default Channel',
+          uploaderEmail: currentUser?.email || ''
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create Google Doc');
+      }
+
+      const result = await response.json();
+      console.log('✅ Google Doc created:', result);
+
+      // Add Google Doc link to message
+      const docText = `📝 [${result.name}](${result.url}) - Google Doc created`;
+      setMessage(prev => {
+        const newMessage = prev ? `${prev}\n\n${docText}` : docText;
+        return newMessage;
+      });
+
+    } catch (error) {
+      console.error('Create Doc error:', error);
+      alert('Failed to create Google Doc. Please try again.');
+    }
+  };
+
+  const handleCreateGoogleSheet = async () => {
+    const title = prompt('Enter spreadsheet name:', 'Untitled Spreadsheet');
+    if (!title) return;
+
+    try {
+      console.log('📊 Creating Google Sheet:', title);
+      
+      const response = await fetch('/api/upload/create-sheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          workspaceName: workspace?.name || 'Default Workspace',
+          channelName: channel?.name || 'Default Channel',
+          uploaderEmail: currentUser?.email || ''
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create Google Sheet');
+      }
+
+      const result = await response.json();
+      console.log('✅ Google Sheet created:', result);
+
+      // Add Google Sheet link to message
+      const sheetText = `📊 [${result.name}](${result.url}) - Google Sheet created`;
+      setMessage(prev => {
+        const newMessage = prev ? `${prev}\n\n${sheetText}` : sheetText;
+        return newMessage;
+      });
+
+    } catch (error) {
+      console.error('Create Sheet error:', error);
+      alert('Failed to create Google Sheet. Please try again.');
+    }
   };
 
   const handleMention = () => {
@@ -780,9 +866,37 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                   handleAttachment();
                 }}
                 className="btn-icon flex-shrink-0"
-                title="Add attachments"
+                title="Upload file to Google Drive"
               >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              
+              <button
+                type="button"
+                onMouseDown={() => { buttonClickedRef.current = true; }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCreateGoogleDoc();
+                }}
+                className="btn-icon flex-shrink-0"
+                title="Create Google Doc"
+              >
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              
+              <button
+                type="button"
+                onMouseDown={() => { buttonClickedRef.current = true; }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCreateGoogleSheet();
+                }}
+                className="btn-icon flex-shrink-0"
+                title="Create Google Sheet"
+              >
+                <Table className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               
               <button
