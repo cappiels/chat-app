@@ -3,6 +3,7 @@ const multer = require('multer');
 const crypto = require('crypto');
 const router = express.Router();
 const googleDriveHelper = require('../utils/googleDriveHelper');
+const spacesHelper = require('../utils/spacesHelper');
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -31,7 +32,7 @@ const upload = multer({
   }
 });
 
-// Upload single file to Google Drive
+// Upload single file (hybrid: Spaces for files, Google Drive as fallback)
 router.post('/file', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -43,10 +44,35 @@ router.post('/file', upload.single('file'), async (req, res) => {
     const channelName = req.body.channelName || req.headers['x-channel-name'] || 'Default Channel';
     const uploaderEmail = req.body.uploaderEmail || req.headers['x-uploader-email'] || req.user?.email;
 
-    console.log(`📤 Uploading file to Google Drive: ${req.file.originalname}`);
+    // Try DigitalOcean Spaces first (preferred for regular file uploads)
+    if (spacesHelper.isAvailable()) {
+      console.log(`📤 Uploading file to DigitalOcean Spaces: ${req.file.originalname}`);
+      console.log(`   Workspace: ${workspaceName}, Channel: ${channelName}`);
+
+      const spacesFile = await spacesHelper.uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        workspaceName,
+        channelName
+      );
+
+      // Return file information
+      return res.json({
+        id: crypto.randomUUID(),
+        name: spacesFile.fileName,
+        size: spacesFile.size,
+        type: spacesFile.mimeType,
+        url: spacesFile.url,
+        fileId: spacesFile.fileId,
+        source: spacesFile.source
+      });
+    }
+
+    // Fallback to Google Drive if Spaces not available
+    console.log(`📤 Uploading file to Google Drive (Spaces not configured): ${req.file.originalname}`);
     console.log(`   Workspace: ${workspaceName}, Channel: ${channelName}`);
 
-    // Upload to Google Drive
     const driveFile = await googleDriveHelper.uploadFile(
       req.file.buffer,
       req.file.originalname,
@@ -61,8 +87,8 @@ router.post('/file', upload.single('file'), async (req, res) => {
       name: driveFile.fileName,
       size: driveFile.size,
       type: driveFile.mimeType,
-      url: driveFile.directUrl || driveFile.webViewLink, // Use directUrl for inline display
-      webViewLink: driveFile.webViewLink, // Keep original for opening in browser
+      url: driveFile.directUrl || driveFile.webViewLink,
+      webViewLink: driveFile.webViewLink,
       downloadUrl: driveFile.webContentLink,
       fileId: driveFile.fileId,
       source: 'google_drive'
@@ -77,7 +103,7 @@ router.post('/file', upload.single('file'), async (req, res) => {
   }
 });
 
-// Upload multiple files to Google Drive
+// Upload multiple files (hybrid: Spaces for files, Google Drive as fallback)
 router.post('/files', upload.array('files', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -89,7 +115,37 @@ router.post('/files', upload.array('files', 10), async (req, res) => {
     const channelName = req.body.channelName || req.headers['x-channel-name'] || 'Default Channel';
     const uploaderEmail = req.body.uploaderEmail || req.headers['x-uploader-email'] || req.user?.email;
 
-    console.log(`📤 Uploading ${req.files.length} files to Google Drive`);
+    // Try DigitalOcean Spaces first (preferred)
+    if (spacesHelper.isAvailable()) {
+      console.log(`📤 Uploading ${req.files.length} files to DigitalOcean Spaces`);
+      console.log(`   Workspace: ${workspaceName}, Channel: ${channelName}`);
+
+      const uploadPromises = req.files.map(async (file) => {
+        const spacesFile = await spacesHelper.uploadFile(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+          workspaceName,
+          channelName
+        );
+
+        return {
+          id: crypto.randomUUID(),
+          name: spacesFile.fileName,
+          size: spacesFile.size,
+          type: spacesFile.mimeType,
+          url: spacesFile.url,
+          fileId: spacesFile.fileId,
+          source: spacesFile.source
+        };
+      });
+
+      const uploads = await Promise.all(uploadPromises);
+      return res.json({ files: uploads });
+    }
+
+    // Fallback to Google Drive if Spaces not available
+    console.log(`📤 Uploading ${req.files.length} files to Google Drive (Spaces not configured)`);
     console.log(`   Workspace: ${workspaceName}, Channel: ${channelName}`);
 
     const uploadPromises = req.files.map(async (file) => {
@@ -106,8 +162,8 @@ router.post('/files', upload.array('files', 10), async (req, res) => {
         name: driveFile.fileName,
         size: driveFile.size,
         type: driveFile.mimeType,
-        url: driveFile.directUrl || driveFile.webViewLink, // Use directUrl for inline display
-        webViewLink: driveFile.webViewLink, // Keep original for opening in browser
+        url: driveFile.directUrl || driveFile.webViewLink,
+        webViewLink: driveFile.webViewLink,
         downloadUrl: driveFile.webContentLink,
         fileId: driveFile.fileId,
         source: 'google_drive'

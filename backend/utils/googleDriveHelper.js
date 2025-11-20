@@ -80,6 +80,13 @@ class GoogleDriveHelper {
         return this.sharedDriveId;
       }
 
+      // Check environment variable first (faster than searching)
+      if (process.env.GOOGLE_SHARED_DRIVE_ID) {
+        this.sharedDriveId = process.env.GOOGLE_SHARED_DRIVE_ID;
+        console.log(`✅ Using Shared Drive from env: ${this.sharedDriveId}`);
+        return this.sharedDriveId;
+      }
+
       // Search for existing shared drive
       const response = await this.drive.drives.list({
         q: `name='${driveName}'`,
@@ -92,10 +99,17 @@ class GoogleDriveHelper {
         return this.sharedDriveId;
       }
 
-      // Note: Creating a Shared Drive requires admin permissions
-      // For now, return null and log that manual setup is needed
-      console.log(`⚠️  Shared Drive '${driveName}' not found - files will be stored in My Drive`);
-      return null;
+      // Shared Drive not found - this will cause uploads to fail
+      // User needs to create it manually (see GOOGLE-SHARED-DRIVE-SETUP.md)
+      console.error(`❌ ERROR: Shared Drive '${driveName}' not found!`);
+      console.error(`❌ Service Accounts cannot use My Drive (no storage quota)`);
+      console.error(`❌ Please create a Shared Drive - see GOOGLE-SHARED-DRIVE-SETUP.md`);
+      
+      throw new Error(
+        `Shared Drive '${driveName}' not found. ` +
+        `Service Accounts need Shared Drives for storage. ` +
+        `Please follow instructions in GOOGLE-SHARED-DRIVE-SETUP.md`
+      );
 
     } catch (error) {
       console.error('Error finding Shared Drive:', error);
