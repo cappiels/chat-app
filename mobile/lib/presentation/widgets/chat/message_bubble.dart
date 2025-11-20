@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../data/models/message.dart';
+import '../../../data/models/attachment.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'image_viewer.dart';
@@ -274,7 +275,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildInlineImage(dynamic attachment) {
-    final fileSize = _formatFileSize(attachment.size);
+    final fileSize = _formatFileSize(attachment.fileSizeBytes);
     
     // Generate direct URL for Google Drive images
     String imageUrl = attachment.url;
@@ -391,7 +392,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildVideoAttachment(Attachment attachment) {
-    final fileSize = _formatFileSize(attachment.size);
+    final fileSize = _formatFileSize(attachment.fileSizeBytes);
     
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -446,7 +447,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildFileAttachment(Attachment attachment) {
-    final fileSize = _formatFileSize(attachment.size);
+    final fileSize = _formatFileSize(attachment.fileSizeBytes);
     
     return Padding(
       padding: const EdgeInsets.only(top: 8),
