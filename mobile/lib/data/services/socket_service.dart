@@ -375,26 +375,28 @@ class SocketService extends ChangeNotifier {
       debugPrint('✅ Socket connected');
       _updateConnectionState(SocketConnectionState.connected);
       _lastConnected = DateTime.now();
+      
+      // REJOIN ROOMS AUTOMATICALLY ON RECONNECT
+      if (_currentWorkspaceId != null) {
+        debugPrint('🔄 Auto-rejoining workspace: $_currentWorkspaceId');
+        joinWorkspace(_currentWorkspaceId!);
+        
+        if (_currentThreadId != null) {
+          debugPrint('🔄 Auto-rejoining thread: $_currentThreadId');
+          // Don't use standard joinThread which leaves first - just emit join directly
+          // The backend will handle the room switching/cleanup
+          _socket?.emit('join_thread', {
+            'workspaceId': _currentWorkspaceId,
+            'threadId': _currentThreadId,
+          });
+        }
+      }
     });
 
     _socket!.onDisconnect((data) {
       debugPrint('❌ Socket disconnected: $data');
       _updateConnectionState(SocketConnectionState.disconnected);
-      
-      // Auto-reconnect after 2 seconds
-      _reconnectTimer?.cancel();
-      _reconnectTimer = Timer(const Duration(seconds: 2), () {
-        if (_connectionState == SocketConnectionState.disconnected) {
-          debugPrint('🔄 Attempting to reconnect...');
-          connect().then((connected) {
-            if (connected && _currentWorkspaceId != null && _currentThreadId != null) {
-              // Rejoin workspace and thread after reconnection
-              joinWorkspace(_currentWorkspaceId!);
-              joinThread(_currentWorkspaceId!, _currentThreadId!);
-            }
-          });
-        }
-      });
+      // Allow auto-connect to handle reconnection
     });
 
     _socket!.onConnectError((data) {
