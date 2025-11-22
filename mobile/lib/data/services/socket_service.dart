@@ -488,20 +488,31 @@ class SocketService extends ChangeNotifier {
       }
     });
 
-    // Typing events - Backend now sends flattened format with guaranteed fields
+    // Typing events - BACKWARDS COMPATIBLE: Handles both old nested and new flattened formats
     _socket!.on('user_typing', (data) {
       try {
         debugPrint('⌨️ Raw user_typing event: $data');
         
-        // Backend sends flattened format: {userId, userName, userAvatar, threadId, isTyping, timestamp}
         final threadId = data['threadId']?.toString() ?? '';
         final userId = data['userId']?.toString() ?? '';
-        final userName = data['userName']?.toString() ?? 'User';
         final isTyping = data['isTyping'] == true;
         
         if (threadId.isEmpty || userId.isEmpty) {
           debugPrint('⚠️ Invalid typing event - missing threadId or userId');
           return;
+        }
+        
+        // BACKWARDS COMPATIBLE: Handle both formats
+        String userName = 'User';
+        if (data['userName'] != null) {
+          // New flattened format
+          userName = data['userName'].toString();
+        } else if (data['user'] != null && data['user'] is Map) {
+          // Old nested format
+          final userObj = data['user'] as Map;
+          userName = userObj['display_name']?.toString() ?? 
+                    userObj['name']?.toString() ?? 
+                    'User';
         }
         
         _typingUsers[threadId] ??= <String>{};

@@ -122,8 +122,24 @@ echo "🌐 Production URL: https://crewchat.elbarriobk.com"
 echo "⏱️  Allow 3-5 minutes for rebuild and deployment"
 echo ""
 echo "📋 DigitalOcean will:"
-echo "  1. Pull latest code from main branch" 
+echo "  1. Pull latest code from main branch"
 echo "  2. Run migrations automatically (018, 019)"
 echo "  3. Rebuild and deploy the application"
 echo "  4. Update production with v$NEW_VERSION"
+echo ""
+echo "📱 Building Flutter IPA for TestFlight..."
+cd mobile
+flutter clean > /dev/null 2>&1
+flutter build ipa --release
+if [ $? -eq 0 ]; then
+    echo "✅ Flutter IPA built successfully!"
+    echo "📦 IPA location: mobile/build/ios/ipa/mobile.ipa"
+    echo "📤 Upload to TestFlight:"
+    echo "   1. Open Transporter app"
+    echo "   2. Drag mobile/build/ios/ipa/mobile.ipa"
+    echo "   3. Wait for processing (5-10 minutes)"
+else
+    echo "⚠️  Flutter IPA build failed (non-critical)"
+fi
+cd ..
 echo ""

@@ -176,12 +176,27 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         const filtered = prev.filter(user => user.userId !== data.userId);
         
         if (data.isTyping) {
-          // Backend now sends flattened format with guaranteed fields
+          // BACKWARDS COMPATIBLE: Handle both old nested format and new flattened format
+          let userName, userAvatar;
+          
+          if (data.userName) {
+            // New flattened format
+            userName = data.userName;
+            userAvatar = data.userAvatar;
+          } else if (data.user) {
+            // Old nested format
+            userName = data.user.display_name || data.user.name || 'User';
+            userAvatar = data.user.profile_picture_url || data.user.avatar;
+          } else {
+            userName = 'User';
+            userAvatar = null;
+          }
+          
           const newTypingUser = {
             userId: data.userId,
             user: {
-              display_name: data.userName || 'User',
-              profile_picture_url: data.userAvatar || null
+              display_name: userName,
+              profile_picture_url: userAvatar
             },
             timestamp: new Date(data.timestamp)
           };
