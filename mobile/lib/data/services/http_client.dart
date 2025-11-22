@@ -36,13 +36,13 @@ class HttpClient {
         final user = _auth.currentUser;
         if (user != null) {
           try {
-            // Force refresh token to avoid expired token errors
-            // This ensures we always have a fresh token (especially important after 1 hour)
-            final idToken = await user.getIdToken(true); // true = force refresh
+            // Get cached token (will auto-refresh if expired)
+            // This is more efficient than forcing refresh on every request
+            final idToken = await user.getIdToken(false);
             options.headers['Authorization'] = 'Bearer $idToken';
             
             if (ApiConfig.enableApiLogging) {
-              print('🔑 Fresh Firebase token obtained for ${options.method} ${options.uri}');
+              print('🔑 Firebase token obtained for ${options.method} ${options.uri}');
             }
           } catch (e) {
             if (ApiConfig.enableApiLogging) {
