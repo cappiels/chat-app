@@ -47,6 +47,8 @@ class SpacesHelper {
       console.log('✅ DigitalOcean Spaces initialized successfully');
       console.log(`   Bucket: ${this.bucket}`);
       console.log(`   Endpoint: ${this.cdnEndpoint}`);
+      console.log(`   Key: ${process.env.SPACES_KEY}`);
+      console.log(`   Secret: ${process.env.SPACES_SECRET ? process.env.SPACES_SECRET.substring(0, 15) + '...' : 'MISSING'}`);
       
     } catch (error) {
       console.error('❌ Failed to initialize DigitalOcean Spaces:', error);
