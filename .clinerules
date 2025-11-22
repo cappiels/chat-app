@@ -22,11 +22,11 @@
 # 1. First sync versions
 ./deploy-prod.sh patch "what changed"
 
-# 2. Then build Flutter
-cd mobile && flutter clean && flutter build ios --release
+# 2. Then build Flutter IPA
+cd mobile && flutter clean && flutter build ipa --release
 
-# 3. Then open Xcode and upload to TestFlight
-open ios/Runner.xcworkspace
+# 3. IPA location: mobile/build/ios/ipa/mobile.ipa
+# 4. Upload via Transporter app or Xcode Organizer
 ```
 
 **That's it! Read `DEPLOYMENT-WORKFLOW.md` for details.**

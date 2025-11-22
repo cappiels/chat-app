@@ -88,6 +88,18 @@ export const AuthProvider = ({ children }) => {
   const signInWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      
+      // Immediately update user state for instant UI response
+      const token = await result.user.getIdToken();
+      setUser({
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+        photoURL: result.user.photoURL,
+        token: token
+      });
+      setLoading(false);
+      
       toast.success(`Welcome, ${result.user.displayName}! 🎉`);
       return result.user;
     } catch (error) {
