@@ -175,9 +175,19 @@ router.post('/files', upload.array('files', 10), async (req, res) => {
 
   } catch (error) {
     console.error('Multi-upload error:', error);
+    
+    // Provide specific error message based on the issue
+    let errorMessage = 'Upload failed';
+    if (!spacesHelper.isAvailable()) {
+      errorMessage = 'File storage not configured. Please contact support.';
+    } else {
+      errorMessage = error.message || 'Upload failed';
+    }
+    
     res.status(500).json({ 
-      error: 'Upload failed',
-      details: error.message 
+      error: errorMessage,
+      details: error.message,
+      storageAvailable: spacesHelper.isAvailable()
     });
   }
 });

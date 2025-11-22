@@ -327,7 +327,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         
       } catch (error) {
         console.error('File upload error:', error);
-        alert('Failed to upload files to Google Drive. Please try again.');
+        // Show more helpful error message
+        const errorMsg = error.message || 'Upload failed';
+        alert(`Failed to upload files: ${errorMsg}\n\nPlease try again or contact support if the issue persists.`);
       }
     };
     input.click();
