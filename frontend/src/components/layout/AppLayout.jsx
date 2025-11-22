@@ -112,104 +112,104 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     }
   }, [currentChannel, workspace]);
 
+  // Handler for new messages - useCallback to maintain stable reference
+  const handleNewMessage = useCallback((data) => {
+    console.log('📩 New message received in AppLayout:', data);
+    
+    const isCurrentUser = data.message.sender_id === user?.uid;
+    const isCurrentThread = data.threadId === currentChannel?.id;
+    const isCurrentWorkspace = data.workspaceId === workspace?.id;
+    
+    // Process message for current channel display
+    if (isCurrentThread) {
+      const newMessage = {
+        id: data.message.id,
+        user: {
+          name: data.message.sender_name || 'User',
+          avatar: data.message.sender_avatar,
+          initials: data.message.sender_name ? data.message.sender_name.split(' ').map(n => n[0]).join('') : 'U',
+          status: 'online'
+        },
+        content: data.message.content,
+        timestamp: new Date(data.timestamp || data.message.created_at),
+        thread_count: data.message.reply_count || 0,
+        thread_participants: [],
+        reactions: data.message.reactions || []
+      };
+      
+      // Update messages array with the new message
+      setMessages(prevMessages => [...prevMessages, newMessage]);
+    }
+    
+    // Play notification sounds (but not for messages sent by current user)
+    if (!isCurrentUser) {
+      // Determine the type of notification based on message context
+      let notificationType = 'message';
+      const messageContent = data.message.content || '';
+      
+      // Check if user is mentioned in the message
+      const userDisplayName = user?.displayName || '';
+      const userEmail = user?.email || '';
+      const isMentioned = messageContent.includes(`@${userDisplayName}`) || 
+                         messageContent.includes(`@${userEmail}`) ||
+                         messageContent.includes('@everyone') ||
+                         messageContent.includes('@here');
+      
+      if (isMentioned) {
+        notificationType = 'mention';
+      } else if (data.message.is_direct_message) {
+        notificationType = 'direct_message';
+      }
+      
+      // Create message object for notification
+      const messageForNotification = {
+        ...data.message,
+        sender_name: data.message.sender_name || 'Someone',
+        thread_name: data.threadName || currentChannel?.name || 'channel',
+        content: data.message.content || 'sent a message'
+      };
+      
+      // Show desktop notification and play sound
+      notificationManager.showMessageNotification(
+        messageForNotification, 
+        notificationType, 
+        currentChannel?.id, 
+        workspace?.id
+      );
+    }
+  }, [user, currentChannel, workspace]);
+
+  // Handler for typing indicators - useCallback to maintain stable reference
+  const handleUserTyping = useCallback((data) => {
+    console.log('⌨️ Typing event received in AppLayout:', data);
+    
+    // Only process typing events for the current channel
+    if (data.threadId === currentChannel?.id) {
+      setTypingUsers(prev => {
+        // Remove this user first (to avoid duplicates)
+        const filtered = prev.filter(user => user.userId !== data.userId);
+        
+        if (data.isTyping) {
+          const newTypingUser = {
+            userId: data.userId,
+            user: {
+              display_name: data.user.name || data.user.display_name || 'User',
+              profile_picture_url: data.user.avatar || data.user.profile_picture_url,
+              ...data.user
+            },
+            timestamp: new Date(data.timestamp)
+          };
+          return [...filtered, newTypingUser];
+        } else {
+          return filtered;
+        }
+      });
+    }
+  }, [currentChannel]);
+
   // Socket event listeners for real-time updates
   useEffect(() => {
     if (!currentChannel) return;
-
-    // Handler for new messages
-    const handleNewMessage = (data) => {
-      console.log('📩 New message received in AppLayout:', data);
-      
-      const isCurrentUser = data.message.sender_id === user?.uid;
-      const isCurrentThread = data.threadId === currentChannel?.id;
-      const isCurrentWorkspace = data.workspaceId === workspace?.id;
-      
-      // Process message for current channel display
-      if (isCurrentThread) {
-        const newMessage = {
-          id: data.message.id,
-          user: {
-            name: data.message.sender_name || 'User',
-            avatar: data.message.sender_avatar,
-            initials: data.message.sender_name ? data.message.sender_name.split(' ').map(n => n[0]).join('') : 'U',
-            status: 'online'
-          },
-          content: data.message.content,
-          timestamp: new Date(data.timestamp || data.message.created_at),
-          thread_count: data.message.reply_count || 0,
-          thread_participants: [],
-          reactions: data.message.reactions || []
-        };
-        
-        // Update messages array with the new message
-        setMessages(prevMessages => [...prevMessages, newMessage]);
-      }
-      
-      // Play notification sounds (but not for messages sent by current user)
-      if (!isCurrentUser) {
-        // Determine the type of notification based on message context
-        let notificationType = 'message';
-        const messageContent = data.message.content || '';
-        
-        // Check if user is mentioned in the message
-        const userDisplayName = user?.displayName || '';
-        const userEmail = user?.email || '';
-        const isMentioned = messageContent.includes(`@${userDisplayName}`) || 
-                           messageContent.includes(`@${userEmail}`) ||
-                           messageContent.includes('@everyone') ||
-                           messageContent.includes('@here');
-        
-        if (isMentioned) {
-          notificationType = 'mention';
-        } else if (data.message.is_direct_message) {
-          notificationType = 'direct_message';
-        }
-        
-        // Create message object for notification
-        const messageForNotification = {
-          ...data.message,
-          sender_name: data.message.sender_name || 'Someone',
-          thread_name: data.threadName || currentChannel?.name || 'channel',
-          content: data.message.content || 'sent a message'
-        };
-        
-        // Show desktop notification and play sound
-        notificationManager.showMessageNotification(
-          messageForNotification, 
-          notificationType, 
-          currentChannel?.id, 
-          workspace?.id
-        );
-      }
-    };
-
-    // Handler for typing indicators
-    const handleUserTyping = (data) => {
-      console.log('⌨️ Typing event received in AppLayout:', data);
-      
-      // Only process typing events for the current channel
-      if (data.threadId === currentChannel?.id) {
-        setTypingUsers(prev => {
-          // Remove this user first (to avoid duplicates)
-          const filtered = prev.filter(user => user.userId !== data.userId);
-          
-          if (data.isTyping) {
-            const newTypingUser = {
-              userId: data.userId,
-              user: {
-                display_name: data.user.name || data.user.display_name || 'User',
-                profile_picture_url: data.user.avatar || data.user.profile_picture_url,
-                ...data.user
-              },
-              timestamp: new Date(data.timestamp)
-            };
-            return [...filtered, newTypingUser];
-          } else {
-            return filtered;
-          }
-        });
-      }
-    };
 
     // Register event listeners
     socketManager.on('new_message', handleNewMessage);
@@ -221,7 +221,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       socketManager.off('user_typing', handleUserTyping);
       setTypingUsers([]);
     };
-  }, [currentChannel]);
+  }, [currentChannel, handleNewMessage, handleUserTyping]);
 
   // Clean up stale typing indicators
   useEffect(() => {
