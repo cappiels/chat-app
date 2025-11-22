@@ -488,14 +488,15 @@ class SocketService extends ChangeNotifier {
       }
     });
 
-    // Typing events
+    // Typing events - Backend now sends flattened format with guaranteed fields
     _socket!.on('user_typing', (data) {
       try {
         debugPrint('⌨️ Raw user_typing event: $data');
         
-        // Handle type conversions safely
+        // Backend sends flattened format: {userId, userName, userAvatar, threadId, isTyping, timestamp}
         final threadId = data['threadId']?.toString() ?? '';
         final userId = data['userId']?.toString() ?? '';
+        final userName = data['userName']?.toString() ?? 'User';
         final isTyping = data['isTyping'] == true;
         
         if (threadId.isEmpty || userId.isEmpty) {
@@ -508,19 +509,6 @@ class SocketService extends ChangeNotifier {
           _typingUsers[threadId]!.add(userId);
         } else {
           _typingUsers[threadId]!.remove(userId);
-        }
-
-        // Handle nested user object safely
-        String userName = 'User';
-        try {
-          final userObj = data['user'];
-          if (userObj is Map) {
-            userName = userObj['display_name']?.toString() ?? 
-                      userObj['name']?.toString() ?? 
-                      'User';
-          }
-        } catch (e) {
-          debugPrint('⚠️ Could not parse user name: $e');
         }
 
         final update = TypingUpdate(

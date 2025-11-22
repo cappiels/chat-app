@@ -176,12 +176,12 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         const filtered = prev.filter(user => user.userId !== data.userId);
         
         if (data.isTyping) {
+          // Backend now sends flattened format with guaranteed fields
           const newTypingUser = {
             userId: data.userId,
             user: {
-              display_name: data.user.name || data.user.display_name || 'User',
-              profile_picture_url: data.user.avatar || data.user.profile_picture_url,
-              ...data.user
+              display_name: data.userName || 'User',
+              profile_picture_url: data.userAvatar || null
             },
             timestamp: new Date(data.timestamp)
           };

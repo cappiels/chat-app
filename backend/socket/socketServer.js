@@ -572,10 +572,11 @@ class SocketServer {
     
     this.typingUsers.get(threadId).add(userId);
 
-    // Broadcast typing indicator to others in thread
+    // Broadcast typing indicator with flattened, guaranteed fields for cross-platform reliability
     socket.broadcast.to(`thread:${threadId}`).emit('user_typing', {
       userId,
-      user: socket.user,
+      userName: socket.user.display_name || 'User',
+      userAvatar: socket.user.profile_picture_url || null,
       threadId,
       isTyping: true,
       timestamp: new Date()
@@ -599,10 +600,11 @@ class SocketServer {
       }
     }
 
-    // Broadcast stop typing to others in thread
+    // Broadcast stop typing with flattened, guaranteed fields for cross-platform reliability
     socket.broadcast.to(`thread:${threadId}`).emit('user_typing', {
       userId,
-      user: socket.user,
+      userName: socket.user.display_name || 'User',
+      userAvatar: socket.user.profile_picture_url || null,
       threadId,
       isTyping: false,
       timestamp: new Date()
