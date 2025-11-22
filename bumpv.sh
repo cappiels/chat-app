@@ -206,6 +206,20 @@ pkg.version = '$NEW_VERSION';
 fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
 "
 
+# Update Flutter version to match exactly (derive build number from version)
+if [ -f "mobile/pubspec.yaml" ]; then
+    print_status "📱 Updating Flutter version to match..."
+    
+    # Derive build number from version (e.g., 1.8.39 → build 1839)
+    BUILD_NUMBER=$(echo $NEW_VERSION | tr -d '.')
+    
+    # Update version in pubspec.yaml
+    sed -i.bak "s/^version: .*/version: $NEW_VERSION+$BUILD_NUMBER/" mobile/pubspec.yaml
+    rm mobile/pubspec.yaml.bak 2>/dev/null || true
+    
+    print_success "Updated mobile/pubspec.yaml to v$NEW_VERSION (build $BUILD_NUMBER)"
+fi
+
 # Update app.yaml if it has version info
 if [ -f "app.yaml" ] && grep -q "version:" app.yaml; then
     print_status "📄 Updating app.yaml..."
@@ -266,6 +280,9 @@ fi
 if [ -f "frontend/src/utils/cacheBreaker.js" ]; then
     git add frontend/src/utils/cacheBreaker.js
 fi
+if [ -f "mobile/pubspec.yaml" ]; then
+    git add mobile/pubspec.yaml
+fi
 
 FULL_COMMIT_MESSAGE="v$NEW_VERSION: $COMMIT_MESSAGE"
 print_status "💾 Committing changes..."
@@ -285,6 +302,10 @@ print_status "Files updated:"
 echo -e "  📦 frontend/package.json: ${BOLD}$CURRENT_VERSION → $NEW_VERSION${NC}"
 echo -e "  📦 backend/package.json: ${BOLD}$CURRENT_VERSION → $NEW_VERSION${NC}"
 echo -e "  📦 package.json: ${BOLD}$CURRENT_VERSION → $NEW_VERSION${NC}"
+if [ -f "mobile/pubspec.yaml" ]; then
+    FLUTTER_VERSION=$(grep -E "^version: " mobile/pubspec.yaml | sed 's/version: //')
+    echo -e "  📱 mobile/pubspec.yaml: ${BOLD}$FLUTTER_VERSION${NC}"
+fi
 if [ -f "app.yaml" ] && grep -q "version:" app.yaml; then
     echo -e "  📄 app.yaml: ${BOLD}version updated${NC}"
 fi
@@ -292,3 +313,6 @@ echo -e "  🔗 frontend/src/utils/version.js: ${BOLD}automatically imports from
 
 echo
 echo -e "${BOLD}${CYAN}🎊 All done! Your app is now at version $NEW_VERSION${NC}"
+if [ -f "mobile/pubspec.yaml" ]; then
+    echo -e "${BOLD}${CYAN}📱 Flutter app synced with build number auto-increment${NC}"
+fi

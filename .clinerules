@@ -1,9 +1,43 @@
 # Cline Rules for Crew Revolutionary Features
 
+## 🚀 SIMPLE DEPLOYMENT WORKFLOW (For Developer)
+
+### **Local Testing:**
+```bash
+./deploy-dev.sh
+```
+- Test changes locally at http://localhost:5173
+- NO version bump, NO git push
+
+### **Deploy to Production:**
+```bash
+./deploy-prod.sh patch "what changed"
+```
+- Bumps ALL versions (React + Backend + Flutter)
+- Commits & pushes to git
+- DigitalOcean auto-deploys
+
+### **Deploy Flutter to TestFlight:**
+```bash
+# 1. First sync versions
+./deploy-prod.sh patch "what changed"
+
+# 2. Then build Flutter
+cd mobile && flutter clean && flutter build ios --release
+
+# 3. Then open Xcode and upload to TestFlight
+open ios/Runner.xcworkspace
+```
+
+**That's it! Read `DEPLOYMENT-WORKFLOW.md` for details.**
+
+---
+
 ## Development Environment
 - **Local Development**: Mac environment
 - **Local Testing**: `./deploy-dev.sh` for development deployment and testing
 - **Production Deploy**: `./deploy-prod.sh` pushes to git main → DigitalOcean App Platform auto-pulls and rebuilds
+- **Version Management**: ALL platforms sync automatically (React, Backend, Flutter)
 
 ## Project Context
 Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams system, and full Calendar/Timeline integration + **CRITICAL PRIORITY: Google Calendar & Tasks Sync Implementation**.
@@ -71,7 +105,7 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - ❌ Environment variable changes
 - ❌ Dependency updates
 
-### **Current Deployment Status (Nov 12, 2025 - EMERGENCY KNOWLEDGE SYSTEM FIX):**
+### **Current Deployment Status (Nov 22, 2025 - TESTFLIGHT SUCCESS!):**
 - ✅ **BUILD FIXED**: All build issues resolved (BarChart3Icon, Node.js, CSS)
 - ✅ **CSS LOADING**: Tailwind PostCSS configuration fixed - 84.76kB CSS generation
 - ✅ **PORT BINDING**: Fixed 0.0.0.0 host binding for DigitalOcean health checks
@@ -80,12 +114,15 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - ✅ **WORKSPACE FIX**: Copied package-lock.json to backend for DigitalOcean isolation build
 - ✅ **NODE.JS MODERNIZED**: Upgraded to Node.js 24+ for better performance and security
 - ✅ **KNOWLEDGE SYSTEM EMERGENCY FIX**: Migration dependency issues resolved with CASCADE
-- ✅ **Latest Deploy**: Commit ce51d3a - v1.8.16 with Knowledge System CASCADE fix deployed
+- ✅ **Backend Version**: v1.8.39 - Production stable
 - ❌ **COMPLETE SCHEMA FAILED**: Reverted due to PostgreSQL syntax errors, view conflicts, and trigger bugs
 - ✅ **MIGRATIONS RESTORED**: Back to reliable migration system in `backend/migrations/run-migrations.js`
 - ✅ **UUID FUNCTIONS**: Fixed mark_task_complete_individual() and mark_task_incomplete_individual() 
 - ✅ **PRODUCTION STABLE**: Emergency fix resolved "cannot drop table knowledge_items" deployment failure
-- 🎯 **CRITICAL PRIORITY**: Google Calendar & Tasks sync implementation with expert fixes
+- 🎉 **TESTFLIGHT DEPLOYED**: Flutter iOS app successfully deployed to TestFlight for beta testing!
+- 📱 **FLUTTER APP VERSION**: v1.1.0+2 (build 2) - Live on TestFlight beta platform
+- 📱 **FLUTTER APP STATUS**: 75% complete - Core messaging done, iOS deployment successful
+- 🎯 **NEXT PRIORITIES**: Complete Phase 3 polish (2%), beta testing, then revolutionary features
 - 📋 **MIGRATIONS BACK**: All future database changes use individual migration files
 
 ## 🎉 REVOLUTIONARY FEATURES DEPLOYED

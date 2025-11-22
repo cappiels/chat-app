@@ -63,31 +63,62 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _initializeChat() async {
     try {
-      // Get current user
+      // Get current user FIRST - ensure authentication is ready
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        _currentUserId = user.uid;
+      if (user == null) {
+        throw Exception('User not authenticated');
       }
+      _currentUserId = user.uid;
 
+      print('🚀 CHAT INIT - User: ${user.uid}');
       print('🚀 CHAT INIT - Workspace: ${widget.workspace['name']} (${widget.workspace['id']})');
       print('🚀 CHAT INIT - Thread: ${widget.thread.name} (${widget.thread.id})');
 
-      // Connect to Socket.IO if not connected
-      if (!_socketService.isConnected) {
-        await _socketService.connect();
+      // FORCE reconnect to ensure fresh Firebase token
+      if (_socketService.isConnected) {
+        print('🔄 Disconnecting existing socket connection...');
+        _socketService.disconnect();
+        await Future.delayed(Duration(milliseconds: 500));
       }
+      
+      // Connect with fresh Firebase auth token
+      print('🔌 Connecting to Socket.IO...');
+      final connected = await _socketService.connect();
+      
+      if (!connected) {
+        throw Exception('Failed to connect to Socket.IO');
+      }
+      
+      // WAIT for connection to be fully established
+      int attempts = 0;
+      while (!_socketService.isConnected && attempts < 30) {
+        await Future.delayed(Duration(milliseconds: 100));
+        attempts++;
+      }
+      
+      if (!_socketService.isConnected) {
+        throw Exception('Socket connection timeout after 3 seconds');
+      }
+      
+      print('✅ Socket connected successfully');
       
       // Join the thread
       final workspaceId = widget.workspace['id'];
       if (workspaceId == null) {
-        print('❌ ERROR: Workspace ID is null!');
         throw Exception('Workspace ID is required');
       }
       
-      await _socketService.joinThread(
+      print('📝 Joining thread...');
+      final joined = await _socketService.joinThread(
         workspaceId.toString(),
         widget.thread.id,
       );
+      
+      if (!joined) {
+        print('⚠️ Failed to join thread, but continuing anyway');
+      }
+      
+      print('✅ Chat initialization complete');
       
       // Setup real-time listeners
       _setupSocketListeners();
@@ -104,7 +135,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       print('❌ Error initializing chat: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load chat: $e')),
+          SnackBar(
+            content: Text('Failed to initialize chat: $e'),
+            duration: Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => _initializeChat(),
+            ),
+          ),
         );
       }
     }

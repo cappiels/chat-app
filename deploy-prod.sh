@@ -81,6 +81,20 @@ files.forEach(file => {
 });
 "
 
+# Update Flutter version to match exactly (derive build number from version)
+if [ -f "mobile/pubspec.yaml" ]; then
+    echo "📱 Updating Flutter version to match..."
+    
+    # Derive build number from version (e.g., 1.8.39 → build 1839)
+    BUILD_NUMBER=$(echo $NEW_VERSION | tr -d '.')
+    
+    # Update version in pubspec.yaml
+    sed -i.bak "s/^version: .*/version: $NEW_VERSION+$BUILD_NUMBER/" mobile/pubspec.yaml
+    rm mobile/pubspec.yaml.bak 2>/dev/null || true
+    
+    echo "✅ Updated mobile/pubspec.yaml to v$NEW_VERSION (build $BUILD_NUMBER)"
+fi
+
 echo "✅ Version bumped: $CURRENT_VERSION → $NEW_VERSION"
 
 # Commit with version info

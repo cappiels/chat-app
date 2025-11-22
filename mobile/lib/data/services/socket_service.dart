@@ -16,6 +16,7 @@ class SocketService extends ChangeNotifier {
   String? _currentWorkspaceId;
   String? _currentThreadId;
   final Map<String, Set<String>> _typingUsers = {};
+  Timer? _reconnectTimer;
   
   // Connection state
   SocketConnectionState _connectionState = SocketConnectionState.disconnected;
@@ -356,6 +357,21 @@ class SocketService extends ChangeNotifier {
     _socket!.onDisconnect((data) {
       debugPrint('❌ Socket disconnected: $data');
       _updateConnectionState(SocketConnectionState.disconnected);
+      
+      // Auto-reconnect after 2 seconds
+      _reconnectTimer?.cancel();
+      _reconnectTimer = Timer(const Duration(seconds: 2), () {
+        if (_connectionState == SocketConnectionState.disconnected) {
+          debugPrint('🔄 Attempting to reconnect...');
+          connect().then((connected) {
+            if (connected && _currentWorkspaceId != null && _currentThreadId != null) {
+              // Rejoin workspace and thread after reconnection
+              joinWorkspace(_currentWorkspaceId!);
+              joinThread(_currentWorkspaceId!, _currentThreadId!);
+            }
+          });
+        }
+      });
     });
 
     _socket!.onConnectError((data) {

@@ -61,6 +61,17 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           notificationManager.playErrorSound();
         }
         
+        // Enable notification sounds automatically (browser requires user interaction first)
+        // This runs after user has clicked to select a workspace, satisfying browser requirements
+        try {
+          const soundManager = (await import('../../utils/soundManager')).default;
+          await soundManager.enableAudioContext();
+          console.log('🔊 Notification sounds enabled');
+        } catch (error) {
+          console.warn('Failed to enable notification sounds:', error);
+          // Non-critical - sounds just won't play
+        }
+        
         // Load channels
         const realChannels = await loadWorkspaceChannels(workspace);
         setChannels(realChannels);
