@@ -47,31 +47,15 @@ api.interceptors.request.use(async (config) => {
     
     const user = auth.currentUser;
     if (user) {
-      // Try to get token with retry logic
-      let token = null;
-      let retries = 2;
-      
-      while (retries > 0) {
-        try {
-          token = await user.getIdToken(true); // Force refresh
-          break;
-        } catch (tokenError) {
-          console.warn(`Token refresh failed, retries left: ${retries - 1}`, tokenError);
-          retries--;
-          if (retries === 0) {
-            throw tokenError;
-          }
-          // Wait 500ms before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-      
-      if (token) {
+      try {
+        // Use cached token (will auto-refresh if expired)
+        // This is more efficient and prevents race conditions
+        const token = await user.getIdToken(false);
         config.headers.Authorization = `Bearer ${token}`;
         console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-      } else {
-        console.error('Failed to get authentication token');
-        throw new Error('Authentication failed - no token');
+      } catch (tokenError) {
+        console.error('Failed to get authentication token:', tokenError);
+        // Don't block the request - let backend handle 401
       }
     } else {
       console.log('No authenticated user for API request');
