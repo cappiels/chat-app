@@ -385,21 +385,44 @@ class SocketService extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Message events
+    // Message events - Handle both Socket.IO sends and HTTP API broadcasts
     _socket!.on('new_message', (data) {
       try {
-        debugPrint('📨 Raw new_message event data: $data');
-        debugPrint('📨 Message data: ${data['message']}');
-        debugPrint('📨 Thread ID: ${data['threadId']}');
-        debugPrint('📨 Workspace ID: ${data['workspaceId']}');
+        debugPrint('📨 Received new_message event');
+        debugPrint('📨 Raw data type: ${data.runtimeType}');
+        debugPrint('📨 Full data: $data');
         
-        final message = Message.fromJson(data['message']);
-        debugPrint('✅ Message parsed successfully: ${message.id} for thread ${message.threadId}');
+        // Handle both formats:
+        // 1. Direct Socket.IO send: data IS the message
+        // 2. HTTP API broadcast: data has {message, threadId, workspaceId}
+        Map<String, dynamic> messageData;
+        
+        if (data is Map && data.containsKey('message')) {
+          // HTTP API format
+          debugPrint('📨 HTTP API format detected');
+          messageData = Map<String, dynamic>.from(data['message']);
+          debugPrint('📨 Message for thread: ${data['threadId']}');
+        } else if (data is Map) {
+          // Direct Socket.IO format
+          debugPrint('📨 Direct Socket.IO format detected');
+          messageData = Map<String, dynamic>.from(data);
+        } else {
+          debugPrint('❌ Unexpected data format: ${data.runtimeType}');
+          return;
+        }
+        
+        final message = Message.fromJson(messageData);
+        debugPrint('✅ Message parsed: ${message.id} from ${message.senderName}');
+        debugPrint('✅ Message thread_id: ${message.threadId}');
+        debugPrint('✅ Current thread: $_currentThreadId');
+        
+        // Add to stream (chat_screen will filter by threadId)
         _messageStreamController.add(message);
+        debugPrint('✅ Message added to stream');
       } catch (e, stackTrace) {
         debugPrint('❌ Error parsing new message: $e');
         debugPrint('❌ Stack trace: $stackTrace');
-        debugPrint('❌ Raw data was: $data');
+        debugPrint('❌ Raw data: $data');
       }
     });
 
