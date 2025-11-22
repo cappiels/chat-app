@@ -172,10 +172,33 @@ class SocketService extends ChangeNotifier {
   Future<void> leaveThread() async {
     if (_currentThreadId != null && isConnected) {
       debugPrint('🚪 Leaving thread: $_currentThreadId');
+      
+      final completer = Completer<void>();
+      
+      // Listen for acknowledgement
+      void leaveHandler(dynamic data) {
+        if (data['threadId'] == _currentThreadId) {
+           debugPrint('✅ CONFIRMED: Left thread: ${data['threadId']}');
+           if (!completer.isCompleted) {
+             completer.complete();
+           }
+        }
+      }
+      
+      _socket?.once('thread_left', leaveHandler);
+      
       _socket?.emit('leave_thread', {'threadId': _currentThreadId});
       
       // Stop typing if currently typing
       await stopTyping();
+      
+      // Wait for confirmation with timeout
+      await completer.future.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          debugPrint('⚠️ Thread leave confirmation timeout - continuing anyway');
+        },
+      );
       
       _currentThreadId = null;
     }

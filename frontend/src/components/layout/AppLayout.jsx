@@ -107,8 +107,11 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   // Join thread when current channel changes  
   useEffect(() => {
     if (currentChannel && workspace) {
-      console.log('💬 Joining thread for channel:', currentChannel.name);
-      socketManager.joinThread(workspace.id, currentChannel.id);
+      // Leave previous thread if any
+      socketManager.leaveThread().then(() => {
+        console.log('💬 Joining thread for channel:', currentChannel.name);
+        socketManager.joinThread(workspace.id, currentChannel.id);
+      });
     }
   }, [currentChannel, workspace]);
 

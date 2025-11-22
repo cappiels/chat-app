@@ -1,5 +1,10 @@
 # Cline Rules for Crew Revolutionary Features
 
+## ⚠️ DOCUMENT CREATION POLICY
+**DO NOT create new documentation files without user approval first.**
+- Ask before creating any new .md files
+- Exception: Updating existing files is always allowed
+
 ## 🚀 SIMPLE DEPLOYMENT WORKFLOW (For Developer)
 
 ### **Local Testing:**
@@ -69,15 +74,15 @@ Slack-like chat application with **REVOLUTIONARY** multi-assignee tasks, teams s
 - **Testing Status**: What needs to be validated in development first, then production
 - **Deployment Info**: Current dev status and readiness for user production deploy
 
-### **📝 DOCUMENTATION STANDARDS:**
-**Create lean, execution-focused markdown files:**
-- ✅ **Include ALL technical details** needed for developer execution
-- ✅ **Complete code examples, schemas, dependencies, commands**
-- ✅ **Precise timelines, effort estimates, success metrics**
-- ❌ **NO excessive explanations or marketing language**
-- ❌ **NO repetitive clarifications for humans**
-- ❌ **NO verbose reasoning - just actionable facts**
-- **Goal**: Developer can execute from documentation alone without additional context
+### **📝 DOCUMENTATION & COMMUNICATION STANDARDS:**
+**Be concise. No fluff. Technical facts only.**
+- ✅ Include ALL technical details for execution
+- ✅ Complete code examples, schemas, dependencies, commands
+- ✅ Precise timelines, effort estimates, success metrics
+- ❌ NO excessive explanations or verbose reasoning
+- ❌ NO marketing language or repetitive clarifications
+- ❌ GET TO THE POINT - use fewer words
+- **Goal**: Developer can execute from documentation alone
 
 ## 🚀 DEVELOPMENT & DEPLOYMENT WORKFLOW
 1. **Development**: Use `./deploy-dev.sh patch "description"` for local testing

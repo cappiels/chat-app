@@ -338,6 +338,12 @@ class SocketServer {
       timestamp: new Date()
     });
 
+    // Acknowledge leave to the user
+    socket.emit('thread_left', {
+      threadId,
+      timestamp: new Date()
+    });
+
     console.log(`🚪 ${socket.user.display_name} left thread: ${threadId}`);
   }
 
