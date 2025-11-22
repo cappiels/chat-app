@@ -491,9 +491,17 @@ class SocketService extends ChangeNotifier {
     // Typing events
     _socket!.on('user_typing', (data) {
       try {
-        final threadId = data['threadId'] as String;
-        final userId = data['userId'] as String;
-        final isTyping = data['isTyping'] as bool;
+        debugPrint('⌨️ Raw user_typing event: $data');
+        
+        // Handle type conversions safely
+        final threadId = data['threadId']?.toString() ?? '';
+        final userId = data['userId']?.toString() ?? '';
+        final isTyping = data['isTyping'] == true;
+        
+        if (threadId.isEmpty || userId.isEmpty) {
+          debugPrint('⚠️ Invalid typing event - missing threadId or userId');
+          return;
+        }
         
         _typingUsers[threadId] ??= <String>{};
         if (isTyping) {
@@ -502,16 +510,33 @@ class SocketService extends ChangeNotifier {
           _typingUsers[threadId]!.remove(userId);
         }
 
+        // Handle nested user object safely
+        String userName = 'User';
+        try {
+          final userObj = data['user'];
+          if (userObj is Map) {
+            userName = userObj['display_name']?.toString() ?? 
+                      userObj['name']?.toString() ?? 
+                      'User';
+          }
+        } catch (e) {
+          debugPrint('⚠️ Could not parse user name: $e');
+        }
+
         final update = TypingUpdate(
           threadId: threadId,
           userId: userId,
-          userName: data['user']['display_name'],
+          userName: userName,
           isTyping: isTyping,
           typingUsers: List.from(_typingUsers[threadId] ?? []),
         );
+        
+        debugPrint('✅ Typing event parsed: $userName ${isTyping ? "started" : "stopped"} typing in $threadId');
         _typingUpdateController.add(update);
-      } catch (e) {
+      } catch (e, stackTrace) {
         debugPrint('❌ Error parsing typing event: $e');
+        debugPrint('❌ Stack: $stackTrace');
+        debugPrint('❌ Data: $data');
       }
     });
 
