@@ -292,10 +292,30 @@ class SocketManager {
 
   leaveThread(threadId) {
     console.log('🚪 Leaving thread:', threadId);
-    if (!this.socket?.connected) return;
+    if (!this.socket?.connected) return Promise.resolve();
     
     this.currentThread = null;
-    this.socket.emit('leave_thread', { threadId });
+    
+    return new Promise((resolve) => {
+      // Listen for acknowledgment with timeout
+      const handleThreadLeft = (data) => {
+        if (!threadId || data.threadId === threadId) {
+          console.log('✅ CONFIRMED: Left thread:', data.threadId);
+          this.socket.off('thread_left', handleThreadLeft);
+          clearTimeout(timeoutId);
+          resolve();
+        }
+      };
+
+      const timeoutId = setTimeout(() => {
+        console.warn('⚠️ Thread leave timeout - continuing anyway');
+        this.socket.off('thread_left', handleThreadLeft);
+        resolve();
+      }, 2000); // 2 second timeout
+
+      this.socket.on('thread_left', handleThreadLeft);
+      this.socket.emit('leave_thread', { threadId });
+    });
   }
 
   // Enhanced message events with retry and acknowledgment
