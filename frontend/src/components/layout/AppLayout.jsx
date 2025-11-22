@@ -113,32 +113,18 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   }, [currentChannel, workspace]);
 
   // Handler for new messages - useCallback to maintain stable reference
+  // Industry standard: Socket.IO is just a notification, fetch from API for reliability
   const handleNewMessage = useCallback((data) => {
-    console.log('📩 New message received in AppLayout:', data);
+    console.log('🔔 New message notification:', data);
     
-    const isCurrentUser = data.message.sender_id === user?.uid;
+    const isCurrentUser = data.message?.sender_id === user?.uid;
     const isCurrentThread = data.threadId === currentChannel?.id;
     const isCurrentWorkspace = data.workspaceId === workspace?.id;
     
-    // Process message for current channel display
-    if (isCurrentThread) {
-      const newMessage = {
-        id: data.message.id,
-        user: {
-          name: data.message.sender_name || 'User',
-          avatar: data.message.sender_avatar,
-          initials: data.message.sender_name ? data.message.sender_name.split(' ').map(n => n[0]).join('') : 'U',
-          status: 'online'
-        },
-        content: data.message.content,
-        timestamp: new Date(data.timestamp || data.message.created_at),
-        thread_count: data.message.reply_count || 0,
-        thread_participants: [],
-        reactions: data.message.reactions || []
-      };
-      
-      // Update messages array with the new message
-      setMessages(prevMessages => [...prevMessages, newMessage]);
+    // Refresh messages from HTTP API (source of truth) for current channel
+    if (isCurrentThread && currentChannel) {
+      console.log('🔄 Refreshing messages from API due to Socket.IO notification');
+      loadChannelMessages(currentChannel);
     }
     
     // Play notification sounds (but not for messages sent by current user)

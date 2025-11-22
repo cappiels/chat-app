@@ -149,19 +149,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _setupSocketListeners() {
-    // Listen for new messages
+    // Listen for new message NOTIFICATIONS (not full messages)
+    // Industry standard: Socket.IO is just a ping, not message delivery
     _messageSubscription = _socketService.messageStream.listen((message) {
+      print('🔔 New message notification received for thread: ${message.threadId}');
+      
+      // Refresh messages from HTTP API (reliable source of truth)
       if (message.threadId == widget.thread.id) {
-        setState(() {
-          _messages.insert(0, message);
-        });
-        
-        // Auto-scroll if near bottom
-        if (_scrollController.hasClients) {
-          if (_scrollController.offset < 100) {
-            _scrollToBottom();
-          }
-        }
+        print('🔄 Refreshing messages from API due to Socket.IO notification');
+        _loadMessages(loadMore: false);
       }
     });
 

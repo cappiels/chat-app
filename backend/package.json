@@ -1,6 +1,6 @@
 {
   "name": "crew-backend",
-  "version": "1.8.46",
+  "version": "1.8.47",
   "description": "Backend API for bleeding-edge chat application with real-time messaging and advanced knowledge base",
   "main": "index.js",
   "scripts": {
