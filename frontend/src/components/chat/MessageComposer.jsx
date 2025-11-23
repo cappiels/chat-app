@@ -164,8 +164,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         
         await onSendMessage(cleanMessage);
         
-        // Clear pending attachments
-        window.pendingAttachments = [];
+        // Note: Don't clear window.pendingAttachments here - AppLayout does it after successful send
         
         // Reset message content but keep composer expanded and focused
         setMessage('');
