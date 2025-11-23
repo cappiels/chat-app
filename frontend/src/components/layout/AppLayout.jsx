@@ -607,6 +607,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
                   workspace={workspace}
                   workspaceId={workspace.id}
                   currentView={currentView}
+                  userRole={workspace.user_role || workspace.role}
                 />
                 <div className="message-input-container">
                   <MessageComposer
@@ -648,6 +649,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
             typingUsers={typingUsers}
             workspace={workspace}
             workspaceId={workspace.id}
+            userRole={workspace.user_role || workspace.role}
             onSendReply={(content) => {
               const newReply = {
                 id: `${selectedThread.id}-reply-${Date.now()}`,

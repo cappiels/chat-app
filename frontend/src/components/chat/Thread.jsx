@@ -5,7 +5,7 @@ import Message from './Message';
 import MessageComposer from './MessageComposer';
 import TypingIndicator from './TypingIndicator';
 
-const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers = [], workspace, workspaceId }) => {
+const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers = [], workspace, workspaceId, userRole }) => {
   if (!isOpen || !thread) return null;
 
   const messagesEndRef = useRef(null);
@@ -43,6 +43,7 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
             threadId={thread.id}
             workspace={workspace}
             thread={thread}
+            userRole={userRole}
             onMessageUpdate={() => {}}
           />
           <div className="flex items-center gap-2 mt-3 text-sm">
@@ -90,6 +91,7 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
                         threadId={thread.id}
                         workspace={workspace}
                         thread={thread}
+                        userRole={userRole}
                         onMessageUpdate={() => {}}
                       />
                     ))}
@@ -130,6 +132,7 @@ Thread.propTypes = {
   currentUser: PropTypes.object.isRequired,
   onSendReply: PropTypes.func.isRequired,
   typingUsers: PropTypes.array,
+  userRole: PropTypes.string,
 };
 
 export default Thread;

@@ -7,7 +7,7 @@ import TypingIndicator from './TypingIndicator';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
 
-const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, typingUsers: externalTypingUsers, workspace, workspaceId, currentView }) => {
+const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMessageId, typingUsers: externalTypingUsers, workspace, workspaceId, currentView, userRole }) => {
   const messagesEndRef = useRef(null);
   const [internalTypingUsers, setInternalTypingUsers] = useState([]);
   const [newMessages, setNewMessages] = useState([]);
@@ -265,6 +265,7 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
                               threadId={channel.id}
                               workspace={workspace}
                               thread={channel}
+                              userRole={userRole}
                               onMessageUpdate={() => {}}
                             />
                           </div>
@@ -301,6 +302,7 @@ MessageList.propTypes = {
   workspace: PropTypes.object,
   workspaceId: PropTypes.string,
   currentView: PropTypes.string,
+  userRole: PropTypes.string,
   typingUsers: PropTypes.arrayOf(
     PropTypes.shape({
       userId: PropTypes.string.isRequired,

@@ -5,6 +5,7 @@ import '../../../data/services/message_service.dart';
 import '../../../data/services/socket_service.dart';
 import '../../../data/models/message.dart';
 import '../../../data/models/thread.dart';
+import '../../../data/models/workspace.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/message_composer.dart';
 import '../../widgets/chat/typing_indicator.dart';
@@ -36,6 +37,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _hasMore = true;
   String? _currentUserId;
   Set<String> _typingUsers = {};
+  Workspace? _workspaceModel;
   
   StreamSubscription<Message>? _messageSubscription;
   StreamSubscription<MessageUpdate>? _messageUpdateSubscription;
@@ -45,6 +47,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    // Convert workspace Map to Workspace model
+    _workspaceModel = Workspace.fromJson(widget.workspace);
     _initializeChat();
     _scrollController.addListener(_onScroll);
   }
@@ -705,6 +709,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 message: message,
                 isOwnMessage: isOwnMessage,
                 onLongPress: () => _showMessageActions(message),
+                workspace: _workspaceModel,
+                workspaceId: widget.workspace['id']?.toString() ?? '',
+                threadId: widget.thread.id,
+                onMessageDeleted: () {
+                  // Refresh messages after deletion
+                  _loadMessages(loadMore: false);
+                },
               ),
             ],
           );

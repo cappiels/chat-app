@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
-import { Reply, MoreHorizontal, Smile, Bookmark, Edit, MessageSquare, Download, FileText, Image, Film, Music, File, Play, Pause } from 'lucide-react';
+import { Reply, MoreHorizontal, Smile, Bookmark, Edit, MessageSquare, Download, FileText, Image, Film, Music, File, Play, Pause, Trash2 } from 'lucide-react';
 import { messageAPI, threadAPI } from '../../utils/api';
 import ImageModal from '../ui/ImageModal';
 import BookmarkDialog from './BookmarkDialog';
 
-const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId, threadId, onMessageUpdate, workspace, thread }) => {
+const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId, threadId, onMessageUpdate, workspace, thread, userRole }) => {
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [imageError, setImageError] = useState({});
@@ -16,6 +16,8 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [audioStates, setAudioStates] = useState({});
   const [showBookmarkDialog, setShowBookmarkDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -42,6 +44,8 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
   };
 
   const isCurrentUser = message.user.name === currentUser?.displayName;
+  const isAdmin = userRole === 'admin';
+  const canDelete = isCurrentUser || isAdmin;
 
   // Common emojis for quick reactions
   const quickEmojis = ['👍', '❤️', '😂', '🎉', '👀', '🔥'];
@@ -86,6 +90,24 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
       }
     } catch (error) {
       console.error('Error editing message:', error);
+    }
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!canDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await messageAPI.deleteMessage(workspaceId, threadId, message.id);
+      setShowDeleteConfirm(false);
+      if (onMessageUpdate) {
+        onMessageUpdate(message.id, 'deleted');
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      alert('Failed to delete message. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -468,6 +490,15 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
               <Edit className="w-4 h-4" />
             </button>
           )}
+          {canDelete && (
+            <button 
+              className="btn-icon text-red-600 hover:bg-red-50" 
+              title={isAdmin && !isCurrentUser ? "Delete message (admin)" : "Delete message"}
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
           <button className="btn-icon" title="More actions">
             <MoreHorizontal className="w-4 h-4" />
           </button>
@@ -509,6 +540,47 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
         workspace={workspace}
         currentUser={currentUser}
       />
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4 animate-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Message</h3>
+            <p className="text-gray-600 mb-4">
+              {isAdmin && !isCurrentUser 
+                ? "You are about to delete another user's message as an admin. This action cannot be undone."
+                : "Are you sure you want to delete this message? This action cannot be undone."
+              }
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteMessage}
+                disabled={isDeleting}
+                className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,26 +1,201 @@
 import 'package:flutter/material.dart';
 import '../../../data/models/message.dart';
 import '../../../data/models/attachment.dart';
+import '../../../data/models/workspace.dart';
+import '../../../data/services/message_service.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'image_viewer.dart';
+import 'delete_message_dialog.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isOwnMessage;
   final VoidCallback onLongPress;
+  final Workspace? workspace;
+  final String workspaceId;
+  final String threadId;
+  final VoidCallback? onMessageDeleted;
   
   const MessageBubble({
     super.key,
     required this.message,
     required this.isOwnMessage,
     required this.onLongPress,
+    this.workspace,
+    required this.workspaceId,
+    required this.threadId,
+    this.onMessageDeleted,
   });
+
+  bool get _canDelete {
+    // Can delete if it's your own message OR if you're an admin
+    return isOwnMessage || (workspace?.isAdmin ?? false);
+  }
+
+  Future<void> _handleDelete(BuildContext context) async {
+    if (!_canDelete) return;
+
+    // Show confirmation dialog
+    final confirmed = await DeleteMessageDialog.show(
+      context,
+      isAdmin: workspace?.isAdmin ?? false,
+      isOwnMessage: isOwnMessage,
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Show loading indicator
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('Deleting message...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Delete the message
+      await MessageService().deleteMessage(
+        workspaceId: workspaceId,
+        threadId: threadId,
+        messageId: message.id,
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text('Message deleted'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Notify parent to refresh messages
+        onMessageDeleted?.call();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text('Failed to delete message: ${e.toString()}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade600,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showMessageOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            // Message options
+            ListTile(
+              leading: const Icon(Icons.reply),
+              title: const Text('Reply'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle reply action
+              },
+            ),
+            
+            if (isOwnMessage)
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Handle edit action
+                },
+              ),
+            
+            ListTile(
+              leading: const Icon(Icons.content_copy),
+              title: const Text('Copy'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle copy action
+              },
+            ),
+            
+            if (_canDelete)
+              ListTile(
+                leading: Icon(Icons.delete, color: Colors.red.shade600),
+                title: Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red.shade600),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleDelete(context);
+                },
+              ),
+            
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onLongPress: onLongPress,
+      onLongPress: () => _showMessageOptions(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
