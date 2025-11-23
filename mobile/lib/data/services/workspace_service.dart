@@ -8,7 +8,7 @@ class WorkspaceService {
   /// Get all workspaces for the current user
   Future<List<Workspace>> getWorkspaces() async {
     try {
-      final response = await _httpClient.get('/workspaces');
+      final response = await _httpClient.get('/api/workspaces');
       
       // Extract workspaces from the response
       final workspacesData = response.data['workspaces'] as List;
@@ -24,7 +24,7 @@ class WorkspaceService {
   /// Get detailed information about a specific workspace
   Future<Workspace> getWorkspace(String workspaceId) async {
     try {
-      final response = await _httpClient.get('/workspaces/$workspaceId');
+      final response = await _httpClient.get('/api/workspaces/$workspaceId');
       return Workspace.fromJson(response.data['workspace']);
     } catch (e) {
       print('❌ Error fetching workspace details: $e');
@@ -39,7 +39,7 @@ class WorkspaceService {
   }) async {
     try {
       final response = await _httpClient.post(
-        '/workspaces',
+        '/api/workspaces',
         data: {
           'name': name,
           'description': description,
@@ -60,7 +60,7 @@ class WorkspaceService {
   }) async {
     try {
       final response = await _httpClient.post(
-        '/workspaces/$workspaceId/invite',
+        '/api/workspaces/$workspaceId/invite',
         data: {
           'email': email,
           'role': role,
@@ -83,7 +83,7 @@ class WorkspaceService {
   /// Get workspace members
   Future<List<Map<String, dynamic>>> getMembers(String workspaceId) async {
     try {
-      final response = await _httpClient.get('/workspaces/$workspaceId/members');
+      final response = await _httpClient.get('/api/workspaces/$workspaceId/members');
       return List<Map<String, dynamic>>.from(response.data['members'] ?? []);
     } catch (e) {
       print('❌ Error fetching members: $e');
@@ -97,7 +97,7 @@ class WorkspaceService {
     required String userId,
   }) async {
     try {
-      await _httpClient.delete('/workspaces/$workspaceId/members/$userId');
+      await _httpClient.delete('/api/workspaces/$workspaceId/members/$userId');
     } catch (e) {
       print('❌ Error removing member: $e');
       rethrow;
@@ -111,7 +111,7 @@ class WorkspaceService {
   }) async {
     try {
       await _httpClient.delete(
-        '/workspaces/$workspaceId',
+        '/api/workspaces/$workspaceId',
         data: {'archive': archive},
       );
     } catch (e) {
