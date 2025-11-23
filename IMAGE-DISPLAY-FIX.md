@@ -54,7 +54,15 @@
 - Only refresh on notifications from other users
 - Eliminates double-refresh and race conditions
 
-### Fix 3: Image URL Format ✅
+### Fix 3: Backend File Upload Filter ✅
+**File**: `backend/routes/upload.js`
+**Changes**: Enhanced `fileFilter` function to:
+- Check MIME type first (standard behavior)
+- Fallback to file extension check if MIME type is `application/octet-stream`
+- Fixes iOS image uploads (HEIC/HEIF) that often have generic MIME types
+- Supports extensions: jpg, jpeg, png, gif, webp, svg, heic, heif, etc.
+
+### Fix 4: Image URL Format ✅
 Both React and Flutter correctly convert Google Drive view links to direct image links:
 ```
 https://drive.google.com/uc?export=view&id={FILE_ID}

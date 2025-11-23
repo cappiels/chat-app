@@ -24,11 +24,32 @@ const upload = multer({
       'application/zip', 'application/x-zip-compressed'
     ];
     
+    // Check MIME type first
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
-    } else {
-      cb(new Error(`File type ${file.mimetype} not allowed`), false);
+      return;
     }
+    
+    // Fallback: Check file extension if MIME type is generic (common with iOS images)
+    if (file.mimetype === 'application/octet-stream') {
+      const ext = file.originalname.toLowerCase().split('.').pop();
+      const allowedExtensions = [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+        'heic', 'heif', // iOS images
+        'mp4', 'webm', 'mov',
+        'mp3', 'wav', 'ogg',
+        'pdf', 'doc', 'docx', 'txt', 'csv',
+        'zip'
+      ];
+      
+      if (allowedExtensions.includes(ext)) {
+        console.log(`✅ File accepted via extension: ${file.originalname} (${ext})`);
+        cb(null, true);
+        return;
+      }
+    }
+    
+    cb(new Error(`File type ${file.mimetype} not allowed (${file.originalname})`), false);
   }
 });
 
