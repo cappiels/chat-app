@@ -260,35 +260,45 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
           <div className="mt-2">
             {(() => {
               // Separate images from other attachments
-              const attachmentData = message.attachments.map(renderAttachment);
-              const images = attachmentData.filter(a => a && a.type === 'image');
-              const others = attachmentData.filter(a => !a || a.type !== 'image');
+              const imageAttachments = message.attachments.filter(a => a.type.startsWith('image/') && !imageError[a.id]);
+              const otherAttachments = message.attachments.filter(a => !a.type.startsWith('image/') || imageError[a.id]);
 
               return (
                 <>
                   {/* Image Grid */}
-                  {images.length > 0 && (
-                    <div className={`grid gap-2 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-md`}>
-                      {images.map((img) => (
-                        <div key={img.id} className="relative group">
-                          <img
-                            src={img.url}
-                            alt={img.name}
-                            className="rounded-lg shadow-sm w-full h-auto cursor-pointer hover:shadow-md transition-all hover:scale-[1.02]"
-                            style={{ maxHeight: images.length === 1 ? '300px' : '200px', objectFit: 'cover' }}
-                            onError={() => handleImageError(img.id)}
-                            onClick={() => openImageModal(img.url, img.name, img.name)}
-                          />
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="text-xs text-white truncate">{img.name}</div>
+                  {imageAttachments.length > 0 && (
+                    <div className={`grid gap-2 ${imageAttachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-md`}>
+                      {imageAttachments.map((attachment) => {
+                        // Generate direct URL for Google Drive images
+                        let imageUrl = attachment.url;
+                        if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('/file/d/')) {
+                          const fileIdMatch = imageUrl.match(/\/file\/d\/([^/]+)/);
+                          if (fileIdMatch && fileIdMatch[1]) {
+                            imageUrl = `https://drive.google.com/uc?export=view&id=${fileIdMatch[1]}`;
+                          }
+                        }
+
+                        return (
+                          <div key={attachment.id} className="relative group">
+                            <img
+                              src={imageUrl}
+                              alt={attachment.name}
+                              className="rounded-lg shadow-sm w-full h-auto cursor-pointer hover:shadow-md transition-all hover:scale-[1.02]"
+                              style={{ maxHeight: imageAttachments.length === 1 ? '300px' : '200px', objectFit: 'cover' }}
+                              onError={() => handleImageError(attachment.id)}
+                              onClick={() => openImageModal(imageUrl, attachment.name, attachment.name)}
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="text-xs text-white truncate">{attachment.name}</div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
                   {/* Other Attachments */}
-                  {message.attachments.filter(a => !a.type.startsWith('image/') || imageError[a.id]).map(attachment => {
+                  {otherAttachments.map(attachment => {
                     const FileIcon = getFileIcon(attachment.type);
                     
                     // Handle videos
