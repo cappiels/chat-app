@@ -159,7 +159,13 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         // Play message sent sound
         notificationManager.playMessageSentSound();
         
-        await onSendMessage(message.trim());
+        // Clean message text (remove any attachment prefix that shouldn't be there)
+        const cleanMessage = message.replace(/^📎 \d+ files? attached\n\n/, '').trim();
+        
+        await onSendMessage(cleanMessage);
+        
+        // Clear pending attachments
+        window.pendingAttachments = [];
         
         // Reset message content but keep composer expanded and focused
         setMessage('');
@@ -310,20 +316,14 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         const result = await response.json();
         console.log('✅ Upload successful:', result.files);
         
-        // Store attachment metadata for sending with message (don't add to message text)
+        // Store attachment metadata for sending with message
         if (!window.pendingAttachments) {
           window.pendingAttachments = [];
         }
         window.pendingAttachments.push(...result.files);
         
-        // Show visual feedback that files are attached
-        const attachmentCount = window.pendingAttachments.length;
-        setMessage(prev => {
-          const prefix = `📎 ${attachmentCount} file${attachmentCount > 1 ? 's' : ''} attached\n\n`;
-          // Remove old attachment prefix if exists
-          const cleaned = prev.replace(/^📎 \d+ files? attached\n\n/, '');
-          return prefix + cleaned;
-        });
+        // Don't modify message text - attachments are handled separately
+        console.log(`📎 ${window.pendingAttachments.length} file(s) ready to send with message`);
         
       } catch (error) {
         console.error('File upload error:', error);
