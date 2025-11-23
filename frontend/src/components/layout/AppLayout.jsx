@@ -433,30 +433,52 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       }
       
       // Send message via API
-      await messageAPI.sendMessage(workspace.id, currentChannel.id, messagePayload);
+      const response = await messageAPI.sendMessage(workspace.id, currentChannel.id, messagePayload);
       
       // Clear pending attachments after successful send
       window.pendingAttachments = [];
       
-      // Reload messages to get the real message with proper ID and timestamp
-      await loadChannelMessages(currentChannel);
+      // 🎯 IMMEDIATE IMAGE DISPLAY: Use API response to show message instantly
+      if (response && response.data) {
+        const apiMessage = response.data;
+        
+        // Transform API message to match our UI format
+        const newMessage = {
+          id: apiMessage.id,
+          user: {
+            name: apiMessage.sender_name || user.displayName || 'You',
+            avatar: apiMessage.sender_avatar || user.photoURL,
+            initials: (apiMessage.sender_name || user.displayName || 'U').split(' ').map(n => n[0]).join(''),
+            status: 'online'
+          },
+          content: apiMessage.content,
+          timestamp: new Date(apiMessage.created_at),
+          thread_count: 0,
+          thread_participants: [],
+          reactions: [],
+          attachments: apiMessage.attachments ? apiMessage.attachments.map(att => ({
+            id: att.id,
+            name: att.file_name,
+            url: att.file_url,
+            type: att.mime_type,
+            size: att.file_size_bytes,
+            thumbnail_url: att.thumbnail_url
+          })) : []
+        };
+        
+        // Add to messages immediately - prepend to show at bottom (newest first)
+        setMessages(prevMessages => [newMessage, ...prevMessages]);
+        
+        console.log('✅ Message with images displayed immediately from API response');
+      } else {
+        // Fallback: Reload all messages if response format unexpected
+        await loadChannelMessages(currentChannel);
+      }
       
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Add optimistic message for immediate feedback
-      const optimisticMessage = {
-        id: `temp-${Date.now()}`,
-        user: {
-          name: user.displayName || 'You',
-          avatar: user.photoURL,
-          initials: user.displayName ? user.displayName.split(' ').map(n => n[0]).join('') : 'U',
-          status: 'online'
-        },
-        content: content.trim(),
-        timestamp: new Date(),
-        sending: true
-      };
-      setMessages([...messages, optimisticMessage]);
+      // Show error to user
+      alert('Failed to send message. Please try again.');
     }
   };
 

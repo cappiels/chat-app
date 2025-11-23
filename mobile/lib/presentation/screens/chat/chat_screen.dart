@@ -161,9 +161,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       print('🔔 New message notification received for thread: ${message.threadId}');
       
       // Refresh messages from HTTP API (reliable source of truth)
-      if (message.threadId == widget.thread.id) {
-        print('🔄 Refreshing messages from API due to Socket.IO notification');
+      // BUT: Skip if this is our own message (we already added it from API response)
+      final isOwnMessage = message.senderId == _currentUserId;
+      
+      if (message.threadId == widget.thread.id && !isOwnMessage) {
+        print('🔄 Refreshing messages from API due to Socket.IO notification from other user');
         _loadMessages(loadMore: false);
+      } else if (isOwnMessage) {
+        print('⏭️ Skipping refresh - this is our own message already displayed');
       }
     });
 
