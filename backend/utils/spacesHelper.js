@@ -77,7 +77,9 @@ class SpacesHelper {
       const randomHash = crypto.randomBytes(8).toString('hex');
       const ext = fileName.split('.').pop();
       const baseName = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-      const uniqueFileName = `${timestamp}-${randomHash}-${baseName}.${ext}`;
+      // Sanitize the base filename to remove special characters that break S3 signatures
+      const sanitizedBaseName = baseName.replace(/[^\w\s.-]/g, '').replace(/\s+/g, '-');
+      const uniqueFileName = `${timestamp}-${randomHash}-${sanitizedBaseName}.${ext}`;
 
       // Organize files by workspace/channel if provided
       let key = 'chat-uploads/';
