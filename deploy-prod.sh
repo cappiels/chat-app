@@ -138,37 +138,28 @@ if [ $? -eq 0 ]; then
     # Auto-upload to TestFlight if API credentials are configured
     if [ ! -z "$ASC_KEY_ID" ] && [ ! -z "$ASC_ISSUER_ID" ]; then
         echo ""
-        read -p "📤 Upload IPA to TestFlight? (y/n) [y]: " UPLOAD_CHOICE
-        UPLOAD_CHOICE=${UPLOAD_CHOICE:-y}
+        echo "🚀 Uploading to TestFlight..."
+        cd ..
+        xcrun altool --upload-app \
+          --type ios \
+          --file "mobile/build/ios/ipa/Crew Chat.ipa" \
+          --apiKey $ASC_KEY_ID \
+          --apiIssuer $ASC_ISSUER_ID
         
-        if [ "$UPLOAD_CHOICE" = "y" ]; then
-            echo "🚀 Uploading to TestFlight..."
-            cd ..
-            xcrun altool --upload-app \
-              --type ios \
-              --file "mobile/build/ios/ipa/Crew Chat.ipa" \
-              --apiKey $ASC_KEY_ID \
-              --apiIssuer $ASC_ISSUER_ID
-            
-            if [ $? -eq 0 ]; then
-                echo ""
-                echo "✅ Upload successful!"
-                echo "⏱️  Processing time: 5-10 minutes"
-                echo "📱 Check App Store Connect for build availability"
-            else
-                echo ""
-                echo "❌ Upload failed"
-                echo "📤 Manual upload: Drag mobile/build/ios/ipa/Crew Chat.ipa to Transporter app"
-            fi
+        if [ $? -eq 0 ]; then
+            echo ""
+            echo "✅ Upload successful!"
+            echo "⏱️  Processing time: 5-10 minutes"
+            echo "📱 Check App Store Connect for build availability"
         else
-            cd ..
-            echo "⏭️  Skipping upload"
+            echo ""
+            echo "❌ Upload failed"
             echo "📤 Manual upload: Drag mobile/build/ios/ipa/Crew Chat.ipa to Transporter app"
         fi
     else
         cd ..
         echo "⚠️  TestFlight auto-upload not configured"
-        echo "💡 Set ASC_KEY_ID and ASC_ISSUER_ID environment variables"
+        echo "� Set ASC_KEY_ID and ASC_ISSUER_ID environment variables"
         echo "📖 See TESTFLIGHT-AUTOMATED-UPLOAD.md for setup instructions"
         echo "📤 Manual upload: Drag mobile/build/ios/ipa/Crew Chat.ipa to Transporter app"
     fi

@@ -44,28 +44,33 @@ router.get('/', authenticateUser, requireWorkspaceMembership, async (req, res) =
     } = req.query;
     const userId = req.user.id;
 
-    // Verify thread access
-    const accessQuery = `
-      SELECT 
-        t.type, 
-        t.is_private,
-        CASE 
-          WHEN tm.user_id IS NOT NULL THEN true
-          WHEN t.type = 'channel' AND t.is_private = false THEN true
-          ELSE false
-        END as has_access
-      FROM threads t
-      LEFT JOIN thread_members tm ON t.id = tm.thread_id AND tm.user_id = $2
-      WHERE t.id = $1 AND t.workspace_id = $3;
-    `;
+    // Site admin bypass for thread access
+    if (!req.isSiteAdmin) {
+      // Verify thread access for regular users
+      const accessQuery = `
+        SELECT 
+          t.type, 
+          t.is_private,
+          CASE 
+            WHEN tm.user_id IS NOT NULL THEN true
+            WHEN t.type = 'channel' AND t.is_private = false THEN true
+            ELSE false
+          END as has_access
+        FROM threads t
+        LEFT JOIN thread_members tm ON t.id = tm.thread_id AND tm.user_id = $2
+        WHERE t.id = $1 AND t.workspace_id = $3;
+      `;
 
-    const accessResult = await pool.query(accessQuery, [threadId, userId, workspaceId]);
+      const accessResult = await pool.query(accessQuery, [threadId, userId, workspaceId]);
 
-    if (accessResult.rows.length === 0 || !accessResult.rows[0].has_access) {
-      return res.status(403).json({ 
-        error: 'Forbidden', 
-        message: 'You do not have access to this thread' 
-      });
+      if (accessResult.rows.length === 0 || !accessResult.rows[0].has_access) {
+        return res.status(403).json({ 
+          error: 'Forbidden', 
+          message: 'You do not have access to this thread' 
+        });
+      }
+    } else {
+      console.log(`🔑 Site admin bypassing thread access check for thread ${threadId}`);
     }
 
     // Build dynamic query with filters
@@ -289,21 +294,26 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
     } = req.body;
     const userId = req.user.id;
 
-    // Verify thread membership for posting
-    const memberQuery = `
-      SELECT tm.user_id
-      FROM thread_members tm
-      JOIN threads t ON tm.thread_id = t.id
-      WHERE tm.thread_id = $1 AND tm.user_id = $2 AND t.workspace_id = $3;
-    `;
+    // Site admin bypass for thread posting
+    if (!req.isSiteAdmin) {
+      // Verify thread membership for regular users
+      const memberQuery = `
+        SELECT tm.user_id
+        FROM thread_members tm
+        JOIN threads t ON tm.thread_id = t.id
+        WHERE tm.thread_id = $1 AND tm.user_id = $2 AND t.workspace_id = $3;
+      `;
 
-    const memberResult = await pool.query(memberQuery, [threadId, userId, workspaceId]);
+      const memberResult = await pool.query(memberQuery, [threadId, userId, workspaceId]);
 
-    if (memberResult.rows.length === 0) {
-      return res.status(403).json({ 
-        error: 'Forbidden', 
-        message: 'You must be a member of this thread to post messages' 
-      });
+      if (memberResult.rows.length === 0) {
+        return res.status(403).json({ 
+          error: 'Forbidden', 
+          message: 'You must be a member of this thread to post messages' 
+        });
+      }
+    } else {
+      console.log(`🔑 Site admin bypassing thread membership check for posting in thread ${threadId}`);
     }
 
     // Validation
