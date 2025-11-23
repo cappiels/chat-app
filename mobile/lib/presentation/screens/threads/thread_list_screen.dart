@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/workspace_service.dart';
 import '../../../data/services/http_client.dart';
 import '../../../data/models/thread.dart';
+import '../../../data/models/workspace.dart';
 import '../chat/chat_screen.dart';
+import '../calendar/channel_calendar_screen.dart';
+import '../timeline/channel_timeline_screen.dart';
 
 class ThreadListScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> workspace;
@@ -26,6 +29,7 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   List<Thread> _threads = [];
   bool _loading = true;
   int _selectedBottomNavIndex = 0;
+  Thread? _selectedThread;
   
   @override
   void initState() {
@@ -274,9 +278,9 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
     if (_selectedBottomNavIndex == 0) {
       return _buildThreadList();
     } else if (_selectedBottomNavIndex == 1) {
-      return _buildCalendarPlaceholder();
+      return _buildCalendarView();
     } else if (_selectedBottomNavIndex == 2) {
-      return _buildTimelinePlaceholder();
+      return _buildTimelineView();
     } else if (_selectedBottomNavIndex == 3) {
       return _buildKnowledgePlaceholder();
     } else {
@@ -427,12 +431,35 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
     }
   }
 
-  Widget _buildCalendarPlaceholder() {
-    return _buildFeaturePlaceholder(
-      icon: Icons.calendar_month,
-      title: 'Monthly Calendar',
-      description: 'View tasks and events in monthly calendar format',
-      color: Colors.purple,
+  Widget _buildCalendarView() {
+    if (_threads.isEmpty) {
+      return _buildFeaturePlaceholder(
+        icon: Icons.calendar_month,
+        title: 'No Channels',
+        description: 'Select a channel from the Chat tab to view its calendar',
+        color: Colors.purple,
+      );
+    }
+
+    // If no thread is selected, show channel selector
+    if (_selectedThread == null) {
+      return _buildChannelSelector(
+        icon: Icons.calendar_month,
+        title: 'Calendar View',
+        description: 'Select a channel to view its calendar',
+        onChannelSelected: (thread) {
+          setState(() {
+            _selectedThread = thread;
+          });
+        },
+      );
+    }
+
+    // Show calendar for selected thread
+    final workspace = Workspace.fromJson(widget.workspace);
+    return ChannelCalendarScreen(
+      thread: _selectedThread!,
+      workspace: workspace,
     );
   }
 
@@ -445,12 +472,35 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
     );
   }
 
-  Widget _buildTimelinePlaceholder() {
-    return _buildFeaturePlaceholder(
-      icon: Icons.timeline,
-      title: 'Timeline',
-      description: 'Gantt chart with task dependencies and progress',
-      color: Colors.orange,
+  Widget _buildTimelineView() {
+    if (_threads.isEmpty) {
+      return _buildFeaturePlaceholder(
+        icon: Icons.timeline,
+        title: 'No Channels',
+        description: 'Select a channel from the Chat tab to view its timeline',
+        color: Colors.orange,
+      );
+    }
+
+    // If no thread is selected, show channel selector
+    if (_selectedThread == null) {
+      return _buildChannelSelector(
+        icon: Icons.timeline,
+        title: 'Timeline View',
+        description: 'Select a channel to view its timeline',
+        onChannelSelected: (thread) {
+          setState(() {
+            _selectedThread = thread;
+          });
+        },
+      );
+    }
+
+    // Show timeline for selected thread
+    final workspace = Workspace.fromJson(widget.workspace);
+    return ChannelTimelineScreen(
+      thread: _selectedThread!,
+      workspace: workspace,
     );
   }
 
@@ -460,6 +510,84 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
       title: 'Knowledge Base',
       description: 'Organized knowledge with categories and tagging',
       color: Colors.green,
+    );
+  }
+
+  Widget _buildChannelSelector({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Function(Thread) onChannelSelected,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          color: Colors.grey[100],
+          child: Column(
+            children: [
+              Icon(icon, size: 48, color: Colors.blue[600]),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _threads.length,
+            itemBuilder: (context, index) {
+              final thread = _threads[index];
+              return ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    thread.type == 'channel' ? Icons.tag : Icons.person,
+                    color: Colors.blue.shade600,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  thread.type == 'channel' ? '#${thread.name}' : thread.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: thread.description != null
+                    ? Text(
+                        thread.description!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      )
+                    : null,
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => onChannelSelected(thread),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
