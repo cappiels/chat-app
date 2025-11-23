@@ -255,22 +255,149 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildAttachments() {
+    // Separate images from other attachments
+    final images = message.attachments!
+        .where((a) => a.mimeType?.startsWith('image/') ?? false)
+        .toList();
+    final others = message.attachments!
+        .where((a) => !(a.mimeType?.startsWith('image/') ?? false))
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: message.attachments!.map((attachment) {
-        // Display images inline with click-to-expand
-        if (attachment.mimeType?.startsWith('image/') ?? false) {
-          return _buildInlineImage(attachment);
-        }
+      children: [
+        // Image Grid
+        if (images.isNotEmpty) _buildImageGrid(images),
         
-        // Display videos inline
-        if (attachment.mimeType?.startsWith('video/') ?? false) {
-          return _buildVideoAttachment(attachment);
-        }
-        
-        // Display other files as download links
-        return _buildFileAttachment(attachment);
-      }).toList(),
+        // Other Attachments
+        ...others.map((attachment) {
+          // Display videos inline
+          if (attachment.mimeType?.startsWith('video/') ?? false) {
+            return _buildVideoAttachment(attachment);
+          }
+          
+          // Display other files as download links
+          return _buildFileAttachment(attachment);
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildImageGrid(List<dynamic> images) {
+    if (images.isEmpty) return const SizedBox.shrink();
+    
+    // Single image - full width
+    if (images.length == 1) {
+      return _buildInlineImage(images[0]);
+    }
+    
+    // Multiple images - 2 column grid
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 4,
+          mainAxisSpacing: 4,
+          childAspectRatio: 1,
+        ),
+        itemCount: images.length,
+        itemBuilder: (context, index) {
+          final attachment = images[index];
+          final fileSize = _formatFileSize(attachment.fileSizeBytes);
+          
+          // Generate direct URL for Google Drive images
+          String imageUrl = attachment.url;
+          
+          if (imageUrl.contains('drive.google.com') && imageUrl.contains('/file/d/')) {
+            final fileIdMatch = RegExp(r'/file/d/([^/]+)').firstMatch(imageUrl);
+            if (fileIdMatch != null && fileIdMatch.groupCount >= 1) {
+              final fileId = fileIdMatch.group(1);
+              imageUrl = 'https://drive.google.com/uc?export=view&id=$fileId';
+            }
+          }
+          
+          return GestureDetector(
+            onTap: () {
+              ImageViewer.show(
+                context,
+                imageUrl: imageUrl,
+                fileName: attachment.fileName,
+                fileSize: fileSize,
+              );
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: isOwnMessage 
+                          ? Colors.white.withOpacity(0.2)
+                          : Colors.grey.shade300,
+                      child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: isOwnMessage 
+                          ? Colors.white.withOpacity(0.2)
+                          : Colors.grey.shade300,
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.broken_image, size: 32, color: Colors.grey),
+                          SizedBox(height: 4),
+                          Text('Failed', 
+                            style: TextStyle(color: Colors.grey, fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Gradient overlay on hover/focus (shown on bottom)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.6),
+                          Colors.transparent,
+                        ],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(8),
+                        bottomRight: Radius.circular(8),
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Text(
+                      attachment.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -305,52 +432,73 @@ class MessageBubble extends StatelessWidget {
                   fileSize: fileSize,
                 );
               },
-              child: Container(
-                constraints: const BoxConstraints(
-                  maxWidth: 250,
-                  maxHeight: 300,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+              child: Stack(
+                children: [
+                  Container(
+                    constraints: const BoxConstraints(
+                      maxWidth: 300,
+                      maxHeight: 300,
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      height: 200,
-                      color: isOwnMessage 
-                          ? Colors.white.withOpacity(0.2)
-                          : Colors.grey.shade300,
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    errorWidget: (context, url, error) => Container(
-                      height: 200,
-                      color: isOwnMessage 
-                          ? Colors.white.withOpacity(0.2)
-                          : Colors.grey.shade300,
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                          SizedBox(height: 8),
-                          Text('Image failed to load', 
-                            style: TextStyle(color: Colors.grey, fontSize: 12)),
-                        ],
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          height: 200,
+                          color: isOwnMessage 
+                              ? Colors.white.withOpacity(0.2)
+                              : Colors.grey.shade300,
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          height: 200,
+                          color: isOwnMessage 
+                              ? Colors.white.withOpacity(0.2)
+                              : Colors.grey.shade300,
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                              SizedBox(height: 8),
+                              Text('Image failed to load', 
+                                style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  // Tap to expand hint icon
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.zoom_in,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

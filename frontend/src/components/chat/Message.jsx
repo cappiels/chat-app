@@ -135,7 +135,7 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
   const renderAttachment = (attachment) => {
     const FileIcon = getFileIcon(attachment.type);
     
-    // Handle images
+    // Handle images - now returns metadata for grid rendering
     if (attachment.type.startsWith('image/') && !imageError[attachment.id]) {
       // Generate direct URL for Google Drive images if not already present
       let imageUrl = attachment.url;
@@ -148,82 +148,17 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
         }
       }
       
-      return (
-        <div key={attachment.id} className="mt-2 max-w-sm">
-          <img
-            src={imageUrl}
-            alt={attachment.name}
-            className="rounded-lg shadow-sm max-w-full h-auto cursor-pointer hover:shadow-md transition-shadow"
-            style={{ maxHeight: '300px', objectFit: 'cover' }}
-            onError={() => handleImageError(attachment.id)}
-            onClick={() => openImageModal(imageUrl, attachment.name, attachment.name)}
-          />
-          <div className="flex items-center justify-between text-xs text-gray-500 mt-1 px-1">
-            <span>{attachment.name}</span>
-            <span>{formatFileSize(attachment.size)}</span>
-          </div>
-        </div>
-      );
+      return {
+        type: 'image',
+        id: attachment.id,
+        url: imageUrl,
+        name: attachment.name,
+        size: attachment.size
+      };
     }
 
-    // Handle videos
-    if (attachment.type.startsWith('video/')) {
-      return (
-        <div key={attachment.id} className="mt-2 max-w-md">
-          <video
-            controls
-            className="rounded-lg shadow-sm max-w-full h-auto"
-            preload="metadata"
-          >
-            <source src={attachment.url} type={attachment.type} />
-            Your browser does not support the video tag.
-          </video>
-          <div className="flex items-center justify-between text-xs text-gray-500 mt-1 px-1">
-            <span>{attachment.name}</span>
-            <span>{formatFileSize(attachment.size)}</span>
-          </div>
-        </div>
-      );
-    }
-
-    // Handle audio
-    if (attachment.type.startsWith('audio/')) {
-      return (
-        <div key={attachment.id} className="mt-2 max-w-md bg-gray-50 rounded-lg p-3">
-          <audio controls className="w-full">
-            <source src={attachment.url} type={attachment.type} />
-            Your browser does not support the audio element.
-          </audio>
-          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-            <span className="flex items-center gap-1">
-              <Music className="w-3 h-3" />
-              {attachment.name}
-            </span>
-            <span>{formatFileSize(attachment.size)}</span>
-          </div>
-        </div>
-      );
-    }
-
-    // Handle other files
-    return (
-      <div key={attachment.id} className="mt-2">
-        <a
-          href={attachment.url}
-          download={attachment.name}
-          className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors group max-w-md"
-        >
-          <div className="p-2 bg-white rounded-lg border">
-            <FileIcon className="w-5 h-5 text-gray-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-gray-900 truncate">{attachment.name}</div>
-            <div className="text-sm text-gray-500">{formatFileSize(attachment.size)}</div>
-          </div>
-          <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
-        </a>
-      </div>
-    );
+    // Return null for non-image attachments (they'll be handled separately in the render)
+    return null;
   };
 
   return (
@@ -323,7 +258,101 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <div className="mt-2">
-            {message.attachments.map(renderAttachment)}
+            {(() => {
+              // Separate images from other attachments
+              const attachmentData = message.attachments.map(renderAttachment);
+              const images = attachmentData.filter(a => a && a.type === 'image');
+              const others = attachmentData.filter(a => !a || a.type !== 'image');
+
+              return (
+                <>
+                  {/* Image Grid */}
+                  {images.length > 0 && (
+                    <div className={`grid gap-2 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-md`}>
+                      {images.map((img) => (
+                        <div key={img.id} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={img.name}
+                            className="rounded-lg shadow-sm w-full h-auto cursor-pointer hover:shadow-md transition-all hover:scale-[1.02]"
+                            style={{ maxHeight: images.length === 1 ? '300px' : '200px', objectFit: 'cover' }}
+                            onError={() => handleImageError(img.id)}
+                            onClick={() => openImageModal(img.url, img.name, img.name)}
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="text-xs text-white truncate">{img.name}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Other Attachments */}
+                  {message.attachments.filter(a => !a.type.startsWith('image/') || imageError[a.id]).map(attachment => {
+                    const FileIcon = getFileIcon(attachment.type);
+                    
+                    // Handle videos
+                    if (attachment.type.startsWith('video/')) {
+                      return (
+                        <div key={attachment.id} className="mt-2 max-w-md">
+                          <video
+                            controls
+                            className="rounded-lg shadow-sm max-w-full h-auto"
+                            preload="metadata"
+                          >
+                            <source src={attachment.url} type={attachment.type} />
+                            Your browser does not support the video tag.
+                          </video>
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-1 px-1">
+                            <span>{attachment.name}</span>
+                            <span>{formatFileSize(attachment.size)}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Handle audio
+                    if (attachment.type.startsWith('audio/')) {
+                      return (
+                        <div key={attachment.id} className="mt-2 max-w-md bg-gray-50 rounded-lg p-3">
+                          <audio controls className="w-full">
+                            <source src={attachment.url} type={attachment.type} />
+                            Your browser does not support the audio element.
+                          </audio>
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                            <span className="flex items-center gap-1">
+                              <Music className="w-3 h-3" />
+                              {attachment.name}
+                            </span>
+                            <span>{formatFileSize(attachment.size)}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Handle other files
+                    return (
+                      <div key={attachment.id} className="mt-2">
+                        <a
+                          href={attachment.url}
+                          download={attachment.name}
+                          className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors group max-w-md"
+                        >
+                          <div className="p-2 bg-white rounded-lg border">
+                            <FileIcon className="w-5 h-5 text-gray-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900 truncate">{attachment.name}</div>
+                            <div className="text-sm text-gray-500">{formatFileSize(attachment.size)}</div>
+                          </div>
+                          <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                        </a>
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
         )}
 
