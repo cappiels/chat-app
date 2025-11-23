@@ -15,14 +15,16 @@ import {
 } from 'lucide-react';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { adminAPI } from '../../utils/api';
+import { adminAPI, workspaceAPI } from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const AdminWorkspaceTabs = ({ 
   user, 
   personalWorkspaces, 
   onSelectWorkspace, 
-  onShowCreateForm 
+  onShowCreateForm,
+  onWorkspaceCreated,
+  onSignOut
 }) => {
   const { isSiteAdmin } = useSubscription();
   const { user: authUser } = useAuth();
@@ -35,6 +37,10 @@ const AdminWorkspaceTabs = ({
   const [filterPlan, setFilterPlan] = useState('all');
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmInput, setConfirmInput] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [newWorkspaceDescription, setNewWorkspaceDescription] = useState('');
 
   // Only show admin tabs for site admin
   if (!isSiteAdmin()) {
@@ -179,6 +185,46 @@ const AdminWorkspaceTabs = ({
     }
   };
 
+  const handleCreateWorkspace = async () => {
+    if (!newWorkspaceName.trim()) {
+      toast.error('Please enter a workspace name');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const response = await workspaceAPI.createWorkspace({
+        name: newWorkspaceName,
+        description: newWorkspaceDescription
+      });
+      
+      toast.success('Workspace created successfully!');
+      
+      // Notify parent component if callback exists
+      if (onWorkspaceCreated) {
+        onWorkspaceCreated(response.data.workspace);
+      }
+      
+      // Reset form
+      setShowCreateForm(false);
+      setNewWorkspaceName('');
+      setNewWorkspaceDescription('');
+      
+      // Optionally refresh personal workspaces or navigate
+      window.location.reload(); // Simple refresh to show new workspace
+    } catch (error) {
+      console.error('Create workspace error:', error);
+      if (error.response?.data?.details) {
+        // Show subscription limit error
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to create workspace');
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const getTabLabel = (tab) => {
     let count = 0;
     let label = tab.label;
@@ -262,8 +308,18 @@ const AdminWorkspaceTabs = ({
               <Crown className="h-5 w-5 sm:h-6 sm:w-6 mr-2 flex-shrink-0" />
               <h1 className="text-lg sm:text-2xl font-bold">Site Administration</h1>
             </div>
-            <div className="text-xs sm:text-sm opacity-90 truncate">
-              Welcome, {user.displayName}
+            <div className="flex items-center gap-3">
+              <div className="text-xs sm:text-sm opacity-90 truncate">
+                Welcome, {user.displayName}
+              </div>
+              {onSignOut && (
+                <button
+                  onClick={onSignOut}
+                  className="px-3 py-1.5 text-sm bg-white/10 hover:bg-white/20 rounded-lg transition-colors font-medium"
+                >
+                  Sign Out
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -338,13 +394,57 @@ const AdminWorkspaceTabs = ({
               
               {/* Create workspace card */}
               <div
-                className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-purple-400 cursor-pointer transition-colors"
-                onClick={onShowCreateForm}
+                className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-purple-400 transition-colors"
+                onClick={() => !showCreateForm && setShowCreateForm(true)}
               >
-                <div className="text-center">
-                  <div className="text-gray-400 mb-2">+</div>
-                  <div className="text-gray-600">Create New Workspace</div>
-                </div>
+                {showCreateForm ? (
+                  <div className="text-left" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="text"
+                      placeholder="Workspace name"
+                      value={newWorkspaceName}
+                      onChange={(e) => setNewWorkspaceName(e.target.value)}
+                      className="w-full p-3 mb-3 text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      autoFocus
+                    />
+                    <input
+                      type="text"
+                      placeholder="Description (optional)"
+                      value={newWorkspaceDescription}
+                      onChange={(e) => setNewWorkspaceDescription(e.target.value)}
+                      className="w-full p-3 mb-3 text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowCreateForm(false);
+                          setNewWorkspaceName('');
+                          setNewWorkspaceDescription('');
+                        }}
+                        className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+                        disabled={creating}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCreateWorkspace();
+                        }}
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                        disabled={creating || !newWorkspaceName.trim()}
+                      >
+                        {creating ? 'Creating...' : 'Create'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center cursor-pointer">
+                    <div className="text-gray-400 mb-2 text-2xl">+</div>
+                    <div className="text-gray-600 font-medium">Create New Workspace</div>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

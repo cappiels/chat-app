@@ -116,17 +116,17 @@ CREATE INDEX IF NOT EXISTS idx_pass_redemptions_user_id ON pass_redemptions(user
 CREATE INDEX IF NOT EXISTS idx_api_keys_key ON api_keys(api_key);
 CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(is_active) WHERE is_active = true;
 
--- Insert default subscription plans with updated pricing
+-- Insert default subscription plans with updated freemium pricing
 INSERT INTO subscription_plans (name, display_name, description, price_cents, billing_interval, stripe_price_id, stripe_product_id, features, max_workspaces, max_users_per_workspace, max_channels_per_workspace, max_upload_size_mb) 
 VALUES 
-    ('free', 'Free Plan', 'Access invited channels only', 0, 'month', 'price_free_placeholder', 'prod_free_placeholder', 
-     '["Chat in invited channels", "View tasks and calendar", "No workspace/channel creation"]', 0, 0, 0, 5),
-    ('starter', 'Starter Plan', 'Perfect for small teams', 300, 'month', 'price_starter_placeholder', 'prod_starter_placeholder', 
-     '["1 workspace", "3 channels", "Multi-assignee tasks", "Calendar integration", "10MB upload limit"]', 1, 10, 3, 10),
-    ('pro', 'Pro Plan', 'Advanced features for growing teams', 800, 'month', 'price_pro_placeholder', 'prod_pro_placeholder', 
-     '["5 workspaces", "25 channels", "Timeline view", "50MB upload limit", "Advanced analytics"]', 5, 50, 25, 50),
-    ('business', 'Business Plan', 'Full features for organizations', 1500, 'month', 'price_business_placeholder', 'prod_business_placeholder', 
-     '["Unlimited workspaces", "Unlimited channels", "API access", "100MB upload limit", "Priority support"]', 999, 999, 999, 100)
+    ('free', 'Free Plan', 'Get started with basic features', 0, 'month', 'price_free_placeholder', 'prod_free_placeholder', 
+     '["1 workspace", "3 channels", "Access invited channels", "10MB storage limit"]', 1, 999, 3, 10),
+    ('starter', 'Starter Plan', 'Perfect for small teams', 999, 'month', 'price_starter_placeholder', 'prod_starter_placeholder', 
+     '["1 workspace", "5 channels", "10 invited users", "Multi-assignee tasks", "100MB storage limit"]', 1, 10, 5, 100),
+    ('pro', 'Pro Plan', 'Advanced features for growing teams', 1999, 'month', 'price_pro_placeholder', 'prod_pro_placeholder', 
+     '["5 workspaces", "25 channels", "25 users per workspace", "Timeline view", "500MB storage limit"]', 5, 25, 25, 500),
+    ('business', 'Business Plan', 'Full features for organizations', 9900, 'month', 'price_business_placeholder', 'prod_business_placeholder', 
+     '["Unlimited workspaces", "Unlimited channels", "100 users per workspace", "10GB storage limit", "Priority support"]', 999, 100, 999, 10240)
 ON CONFLICT (stripe_price_id) DO NOTHING;
 
 -- Function to check if user has active subscription

@@ -8,6 +8,7 @@ const {
   requireWorkspaceAdmin 
 } = require('../middleware/auth');
 const emailService = require('../services/emailService');
+const subscriptionEnforcement = require('../services/subscriptionEnforcement');
 const router = express.Router();
 
 // Database connection
@@ -210,6 +211,22 @@ router.post('/', authenticateUser, async (req, res) => {
       return res.status(400).json({ 
         error: 'Validation Error', 
         message: 'Description cannot exceed 1000 characters' 
+      });
+    }
+
+    // Check subscription limits
+    const canCreate = await subscriptionEnforcement.canCreateWorkspace(userId);
+    if (!canCreate.allowed) {
+      return res.status(403).json({
+        error: 'Subscription Limit Reached',
+        message: `You've reached your workspace limit (${canCreate.currentCount}/${canCreate.limit}). Upgrade your plan to create more workspaces.`,
+        details: {
+          currentCount: canCreate.currentCount,
+          limit: canCreate.limit,
+          plan: canCreate.plan,
+          planDisplayName: canCreate.planDisplayName,
+          upgradeUrl: subscriptionEnforcement.getUpgradeUrl(userId)
+        }
       });
     }
 

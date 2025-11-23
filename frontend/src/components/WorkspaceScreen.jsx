@@ -265,6 +265,7 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
         personalWorkspaces={workspaces}
         onSelectWorkspace={onSelectWorkspace}
         onShowCreateForm={() => setShowCreateForm(true)}
+        onSignOut={onSignOut}
       />
     );
   }
