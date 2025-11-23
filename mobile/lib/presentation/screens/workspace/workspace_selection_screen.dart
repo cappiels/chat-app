@@ -937,6 +937,14 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
         });
         
         print('✅ Workspace created successfully: ${newWorkspace.name}');
+        
+        // Refetch subscription status to update workspace count
+        try {
+          await _subscriptionService.getSubscriptionStatus();
+          print('🔄 Subscription status refreshed after workspace creation');
+        } catch (e) {
+          print('⚠️ Failed to refresh subscription status: $e');
+        }
       } else {
         // Simulate workspace creation for demo mode
         await Future.delayed(const Duration(milliseconds: 1500));
@@ -968,8 +976,70 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     } catch (e) {
       print('❌ Error creating workspace: $e');
       setState(() => _creating = false);
-      _showErrorSnackBar('Failed to create workspace: $e');
+      
+      // Handle subscription limit error specifically
+      final errorMessage = e.toString();
+      if (errorMessage.contains('403') || errorMessage.contains('Subscription Limit')) {
+        _showSubscriptionLimitDialog();
+      } else {
+        _showErrorSnackBar('Failed to create workspace: $e');
+      }
     }
+  }
+  
+  void _showSubscriptionLimitDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.workspace_premium, color: Colors.orange),
+            SizedBox(width: 12),
+            Text('Workspace Limit Reached'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'You\'ve reached your workspace limit for the Free Plan.',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                '💡 Upgrade to a paid plan to create unlimited workspaces and unlock more features!',
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Maybe Later'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // TODO: Navigate to subscription/upgrade screen
+              _showSuccessSnackBar('Subscription upgrade coming soon!');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('View Plans'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _getRandomColorName() {

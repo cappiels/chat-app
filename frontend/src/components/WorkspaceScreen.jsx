@@ -24,7 +24,7 @@ import AdminWorkspaceTabs from './admin/AdminWorkspaceTabs';
 
 // Beautiful workspace selection screen
 const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
-  const { canCreateWorkspace, isSiteAdmin, getCurrentPlan } = useSubscription();
+  const { canCreateWorkspace, isSiteAdmin, getCurrentPlan, fetchSubscriptionStatus } = useSubscription();
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -163,9 +163,20 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
       setShowCreateForm(false);
       setNewWorkspaceName('');
       setNewWorkspaceDescription('');
+      
+      // Refetch subscription status to update workspace count
+      await fetchSubscriptionStatus();
     } catch (error) {
       console.error('Create workspace error:', error);
-      toast.error('Failed to create workspace');
+      
+      // Handle subscription limit error specifically
+      if (error.response?.status === 403 && error.response?.data?.error === 'Subscription Limit Reached') {
+        toast.error(error.response.data.message);
+        setShowCreateForm(false);
+        setShowSubscriptionGate(true);
+      } else {
+        toast.error('Failed to create workspace');
+      }
     } finally {
       setCreating(false);
     }

@@ -79,6 +79,8 @@ class UserSubscription {
   @JsonKey(name: 'cancel_at_period_end')
   final bool cancelAtPeriodEnd;
   final Map<String, dynamic> features;
+  @JsonKey(name: 'max_workspaces')
+  final int? maxWorkspaces;
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
   @JsonKey(name: 'updated_at')
@@ -96,6 +98,7 @@ class UserSubscription {
     this.currentPeriodEnd,
     required this.cancelAtPeriodEnd,
     required this.features,
+    this.maxWorkspaces,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -279,4 +282,29 @@ class AdminUser {
 
   String get displayText => displayName ?? email;
   bool get hasActiveSubscription => subscriptionStatus == 'active';
+}
+
+// Workspace Creation Check Model (not serialized - only used locally)
+class WorkspaceCreationCheck {
+  final bool allowed;
+  final int currentCount;
+  final int limit;
+  final String planName;
+  final String planDisplayName;
+
+  WorkspaceCreationCheck({
+    required this.allowed,
+    required this.currentCount,
+    required this.limit,
+    required this.planName,
+    required this.planDisplayName,
+  });
+
+  String get limitMessage {
+    if (allowed) {
+      return 'You can create ${limit - currentCount} more workspace(s)';
+    } else {
+      return 'Workspace limit reached ($currentCount/$limit). Upgrade to create more.';
+    }
+  }
 }

@@ -82,6 +82,43 @@ class SubscriptionService {
     }
   }
 
+  // Check if user can create a new workspace
+  Future<WorkspaceCreationCheck> canCreateWorkspace(int currentWorkspaceCount) async {
+    try {
+      final subscription = await getSubscriptionStatus();
+      
+      // Default to free plan limits if no subscription
+      int maxWorkspaces = 1;
+      String planName = 'free';
+      String planDisplayName = 'Free Plan';
+      
+      if (subscription != null) {
+        maxWorkspaces = subscription.maxWorkspaces ?? 1;
+        planName = subscription.planName ?? 'free';
+        planDisplayName = subscription.planDisplayName ?? 'Free Plan';
+      }
+      
+      final allowed = currentWorkspaceCount < maxWorkspaces;
+      
+      return WorkspaceCreationCheck(
+        allowed: allowed,
+        currentCount: currentWorkspaceCount,
+        limit: maxWorkspaces,
+        planName: planName,
+        planDisplayName: planDisplayName,
+      );
+    } catch (e) {
+      // Default to free plan on error
+      return WorkspaceCreationCheck(
+        allowed: currentWorkspaceCount < 1,
+        currentCount: currentWorkspaceCount,
+        limit: 1,
+        planName: 'free',
+        planDisplayName: 'Free Plan',
+      );
+    }
+  }
+
   // Check if user has access to a feature based on their subscription
   Future<bool> hasFeatureAccess(String featureName) async {
     try {
