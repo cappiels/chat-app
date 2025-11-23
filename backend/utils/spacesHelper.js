@@ -38,8 +38,8 @@ class SpacesHelper {
         endpoint: new AWS.Endpoint(process.env.SPACES_ENDPOINT),
         accessKeyId: process.env.SPACES_KEY,
         secretAccessKey: process.env.SPACES_SECRET,
-        region: process.env.SPACES_REGION || 'nyc3',
-        s3ForcePathStyle: false, // Required for Spaces
+        region: 'us-east-1', // Spaces uses us-east-1 for signature calculation, not nyc3
+        s3ForcePathStyle: false,
         signatureVersion: 'v4'
       });
 
@@ -102,14 +102,8 @@ class SpacesHelper {
         Key: key,
         Body: fileBuffer,
         ContentType: mimeType,
-        ACL: 'public-read', // Make files publicly accessible
-        CacheControl: 'max-age=31536000', // 1 year cache for performance
-        Metadata: {
-          'original-name': fileName,
-          'uploaded-at': new Date().toISOString(),
-          ...(workspaceName && { 'workspace': workspaceName }),
-          ...(channelName && { 'channel': channelName })
-        }
+        ACL: 'public-read' // Make files publicly accessible
+        // Removed Metadata, CacheControl to simplify signature
       };
 
       console.log(`📤 Uploading to Spaces: ${key}`);
