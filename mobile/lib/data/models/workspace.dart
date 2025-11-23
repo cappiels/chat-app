@@ -8,6 +8,7 @@ class Workspace {
   final String role;
   final int memberCount;
   final int channelCount;
+  final int unreadCount;
   final DateTime createdAt;
   final Map<String, dynamic> settings;
   final String? ownerName;
@@ -22,6 +23,7 @@ class Workspace {
     required this.role,
     required this.memberCount,
     required this.channelCount,
+    this.unreadCount = 0,
     required this.createdAt,
     required this.settings,
     this.ownerName,
@@ -38,7 +40,8 @@ class Workspace {
       role: json['role'] ?? 'member',
       memberCount: json['member_count'] ?? 0,
       channelCount: json['channel_count'] ?? 0,
-      createdAt: json['created_at'] != null 
+      unreadCount: json['unread_count'] ?? 0,
+      createdAt: json['created_at'] != null
         ? DateTime.parse(json['created_at'])
         : DateTime.now(),
       settings: json['settings'] is String 
@@ -59,6 +62,7 @@ class Workspace {
       'role': role,
       'member_count': memberCount,
       'channel_count': channelCount,
+      'unread_count': unreadCount,
       'created_at': createdAt.toIso8601String(),
       'settings': settings,
       'owner_name': ownerName,
@@ -114,6 +118,7 @@ class Workspace {
     String? role,
     int? memberCount,
     int? channelCount,
+    int? unreadCount,
     DateTime? createdAt,
     Map<String, dynamic>? settings,
     String? ownerName,

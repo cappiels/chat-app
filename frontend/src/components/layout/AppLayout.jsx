@@ -315,7 +315,15 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         timestamp: new Date(msg.created_at),
         thread_count: msg.reply_count || 0,
         thread_participants: [],
-        reactions: msg.reactions || []
+        reactions: msg.reactions || [],
+        attachments: msg.attachments ? msg.attachments.map(att => ({
+          id: att.id,
+          name: att.file_name,
+          url: att.file_url,
+          type: att.mime_type,
+          size: att.file_size_bytes,
+          thumbnail_url: att.thumbnail_url
+        })) : []
       }));
       
       setMessages(channelMessages);

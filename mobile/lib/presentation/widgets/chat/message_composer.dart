@@ -10,6 +10,7 @@ class MessageComposer extends StatefulWidget {
   final Function(String) onSend;
   final Function(bool)? onTypingChanged;
   final String? workspaceId;
+  final String? threadId;
   final Function(List<Attachment>)? onAttachmentsChanged;
   
   const MessageComposer({
@@ -18,6 +19,7 @@ class MessageComposer extends StatefulWidget {
     required this.onSend,
     this.onTypingChanged,
     this.workspaceId,
+    this.threadId,
     this.onAttachmentsChanged,
   });
 
@@ -159,9 +161,9 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 
   Future<void> _uploadFiles(List<File> files) async {
-    if (widget.workspaceId == null) {
+    if (widget.workspaceId == null || widget.threadId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Workspace ID required for file upload')),
+        const SnackBar(content: Text('Workspace and thread ID required for file upload')),
       );
       return;
     }
@@ -172,6 +174,7 @@ class _MessageComposerState extends State<MessageComposer> {
       final uploadedFiles = await FileUploadService().uploadFiles(
         files: files,
         workspaceId: widget.workspaceId!,
+        threadId: widget.threadId!,
       );
 
       setState(() {

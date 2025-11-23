@@ -40,6 +40,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   String _newWorkspaceName = '';
   String _newWorkspaceDescription = '';
   bool _creating = false;
+  int _selectedBottomNavIndex = 0;
   
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -212,10 +213,25 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           ),
         ),
         child: SafeArea(
-          child: _loading ? _buildLoadingScreen() : _buildMainContent(),
+          child: _loading ? _buildLoadingScreen() : _buildBodyContent(),
         ),
       ),
+      bottomNavigationBar: _buildBottomNavigation(),
     );
+  }
+
+  Widget _buildBodyContent() {
+    if (_selectedBottomNavIndex == 0) {
+      return _buildMainContent();
+    } else if (_selectedBottomNavIndex == 1) {
+      return _buildCalendarPlaceholder();
+    } else if (_selectedBottomNavIndex == 2) {
+      return _buildTimelinePlaceholder();
+    } else if (_selectedBottomNavIndex == 3) {
+      return _buildKnowledgePlaceholder();
+    } else {
+      return _buildWeeklyCalendarPlaceholder();
+    }
   }
 
   Widget _buildLoadingScreen() {
@@ -544,15 +560,39 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          workspace.name,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                workspace.name,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (workspace.unreadCount > 0) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade600,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  workspace.unreadCount > 99 ? '99+' : '${workspace.unreadCount}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -948,5 +988,145 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       Colors.indigo.shade500,
     ];
     return colors[math.Random().nextInt(colors.length)];
+  }
+
+  Widget _buildCalendarPlaceholder() {
+    return _buildFeaturePlaceholder(
+      icon: Icons.calendar_month,
+      title: 'Monthly Calendar',
+      description: 'View tasks and events across all workspaces',
+      color: Colors.purple,
+    );
+  }
+
+  Widget _buildWeeklyCalendarPlaceholder() {
+    return _buildFeaturePlaceholder(
+      icon: Icons.view_week,
+      title: 'Weekly Calendar',
+      description: 'Week view with time blocking and schedules',
+      color: Colors.teal,
+    );
+  }
+
+  Widget _buildTimelinePlaceholder() {
+    return _buildFeaturePlaceholder(
+      icon: Icons.timeline,
+      title: 'Timeline',
+      description: 'Gantt chart with task dependencies and progress',
+      color: Colors.orange,
+    );
+  }
+
+  Widget _buildKnowledgePlaceholder() {
+    return _buildFeaturePlaceholder(
+      icon: Icons.library_books,
+      title: 'Knowledge Base',
+      description: 'Organized knowledge with categories and tagging',
+      color: Colors.green,
+    );
+  }
+
+  Widget _buildFeaturePlaceholder({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Icon(icon, size: 64, color: color),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '🚀 Navigate directly from home',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.blue.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigation() {
+    return BottomNavigationBar(
+      currentIndex: _selectedBottomNavIndex,
+      onTap: (index) {
+        setState(() {
+          _selectedBottomNavIndex = index;
+        });
+      },
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: Colors.blue.shade600,
+      unselectedItemColor: Colors.grey.shade500,
+      selectedFontSize: 12,
+      unselectedFontSize: 11,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.workspaces_outlined),
+          activeIcon: Icon(Icons.workspaces),
+          label: 'Workspaces',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.calendar_month_outlined),
+          activeIcon: Icon(Icons.calendar_month),
+          label: 'Calendar',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.timeline_outlined),
+          activeIcon: Icon(Icons.timeline),
+          label: 'Timeline',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.library_books_outlined),
+          activeIcon: Icon(Icons.library_books),
+          label: 'Knowledge',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.view_week_outlined),
+          activeIcon: Icon(Icons.view_week),
+          label: 'Weekly',
+        ),
+      ],
+    );
   }
 }

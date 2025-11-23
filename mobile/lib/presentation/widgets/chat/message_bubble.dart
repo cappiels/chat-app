@@ -432,10 +432,10 @@ class MessageBubble extends StatelessWidget {
   Widget _buildAttachments() {
     // Separate images from other attachments
     final images = message.attachments!
-        .where((a) => a.mimeType?.startsWith('image/') ?? false)
+        .where((a) => a.mimeType.startsWith('image/'))
         .toList();
     final others = message.attachments!
-        .where((a) => !(a.mimeType?.startsWith('image/') ?? false))
+        .where((a) => !a.mimeType.startsWith('image/'))
         .toList();
 
     return Column(
@@ -458,7 +458,7 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildImageGrid(List<dynamic> images) {
+  Widget _buildImageGrid(List<Attachment> images) {
     if (images.isEmpty) return const SizedBox.shrink();
     
     // Single image - full width
@@ -576,7 +576,7 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildInlineImage(dynamic attachment) {
+  Widget _buildInlineImage(Attachment attachment) {
     final fileSize = _formatFileSize(attachment.fileSizeBytes);
     
     // Generate direct URL for Google Drive images

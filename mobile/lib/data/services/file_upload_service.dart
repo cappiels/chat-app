@@ -52,20 +52,18 @@ class FileUploadService {
         status: UploadStatus.uploading,
       );
 
-      // Create multipart request
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/upload/files');
+      // Create multipart request - use /file endpoint for single file
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/upload/file');
       final request = http.MultipartRequest('POST', uri);
       
       // Add headers
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
 
-      // Add fields
-      request.fields['workspaceId'] = workspaceId;
-      request.fields['threadId'] = threadId;
-      if (messageId != null) {
-        request.fields['messageId'] = messageId;
-      }
+      // Backend expects workspaceName and channelName, not IDs
+      // Use headers as fallback (backend checks both)
+      request.headers['x-workspace-name'] = workspaceId;
+      request.headers['x-channel-name'] = threadId;
 
       // Add file
       final fileStream = http.ByteStream(file.openRead());
@@ -100,13 +98,11 @@ class FileUploadService {
         // Create attachment from response
         final attachment = Attachment.fromJson({
           'id': data['fileId'] ?? data['id'],
-          'file_name': fileName,
-          'file_type': mimeType,
-          'file_size': fileSize,
-          'url': data['url'],
+          'file_name': data['name'] ?? fileName,
+          'file_url': data['url'],
+          'mime_type': data['type'] ?? mimeType,
+          'file_size_bytes': data['size'] ?? fileSize,
           'thumbnail_url': data['thumbnailUrl'],
-          'workspace_id': workspaceId,
-          'uploaded_by': user.uid,
           'uploaded_at': DateTime.now().toIso8601String(),
         });
         

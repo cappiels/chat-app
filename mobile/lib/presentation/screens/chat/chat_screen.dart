@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/services/message_service.dart';
 import '../../../data/services/socket_service.dart';
 import '../../../data/models/message.dart';
+import '../../../data/models/attachment.dart';
 import '../../../data/models/thread.dart';
 import '../../../data/models/workspace.dart';
 import '../../widgets/chat/message_bubble.dart';
@@ -658,6 +659,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             controller: _messageController,
             onSend: _sendMessage,
             workspaceId: widget.workspace['id']?.toString(),
+            threadId: widget.thread.id,
             onTypingChanged: (isTyping) {
               if (isTyping) {
                 _socketService.startTyping();

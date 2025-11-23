@@ -100,8 +100,29 @@ router.get('/', authenticateUser, async (req, res) => {
       GROUP BY workspace_id;
     `;
     
+    // Get unread message counts per workspace
+    const unreadCountsQuery = `
+      SELECT 
+        t.workspace_id,
+        SUM(
+          CASE 
+            WHEN m.created_at > COALESCE(tm.last_read_at, tm.joined_at, '1970-01-01'::timestamp)
+            AND m.is_deleted = false
+            AND m.sender_id != $1
+            THEN 1
+            ELSE 0
+          END
+        )::INTEGER as unread_count
+      FROM threads t
+      JOIN thread_members tm ON t.id = tm.thread_id AND tm.user_id = $1
+      LEFT JOIN messages m ON m.thread_id = t.id
+      WHERE t.workspace_id = ANY($2::uuid[])
+      GROUP BY t.workspace_id;
+    `;
+    
     const workspaceIds = result.rows.map(w => w.id);
     let memberCounts = {};
+    let unreadCounts = {};
     
     if (workspaceIds.length > 0) {
       try {
@@ -117,6 +138,21 @@ router.get('/', authenticateUser, async (req, res) => {
         console.warn('Member count query failed, using defaults:', countError.message);
         // Use default counts if query fails
       }
+      
+      // Get unread counts
+      try {
+        const unreadResult = await Promise.race([
+          pool.query(unreadCountsQuery, [userId, workspaceIds]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Unread timeout')), 2000))
+        ]);
+        
+        unreadResult.rows.forEach(row => {
+          unreadCounts[row.workspace_id] = parseInt(row.unread_count) || 0;
+        });
+      } catch (unreadError) {
+        console.warn('Unread count query failed, using defaults:', unreadError.message);
+        // Use default 0 if query fails
+      }
     }
 
     // Enhance workspace data with counts (use defaults if query failed)
@@ -124,7 +160,8 @@ router.get('/', authenticateUser, async (req, res) => {
       ...workspace,
       member_count: memberCounts[workspace.id] || 1,
       channel_count: 1, // Default - avoid expensive query
-      recent_message_count: 0 // Default - avoid expensive query
+      recent_message_count: 0, // Default - avoid expensive query
+      unread_count: unreadCounts[workspace.id] || 0
     }));
 
     res.json({

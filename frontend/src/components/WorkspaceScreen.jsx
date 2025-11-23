@@ -361,9 +361,16 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1 truncate">
-                      {workspace.name}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+                        {workspace.name}
+                      </h3>
+                      {workspace.unread_count > 0 && (
+                        <span className="flex-shrink-0 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-600 rounded-full">
+                          {workspace.unread_count > 99 ? '99+' : workspace.unread_count}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
                       {workspace.description || 'No description'}
                     </p>
