@@ -64,13 +64,18 @@ router.post('/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'Plan ID is required' });
     }
 
-    // Build URLs based on environment
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? process.env.FRONTEND_URL 
-      : 'http://localhost:3000';
+    // Build URLs based on environment with fallback
+    let baseUrl;
+    if (process.env.NODE_ENV === 'production') {
+      baseUrl = process.env.FRONTEND_URL || 'https://crewchat.elbarriobk.com';
+    } else {
+      baseUrl = 'http://localhost:3000';
+    }
 
     const successUrl = `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/subscription/cancel`;
+
+    console.log(`Creating checkout session with URLs - Success: ${successUrl}, Cancel: ${cancelUrl}`);
 
     const session = await stripeService.createCheckoutSession(
       userId, 

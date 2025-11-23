@@ -469,7 +469,9 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => {
-              if (canCreateWorkspace()) {
+              // Count workspaces owned by current user
+              const ownedWorkspacesCount = workspaces.filter(w => w.owner_user_id === user?.id).length;
+              if (canCreateWorkspace(ownedWorkspacesCount)) {
                 setShowCreateForm(true);
               } else {
                 setShowSubscriptionGate(true);

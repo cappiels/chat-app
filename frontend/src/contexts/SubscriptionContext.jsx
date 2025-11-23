@@ -94,7 +94,7 @@ export const SubscriptionProvider = ({ children }) => {
       return {
         name: 'free',
         display_name: 'Free Plan',
-        max_workspaces: 0,
+        max_workspaces: 1,
         max_users_per_workspace: 0,
         max_channels_per_workspace: 0,
         max_upload_size_mb: 5,
@@ -106,10 +106,11 @@ export const SubscriptionProvider = ({ children }) => {
   };
 
   // Feature access checks
-  const canCreateWorkspace = () => {
+  const canCreateWorkspace = (currentWorkspaceCount = 0) => {
     if (isSiteAdmin()) return true;
     const plan = getCurrentPlan();
-    return plan.max_workspaces > 0;
+    // Allow if limit is infinite (999) or current count is less than max
+    return plan.max_workspaces === 999 || currentWorkspaceCount < plan.max_workspaces;
   };
 
   const canCreateChannel = (currentChannelCount = 0) => {
