@@ -30,7 +30,7 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   @override
   void initState() {
     super.initState();
-    _workspaceService = WorkspaceService(_httpClient);
+    _workspaceService = WorkspaceService();
     _loadThreads();
   }
 

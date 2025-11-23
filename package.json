@@ -1,6 +1,6 @@
 {
   "name": "crew",
-  "version": "1.8.74",
+  "version": "1.8.75",
   "description": "Full-stack chat application with real-time messaging and advanced features",
   "private": true,
   "workspaces": [

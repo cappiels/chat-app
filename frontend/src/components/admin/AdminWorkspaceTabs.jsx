@@ -534,7 +534,11 @@ const AdminWorkspaceTabs = ({
                       </td>
                     </tr>
                   ) : filteredWorkspaces.map((workspace) => (
-                    <tr key={workspace.id} className="hover:bg-gray-50">
+                    <tr 
+                      key={workspace.id} 
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => onSelectWorkspace(workspace)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">

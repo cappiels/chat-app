@@ -50,7 +50,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   void initState() {
     super.initState();
     _subscriptionService = SubscriptionService(_httpClient);
-    _workspaceService = WorkspaceService(_httpClient);
+    _workspaceService = WorkspaceService();
     
     // Initialize animations
     _fadeController = AnimationController(

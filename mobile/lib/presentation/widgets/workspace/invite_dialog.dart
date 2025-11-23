@@ -27,7 +27,7 @@ class _InviteDialogState extends State<InviteDialog> {
   }
 
   bool _isValidEmail(String email) {
-    return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').test(email);
+    return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
   }
 
   Future<void> _sendInvite() async {
