@@ -169,10 +169,29 @@ class SocketManager {
       }
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', async (error) => {
       console.error('❌ Socket connection error:', error);
       this.connected = false;
       this.connecting = false;
+      
+      // Handle expired token error specifically
+      if (error.message === 'TOKEN_EXPIRED') {
+        console.log('⏰ Token expired, refreshing and reconnecting...');
+        try {
+          const user = auth.currentUser;
+          if (user) {
+            // Force token refresh
+            await user.getIdToken(true);
+            console.log('✅ Token refreshed successfully, reconnecting...');
+            // Immediate reconnect with fresh token
+            setTimeout(() => this.connect(), 500);
+            return;
+          }
+        } catch (refreshError) {
+          console.error('❌ Token refresh failed:', refreshError);
+        }
+      }
+      
       this.scheduleReconnect();
     });
 

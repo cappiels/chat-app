@@ -56,11 +56,24 @@ class SocketServer {
         const token = socket.handshake.auth.token;
         
         if (!token) {
+          console.log('❌ Socket auth failed: No token provided');
           return next(new Error('Authentication token required'));
         }
 
-        // Verify Firebase token
-        const decodedToken = await admin.auth().verifyIdToken(token);
+        // Verify Firebase token with error handling for expired tokens
+        let decodedToken;
+        try {
+          decodedToken = await admin.auth().verifyIdToken(token);
+        } catch (tokenError) {
+          if (tokenError.code === 'auth/id-token-expired') {
+            console.log(`⏰ Expired token detected - requesting client to refresh`);
+            // Send special error that tells client to refresh token and reconnect
+            return next(new Error('TOKEN_EXPIRED'));
+          }
+          // Other token errors
+          console.error('Token verification failed:', tokenError.code);
+          return next(new Error('Invalid authentication token'));
+        }
         
         // Get user from database
         const userResult = await pool.query(
@@ -69,6 +82,7 @@ class SocketServer {
         );
 
         if (userResult.rows.length === 0) {
+          console.log(`❌ User not found: ${decodedToken.uid}`);
           return next(new Error('User not found or inactive'));
         }
 
@@ -76,7 +90,7 @@ class SocketServer {
         socket.userId = decodedToken.uid;
         socket.user = userResult.rows[0];
         
-        console.log(`🔌 Socket authenticated: ${socket.user.display_name} (${socket.id})`);
+        console.log(`✅ Socket authenticated: ${socket.user.display_name} (${socket.id})`);
         next();
 
       } catch (error) {
