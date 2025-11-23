@@ -309,7 +309,7 @@ class MessageBubble extends StatelessWidget {
           final fileSize = _formatFileSize(attachment.fileSizeBytes);
           
           // Generate direct URL for Google Drive images
-          String imageUrl = attachment.url;
+          String imageUrl = attachment.fileUrl;
           
           if (imageUrl.contains('drive.google.com') && imageUrl.contains('/file/d/')) {
             final fileIdMatch = RegExp(r'/file/d/([^/]+)').firstMatch(imageUrl);
@@ -405,7 +405,7 @@ class MessageBubble extends StatelessWidget {
     final fileSize = _formatFileSize(attachment.fileSizeBytes);
     
     // Generate direct URL for Google Drive images
-    String imageUrl = attachment.url;
+    String imageUrl = attachment.fileUrl;
     
     // If URL is a Google Drive view link, convert to direct link
     if (imageUrl.contains('drive.google.com') && imageUrl.contains('/file/d/')) {
