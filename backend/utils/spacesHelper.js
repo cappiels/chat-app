@@ -44,6 +44,12 @@ class SpacesHelper {
       this.cdnEndpoint = process.env.SPACES_CDN_ENDPOINT || 
                         `https://${this.bucket}.${process.env.SPACES_ENDPOINT}`;
 
+      console.log('⚠️  DigitalOcean Spaces temporarily disabled - using Google Drive');
+      console.log('   (SignatureDoesNotMatch issue with new keys)');
+      // Disable Spaces to force Google Drive fallback
+      this.s3 = null;
+      return;
+      
       console.log('✅ DigitalOcean Spaces initialized successfully');
       console.log(`   Bucket: ${this.bucket}`);
       console.log(`   Endpoint: ${this.cdnEndpoint}`);
