@@ -266,7 +266,12 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
                               workspace={workspace}
                               thread={channel}
                               userRole={userRole}
-                              onMessageUpdate={() => {}}
+                              onMessageUpdate={(messageId, action) => {
+                                // Force reload messages after deletion
+                                if (action === 'deleted') {
+                                  window.location.reload();
+                                }
+                              }}
                             />
                           </div>
                         </React.Fragment>

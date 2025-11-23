@@ -343,7 +343,11 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           status: 'online'
         },
         content: reply.content,
-        timestamp: new Date(reply.created_at)
+        timestamp: new Date(reply.created_at),
+        attachments: reply.attachments || [],
+        reactions: reply.reactions || [],
+        edited: reply.is_edited || false,
+        thread_count: reply.reply_count || 0
       }));
     } catch (error) {
       console.error('Failed to load thread replies:', error);

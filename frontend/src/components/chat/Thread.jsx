@@ -44,7 +44,11 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
             workspace={workspace}
             thread={thread}
             userRole={userRole}
-            onMessageUpdate={() => {}}
+            onMessageUpdate={(messageId, action) => {
+              if (action === 'deleted') {
+                window.location.reload();
+              }
+            }}
           />
           <div className="flex items-center gap-2 mt-3 text-sm">
             <span className="font-medium text-blue">{replies.length} replies</span>
@@ -92,7 +96,11 @@ const Thread = ({ thread, isOpen, onClose, currentUser, onSendReply, typingUsers
                         workspace={workspace}
                         thread={thread}
                         userRole={userRole}
-                        onMessageUpdate={() => {}}
+                        onMessageUpdate={(messageId, action) => {
+                          if (action === 'deleted') {
+                            window.location.reload();
+                          }
+                        }}
                       />
                     ))}
                 </div>

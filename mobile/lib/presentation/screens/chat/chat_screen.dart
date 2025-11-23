@@ -38,6 +38,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String? _currentUserId;
   Set<String> _typingUsers = {};
   Workspace? _workspaceModel;
+  List<Attachment> _pendingAttachments = [];
   
   StreamSubscription<Message>? _messageSubscription;
   StreamSubscription<MessageUpdate>? _messageUpdateSubscription;
@@ -332,7 +333,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _sendMessage(String content) async {
-    if (content.trim().isEmpty) return;
+    if (content.trim().isEmpty && _pendingAttachments.isEmpty) return;
 
     try {
       // Create optimistic message
@@ -346,6 +347,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         senderName: user?.displayName ?? 'You',
         senderAvatar: user?.photoURL,
         threadId: widget.thread.id,
+        attachments: _pendingAttachments,
       );
 
       // Add to UI immediately
@@ -353,18 +355,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _messages.insert(0, tempMessage);
       });
 
-      // Clear input
+      // Clear input and attachments
       _messageController.clear();
+      final attachmentsToSend = List<Attachment>.from(_pendingAttachments);
+      setState(() {
+        _pendingAttachments.clear();
+      });
       _scrollToBottom();
 
       // ALWAYS use HTTP API for reliability
       final workspaceId = widget.workspace['id'];
       if (workspaceId != null) {
         print('📤 Sending message via HTTP API: "$content"');
+        print('📎 Attachments: ${attachmentsToSend.length}');
+        
         final sentMessage = await _messageService.sendMessage(
           workspaceId: workspaceId.toString(),
           threadId: widget.thread.id,
-          content: content.trim(),
+          content: content.trim().isNotEmpty ? content.trim() : '📎 Attachment',
+          attachments: attachmentsToSend.map((a) => {
+            'file_name': a.fileName,
+            'file_url': a.fileUrl,
+            'mime_type': a.mimeType,
+            'file_size_bytes': a.fileSizeBytes,
+          }).toList(),
         );
         
         print('✅ Message sent successfully! ID: ${sentMessage.id}');
@@ -643,12 +657,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           MessageComposer(
             controller: _messageController,
             onSend: _sendMessage,
+            workspaceId: widget.workspace['id']?.toString(),
             onTypingChanged: (isTyping) {
               if (isTyping) {
                 _socketService.startTyping();
               } else {
                 _socketService.stopTyping();
               }
+            },
+            onAttachmentsChanged: (attachments) {
+              setState(() {
+                _pendingAttachments = attachments;
+              });
             },
           ),
         ],
