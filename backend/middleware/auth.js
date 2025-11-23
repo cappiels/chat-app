@@ -190,11 +190,13 @@ const getAuthProvider = (firebase) => {
 /**
  * Workspace membership check middleware
  * Ensures user is a member of the specified workspace
+ * Site admin (cappiels@gmail.com) has access to all workspaces
  */
 const requireWorkspaceMembership = async (req, res, next) => {
   try {
     const { workspaceId } = req.params;
     const userId = req.user.id;
+    const userEmail = req.user.email;
 
     if (!workspaceId) {
       return res.status(400).json({ 
@@ -203,7 +205,24 @@ const requireWorkspaceMembership = async (req, res, next) => {
       });
     }
 
-    // Check if user is a member of the workspace
+    // Site admin bypass - grant full access to all workspaces
+    const SITE_ADMIN_EMAIL = 'cappiels@gmail.com';
+    if (userEmail === SITE_ADMIN_EMAIL) {
+      console.log(`🔑 Site admin ${userEmail} accessing workspace ${workspaceId}`);
+      
+      // Get workspace name for context
+      const workspaceQuery = await pool.query(
+        'SELECT name FROM workspaces WHERE id = $1',
+        [workspaceId]
+      );
+      
+      req.userWorkspaceRole = 'admin'; // Grant admin role
+      req.workspaceName = workspaceQuery.rows[0]?.name || 'Unknown Workspace';
+      req.isSiteAdmin = true;
+      return next();
+    }
+
+    // Regular membership check for non-admin users
     const membershipQuery = `
       SELECT wm.role, w.name as workspace_name
       FROM workspace_members wm
@@ -222,6 +241,7 @@ const requireWorkspaceMembership = async (req, res, next) => {
 
     req.userWorkspaceRole = result.rows[0].role;
     req.workspaceName = result.rows[0].workspace_name;
+    req.isSiteAdmin = false;
     next();
 
   } catch (error) {

@@ -40,6 +40,8 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiButtonPosition, setEmojiButtonPosition] = useState({ top: 0, left: 0 });
+  const [pendingAttachments, setPendingAttachments] = useState([]);
+  const [uploadingFiles, setUploadingFiles] = useState([]);
   
   const editorRef = useRef(null);
   const emojiButtonRef = useRef(null);
@@ -151,7 +153,7 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    if (message.trim() && !sendingMessage) {
+    if ((message.trim() || pendingAttachments.length > 0) && !sendingMessage) {
       setSendingMessage(true);
       stopTyping();
       
@@ -164,7 +166,9 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         
         await onSendMessage(cleanMessage);
         
-        // Note: Don't clear window.pendingAttachments here - AppLayout does it after successful send
+        // Clear pending attachments after successful send
+        setPendingAttachments([]);
+        window.pendingAttachments = [];
         
         // Reset message content but keep composer expanded and focused
         setMessage('');
@@ -183,12 +187,12 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         setSendingMessage(false);
       }
     }
-  }, [message, sendingMessage, stopTyping, onSendMessage]);
+  }, [message, pendingAttachments, sendingMessage, stopTyping, onSendMessage]);
 
   const handleSendClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (message.trim() && !sendingMessage) {
+    if ((message.trim() || pendingAttachments.length > 0) && !sendingMessage) {
       handleSubmit(e);
     }
   };
@@ -291,6 +295,18 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       
       console.log('Selected files:', files);
       
+      // Create preview objects with local URLs
+      const filePreviews = files.map(file => ({
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+        uploading: true
+      }));
+      
+      setUploadingFiles(prev => [...prev, ...filePreviews]);
+      
       try {
         // Upload files
         const formData = new FormData();
@@ -321,17 +337,36 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         }
         window.pendingAttachments.push(...result.files);
         
-        // Don't modify message text - attachments are handled separately
+        // Update pending attachments state with uploaded data
+        setPendingAttachments(prev => [...prev, ...result.files]);
+        
+        // Remove from uploading state
+        setUploadingFiles(prev => prev.filter(f => !files.includes(f.file)));
+        
         console.log(`📎 ${window.pendingAttachments.length} file(s) ready to send with message`);
         
       } catch (error) {
         console.error('File upload error:', error);
+        // Remove failed uploads from UI
+        setUploadingFiles(prev => prev.filter(f => !files.includes(f.file)));
+        
         // Show more helpful error message
         const errorMsg = error.message || 'Upload failed';
         alert(`Failed to upload files: ${errorMsg}\n\nPlease try again or contact support if the issue persists.`);
       }
     };
     input.click();
+  };
+
+  const removeAttachment = (index) => {
+    const newAttachments = [...pendingAttachments];
+    newAttachments.splice(index, 1);
+    setPendingAttachments(newAttachments);
+    
+    // Update window.pendingAttachments
+    if (window.pendingAttachments) {
+      window.pendingAttachments.splice(index, 1);
+    }
   };
 
   const handleCreateGoogleDoc = async () => {
@@ -989,6 +1024,66 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         <form onSubmit={handleSubmit}>
           <div className="message-input-wrapper composer-container" style={{ marginTop: '-1px' }}>
             <div className="p-3 pt-0">
+              {/* Pending Attachments Preview */}
+              {(pendingAttachments.length > 0 || uploadingFiles.length > 0) && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {/* Uploading files */}
+                  {uploadingFiles.map((file, index) => (
+                    <div
+                      key={`uploading-${index}`}
+                      className="relative group w-24 h-24 rounded-lg border-2 border-gray-300 bg-gray-100 flex items-center justify-center"
+                    >
+                      {file.previewUrl ? (
+                        <img
+                          src={file.previewUrl}
+                          alt={file.name}
+                          className="w-full h-full object-cover rounded-lg opacity-50"
+                        />
+                      ) : (
+                        <FileText className="w-8 h-8 text-gray-400" />
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Uploaded files */}
+                  {pendingAttachments.map((attachment, index) => {
+                    const isImage = attachment.type?.startsWith('image/');
+                    return (
+                      <div
+                        key={`attached-${index}`}
+                        className="relative group w-24 h-24 rounded-lg border-2 border-blue-300 overflow-hidden"
+                      >
+                        {isImage ? (
+                          <img
+                            src={attachment.url}
+                            alt={attachment.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                            <FileText className="w-8 h-8 text-gray-600" />
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(index)}
+                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove attachment"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 truncate">
+                          {attachment.name}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
               {/* Message input area */}
               <div className="relative">
                 <textarea

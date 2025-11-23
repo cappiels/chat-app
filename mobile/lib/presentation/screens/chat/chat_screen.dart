@@ -381,10 +381,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           threadId: widget.thread.id,
           content: content.trim().isNotEmpty ? content.trim() : '📎 Attachment',
           attachments: attachmentsToSend.map((a) => {
+            'id': a.id,
             'file_name': a.fileName,
             'file_url': a.fileUrl,
             'mime_type': a.mimeType,
             'file_size_bytes': a.fileSizeBytes,
+            'thumbnail_url': a.thumbnailUrl,
           }).toList(),
         );
         
