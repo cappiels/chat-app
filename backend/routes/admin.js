@@ -179,4 +179,83 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// DELETE /api/admin/workspaces/:workspaceId - Admin delete or archive workspace
+router.delete('/workspaces/:workspaceId', async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { workspaceId } = req.params;
+    const { archive = false } = req.body;
+
+    await client.query('BEGIN');
+
+    // Get workspace info for logging
+    const workspaceQuery = await client.query(`
+      SELECT w.name, u.email as owner_email, u.display_name as owner_name
+      FROM workspaces w
+      LEFT JOIN users u ON w.owner_user_id = u.id
+      WHERE w.id = $1;
+    `, [workspaceId]);
+
+    if (workspaceQuery.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Workspace Not Found', 
+        message: 'Workspace not found' 
+      });
+    }
+
+    const workspace = workspaceQuery.rows[0];
+
+    if (archive) {
+      // Archive workspace - add archived flag and timestamp
+      await client.query(`
+        UPDATE workspaces 
+        SET settings = COALESCE(settings, '{}') || jsonb_build_object(
+          'archived', true,
+          'archived_at', $2,
+          'archived_by_admin', $3
+        ),
+        updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1;
+      `, [workspaceId, new Date().toISOString(), req.user.email]);
+
+      console.log(`🗄️ [ADMIN] Workspace archived: ${workspace.name} (${workspaceId}) by admin ${req.user.email}`);
+      
+      await client.query('COMMIT');
+      
+      res.json({
+        message: 'Workspace archived successfully by admin',
+        action: 'archived',
+        workspace_name: workspace.name,
+        owner: workspace.owner_name || workspace.owner_email
+      });
+    } else {
+      // Permanently delete workspace and all related data
+      // Note: Foreign key cascades will handle related data deletion
+      await client.query(`DELETE FROM workspaces WHERE id = $1`, [workspaceId]);
+
+      console.log(`🗑️ [ADMIN] Workspace permanently deleted: ${workspace.name} (${workspaceId}) by admin ${req.user.email}`);
+      
+      await client.query('COMMIT');
+      
+      res.json({
+        message: 'Workspace permanently deleted by admin',
+        action: 'deleted',
+        workspace_name: workspace.name,
+        owner: workspace.owner_name || workspace.owner_email
+      });
+    }
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Admin delete workspace error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to delete workspace' 
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

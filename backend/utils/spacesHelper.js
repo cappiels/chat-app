@@ -29,6 +29,11 @@ class SpacesHelper {
       }
 
       // Configure AWS SDK for DigitalOcean Spaces
+      // Clear any AWS environment variables that might interfere
+      delete process.env.AWS_ACCESS_KEY_ID;
+      delete process.env.AWS_SECRET_ACCESS_KEY;
+      delete process.env.AWS_SESSION_TOKEN;
+      
       this.s3 = new AWS.S3({
         endpoint: new AWS.Endpoint(process.env.SPACES_ENDPOINT),
         accessKeyId: process.env.SPACES_KEY,

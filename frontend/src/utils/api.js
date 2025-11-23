@@ -193,4 +193,12 @@ export const notificationAPI = {
   markNotificationAsRead: (workspaceId, notificationId) => api.put(`/workspaces/${workspaceId}/notifications/${notificationId}/read`),
 };
 
+export const adminAPI = {
+  getWorkspaces: () => api.get('/admin/workspaces'),
+  getUsers: () => api.get('/admin/users'),
+  getStats: () => api.get('/admin/stats'),
+  deleteWorkspace: (workspaceId, options = {}) => api.delete(`/admin/workspaces/${workspaceId}`, { data: options }),
+  archiveWorkspace: (workspaceId) => api.delete(`/admin/workspaces/${workspaceId}`, { data: { archive: true } }),
+};
+
 export default api;

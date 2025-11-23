@@ -8,10 +8,15 @@ import {
   Calendar,
   Crown,
   Filter,
-  BarChart3
+  BarChart3,
+  Trash2,
+  Archive,
+  AlertTriangle
 } from 'lucide-react';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { adminAPI } from '../../utils/api';
+import toast from 'react-hot-toast';
 
 const AdminWorkspaceTabs = ({ 
   user, 
@@ -28,6 +33,8 @@ const AdminWorkspaceTabs = ({
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPlan, setFilterPlan] = useState('all');
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmInput, setConfirmInput] = useState('');
 
   // Only show admin tabs for site admin
   if (!isSiteAdmin()) {
@@ -149,6 +156,29 @@ const AdminWorkspaceTabs = ({
     return matchesSearch && matchesPlan;
   });
 
+  const handleAdminDeleteWorkspace = async (workspaceId, workspaceName, archive = false) => {
+    try {
+      setLoading(true);
+      if (archive) {
+        await adminAPI.archiveWorkspace(workspaceId);
+        toast.success(`Workspace "${workspaceName}" archived successfully`);
+      } else {
+        await adminAPI.deleteWorkspace(workspaceId);
+        toast.success(`Workspace "${workspaceName}" deleted permanently`);
+      }
+      
+      // Refresh the workspace list
+      await fetchAdminWorkspaces();
+      setConfirmAction(null);
+      setConfirmInput('');
+    } catch (error) {
+      console.error('Admin delete workspace error:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete workspace');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getTabLabel = (tab) => {
     let count = 0;
     let label = tab.label;
@@ -162,6 +192,64 @@ const AdminWorkspaceTabs = ({
     }
 
     return count > 0 ? `${label} (${count})` : label;
+  };
+
+  const ConfirmationDialog = ({ action, onConfirm, onCancel }) => {
+    const isDelete = action?.type === 'delete';
+    const isArchive = action?.type === 'archive';
+
+    return (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60]">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-2xl p-6 w-full max-w-md mx-4">
+          <div className="flex items-center gap-3 mb-4">
+            <AlertTriangle className="w-6 h-6 text-red-500" />
+            <h3 className="text-lg font-semibold">
+              {isDelete && 'Delete Workspace (Admin)'}
+              {isArchive && 'Archive Workspace (Admin)'}
+            </h3>
+          </div>
+          
+          <p className="text-gray-600 mb-4">
+            {isDelete && `This will permanently delete "${action.workspaceName}" and all its data. This action cannot be undone.`}
+            {isArchive && `This will archive "${action.workspaceName}". Owner can restore it later, but members won't be able to access it.`}
+          </p>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Type "{action.workspaceName}" to confirm:
+            </label>
+            <input
+              type="text"
+              value={confirmInput}
+              onChange={(e) => setConfirmInput(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+              placeholder={action.workspaceName}
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 bg-gray-200 text-gray-900 hover:bg-gray-300 rounded-lg transition-all font-medium"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading || confirmInput !== action.workspaceName}
+              className={`px-4 py-2 rounded-lg text-white transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                isArchive 
+                  ? 'bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700'
+                  : 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700'
+              }`}
+            >
+              {loading ? 'Processing...' : isDelete ? 'Delete Forever' : 'Archive'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -333,6 +421,9 @@ const AdminWorkspaceTabs = ({
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Created
                     </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -372,6 +463,38 @@ const AdminWorkspaceTabs = ({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(workspace.created_at)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmAction({
+                                type: 'archive',
+                                workspaceId: workspace.id,
+                                workspaceName: workspace.name
+                              });
+                            }}
+                            className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-md transition-colors"
+                            title="Archive workspace"
+                          >
+                            <Archive className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmAction({
+                                type: 'delete',
+                                workspaceId: workspace.id,
+                                workspaceName: workspace.name
+                              });
+                            }}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            title="Delete workspace permanently"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -509,6 +632,24 @@ const AdminWorkspaceTabs = ({
         )}
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      {confirmAction && (
+        <ConfirmationDialog
+          action={confirmAction}
+          onConfirm={() => {
+            if (confirmAction.type === 'delete') {
+              handleAdminDeleteWorkspace(confirmAction.workspaceId, confirmAction.workspaceName, false);
+            } else if (confirmAction.type === 'archive') {
+              handleAdminDeleteWorkspace(confirmAction.workspaceId, confirmAction.workspaceName, true);
+            }
+          }}
+          onCancel={() => {
+            setConfirmAction(null);
+            setConfirmInput('');
+          }}
+        />
+      )}
     </div>
   );
 };
