@@ -6,11 +6,13 @@ set -e  # Exit on any error
 
 echo "🚀 Starting Local Development Setup..."
 
-# Check if PostgreSQL is running
-if ! pg_isready -q 2>/dev/null; then
+# Check if PostgreSQL service is running
+if ! brew services list | grep -q "postgresql@15.*started"; then
     echo "📦 Starting PostgreSQL service..."
     brew services start postgresql@15
     sleep 2
+else
+    echo "✅ PostgreSQL already running"
 fi
 
 # Check if local database exists

@@ -287,8 +287,8 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
           ) : null}
         </button>
 
-        {/* Invite users - compact on mobile */}
-        {onInvite && (
+        {/* Invite users - compact on mobile - ONLY for admins */}
+        {onInvite && (workspace?.role === 'admin' || workspace?.user_role === 'admin') && (
           <button 
             onClick={onInvite}
             className="btn-icon text-text-primary hover:bg-gray-100 p-1.5 md:px-3 md:py-2 md:gap-2"

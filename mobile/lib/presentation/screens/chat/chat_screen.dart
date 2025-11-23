@@ -10,6 +10,7 @@ import '../../../data/models/workspace.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/message_composer.dart';
 import '../../widgets/chat/typing_indicator.dart';
+import '../../widgets/workspace/invite_dialog.dart';
 import 'dart:async';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -636,6 +637,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          // Invite button - ONLY for admins
+          if (widget.workspace['role'] == 'admin' || 
+              widget.workspace['user_role'] == 'admin')
+            IconButton(
+              icon: const Icon(Icons.person_add),
+              tooltip: 'Invite members',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => InviteDialog(
+                    workspace: widget.workspace,
+                  ),
+                );
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () {

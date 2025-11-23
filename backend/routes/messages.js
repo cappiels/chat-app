@@ -475,7 +475,10 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
               'id', a.id,
               'file_name', a.file_name,
               'file_url', a.file_url,
-              'mime_type', a.mime_type
+              'mime_type', a.mime_type,
+              'file_size_bytes', a.file_size_bytes,
+              'thumbnail_url', a.thumbnail_url,
+              'uploaded_at', a.uploaded_at
             )
           )
           FROM attachments a WHERE a.message_id = m.id
