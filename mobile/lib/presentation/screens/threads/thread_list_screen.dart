@@ -30,6 +30,7 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   bool _loading = true;
   int _selectedBottomNavIndex = 0;
   Thread? _selectedThread;
+  int _previousNavIndex = 0;
   
   @override
   void initState() {
@@ -63,6 +64,11 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
             return b.updatedAt.compareTo(a.updatedAt);
           });
           _loading = false;
+          
+          // Auto-select first thread if none selected (for Calendar/Timeline/Knowledge/Weekly views)
+          if (_selectedThread == null && _threads.isNotEmpty) {
+            _selectedThread = _threads.first;
+          }
         });
         
         print('✅ Loaded ${_threads.length} REAL channels from API');
@@ -436,39 +442,49 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
       return _buildFeaturePlaceholder(
         icon: Icons.calendar_month,
         title: 'No Channels',
-        description: 'Select a channel from the Chat tab to view its calendar',
+        description: 'Create or join channels to use calendar view',
         color: Colors.purple,
       );
     }
 
-    // If no thread is selected, show channel selector
-    if (_selectedThread == null) {
-      return _buildChannelSelector(
-        icon: Icons.calendar_month,
-        title: 'Calendar View',
-        description: 'Select a channel to view its calendar',
-        onChannelSelected: (thread) {
-          setState(() {
-            _selectedThread = thread;
-          });
-        },
-      );
-    }
-
-    // Show calendar for selected thread
+    // Show calendar for selected thread (auto-selected in _loadThreads)
     final workspace = Workspace.fromJson(widget.workspace);
-    return ChannelCalendarScreen(
-      thread: _selectedThread!,
-      workspace: workspace,
+    return Column(
+      children: [
+        _buildChannelSelectorBar(),
+        Expanded(
+          child: ChannelCalendarScreen(
+            thread: _selectedThread!,
+            workspace: workspace,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildWeeklyCalendarPlaceholder() {
-    return _buildFeaturePlaceholder(
-      icon: Icons.view_week,
-      title: 'Weekly Calendar',
-      description: 'Week view with time blocking and schedules',
-      color: Colors.teal,
+    if (_threads.isEmpty) {
+      return _buildFeaturePlaceholder(
+        icon: Icons.view_week,
+        title: 'Weekly Calendar',
+        description: 'Week view with time blocking and schedules',
+        color: Colors.teal,
+      );
+    }
+
+    // Show weekly calendar for selected thread
+    return Column(
+      children: [
+        _buildChannelSelectorBar(),
+        Expanded(
+          child: _buildFeaturePlaceholder(
+            icon: Icons.view_week,
+            title: 'Weekly Calendar',
+            description: 'Coming soon: Week view for #${_selectedThread!.name}',
+            color: Colors.teal,
+          ),
+        ),
+      ],
     );
   }
 
@@ -477,39 +493,181 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
       return _buildFeaturePlaceholder(
         icon: Icons.timeline,
         title: 'No Channels',
-        description: 'Select a channel from the Chat tab to view its timeline',
+        description: 'Create or join channels to use timeline view',
         color: Colors.orange,
       );
     }
 
-    // If no thread is selected, show channel selector
-    if (_selectedThread == null) {
-      return _buildChannelSelector(
-        icon: Icons.timeline,
-        title: 'Timeline View',
-        description: 'Select a channel to view its timeline',
-        onChannelSelected: (thread) {
-          setState(() {
-            _selectedThread = thread;
-          });
-        },
-      );
-    }
-
-    // Show timeline for selected thread
+    // Show timeline for selected thread (auto-selected in _loadThreads)
     final workspace = Workspace.fromJson(widget.workspace);
-    return ChannelTimelineScreen(
-      thread: _selectedThread!,
-      workspace: workspace,
+    return Column(
+      children: [
+        _buildChannelSelectorBar(),
+        Expanded(
+          child: ChannelTimelineScreen(
+            thread: _selectedThread!,
+            workspace: workspace,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildKnowledgePlaceholder() {
-    return _buildFeaturePlaceholder(
-      icon: Icons.library_books,
-      title: 'Knowledge Base',
-      description: 'Organized knowledge with categories and tagging',
-      color: Colors.green,
+    if (_threads.isEmpty) {
+      return _buildFeaturePlaceholder(
+        icon: Icons.library_books,
+        title: 'Knowledge Base',
+        description: 'Organized knowledge with categories and tagging',
+        color: Colors.green,
+      );
+    }
+
+    // Show knowledge base for selected thread
+    return Column(
+      children: [
+        _buildChannelSelectorBar(),
+        Expanded(
+          child: _buildFeaturePlaceholder(
+            icon: Icons.library_books,
+            title: 'Knowledge Base',
+            description: 'Coming soon: Organized knowledge for #${_selectedThread!.name}',
+            color: Colors.green,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChannelSelectorBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[300]!, width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.tag, size: 20, color: Colors.grey[700]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: InkWell(
+              onTap: () => _showChannelPicker(),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '#${_selectedThread?.name ?? 'Select Channel'}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.arrow_drop_down, color: Colors.grey[600]),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChannelPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Text(
+                    'Select Channel',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _threads.length,
+                itemBuilder: (context, index) {
+                  final thread = _threads[index];
+                  final isSelected = thread.id == _selectedThread?.id;
+                  return ListTile(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.blue.shade100 : Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        thread.type == 'channel' ? Icons.tag : Icons.person,
+                        color: isSelected ? Colors.blue.shade700 : Colors.blue.shade600,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      thread.type == 'channel' ? '#${thread.name}' : thread.name,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: thread.description != null
+                        ? Text(
+                            thread.description!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          )
+                        : null,
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle, color: Colors.blue.shade600)
+                        : null,
+                    onTap: () {
+                      setState(() {
+                        _selectedThread = thread;
+                      });
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -657,6 +815,7 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
       currentIndex: _selectedBottomNavIndex,
       onTap: (index) {
         setState(() {
+          _previousNavIndex = _selectedBottomNavIndex;
           _selectedBottomNavIndex = index;
         });
       },
