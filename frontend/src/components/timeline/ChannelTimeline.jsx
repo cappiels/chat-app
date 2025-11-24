@@ -9,8 +9,10 @@ import {
   ArrowRightIcon,
   CalendarDaysIcon
 } from '@heroicons/react/24/outline';
+import { Building2 } from 'lucide-react';
 import { auth } from '../../firebase';
 import api from '../../utils/api';
+import WorkspaceChannelPicker from '../calendar/WorkspaceChannelPicker';
 
 const STATUS_COLORS = {
   'pending': 'bg-gray-400',
@@ -35,15 +37,37 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
   const [timelineEnd, setTimelineEnd] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [pickerSelection, setPickerSelection] = useState(null);
 
-  // Fetch tasks from API
+  // Fetch tasks from API - supports both single channel and multi-workspace views
   const fetchTasks = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Use api utility which handles auth automatically
-      const response = await api.get(`/workspaces/${workspaceId}/threads/${channel.id}/tasks`);
+      let response;
+      
+      if (pickerSelection?.showAllWorkspaces) {
+        // Fetch tasks from ALL workspaces using global tasks API
+        response = await api.get('/tasks/all');
+      } else if (pickerSelection?.workspace && !pickerSelection?.channel) {
+        // Fetch tasks from all channels in specific workspace
+        const workspaceIds = [pickerSelection.workspace.id].join(',');
+        response = await api.get(`/tasks/all?workspace_ids=${workspaceIds}`);
+      } else if (pickerSelection?.channel) {
+        // Fetch tasks from specific channel
+        response = await api.get(`/workspaces/${pickerSelection.workspace.id}/threads/${pickerSelection.channel.id}/tasks`);
+      } else if (channel?.id && workspaceId) {
+        // Fallback to current channel (original behavior)
+        response = await api.get(`/workspaces/${workspaceId}/threads/${channel.id}/tasks`);
+      } else {
+        setTasks([]);
+        setLoading(false);
+        setTimelineStart(new Date());
+        setTimelineEnd(new Date());
+        return;
+      }
+      
       const tasksData = response.data.tasks || [];
       setTasks(tasksData);
       
@@ -94,10 +118,8 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
   };
 
   useEffect(() => {
-    if (channel?.id && workspaceId) {
-      fetchTasks();
-    }
-  }, [channel?.id, workspaceId]);
+    fetchTasks();
+  }, [pickerSelection, channel?.id, workspaceId]);
 
   // Timeline helpers
   const formatDateRange = (start, end) => {
@@ -229,7 +251,15 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  {/* Show workspace badge if viewing multiple workspaces */}
+                  {pickerSelection?.showAllWorkspaces && task.workspace_name && (
+                    <div className="flex items-center gap-1 text-xs text-text-tertiary">
+                      <Building2 className="w-3 h-3" />
+                      {task.workspace_name}
+                    </div>
+                  )}
+                  
                   {task.assigned_to_name && (
                     <div className="flex items-center gap-1 text-xs text-text-tertiary">
                       <UserIcon className="w-3 h-3" />
@@ -337,9 +367,16 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
     <div className="timeline-view">
       {/* Timeline Header */}
       <div className="timeline-header">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <h2 className="text-xl font-semibold text-text-primary">
-            #{channel.name} Timeline
+            {pickerSelection?.showAllWorkspaces 
+              ? 'All Workspaces Timeline'
+              : pickerSelection?.workspace && !pickerSelection?.channel
+                ? `${pickerSelection.workspace.name} Timeline`
+                : channel 
+                  ? `#${channel.name} Timeline`
+                  : 'Timeline'
+            }
           </h2>
           <div className="text-sm text-text-tertiary">
             {tasks.length} task{tasks.length !== 1 ? 's' : ''}
@@ -349,6 +386,14 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
               </span>
             )}
           </div>
+          
+          {/* Workspace/Channel Picker */}
+          <WorkspaceChannelPicker
+            currentWorkspace={workspace}
+            currentChannel={channel}
+            onSelectionChange={setPickerSelection}
+            className="ml-auto"
+          />
         </div>
 
         <div className="flex items-center gap-3">

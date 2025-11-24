@@ -181,38 +181,76 @@ class _InviteDialogState extends State<InviteDialog> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _RoleCard(
-                            title: 'Member',
-                            description: 'Can read and write messages',
-                            icon: Icons.group,
-                            iconColor: Colors.blue,
-                            isSelected: _selectedRole == 'member',
-                            onTap: () {
-                              setState(() {
-                                _selectedRole = 'member';
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _RoleCard(
-                            title: 'Admin',
-                            description: 'Full workspace access',
-                            icon: Icons.admin_panel_settings,
-                            iconColor: Colors.amber.shade700,
-                            isSelected: _selectedRole == 'admin',
-                            onTap: () {
-                              setState(() {
-                                _selectedRole = 'admin';
-                              });
-                            },
-                          ),
-                        ),
-                      ],
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Stack vertically if width is too small
+                        if (constraints.maxWidth < 350) {
+                          return Column(
+                            children: [
+                              _RoleCard(
+                                title: 'Member',
+                                description: 'Read & write messages',
+                                icon: Icons.group,
+                                iconColor: Colors.blue,
+                                isSelected: _selectedRole == 'member',
+                                onTap: () {
+                                  setState(() {
+                                    _selectedRole = 'member';
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              _RoleCard(
+                                title: 'Admin',
+                                description: 'Full workspace access',
+                                icon: Icons.admin_panel_settings,
+                                iconColor: Colors.amber.shade700,
+                                isSelected: _selectedRole == 'admin',
+                                onTap: () {
+                                  setState(() {
+                                    _selectedRole = 'admin';
+                                  });
+                                },
+                              ),
+                            ],
+                          );
+                        }
+                        
+                        // Side by side for larger widths
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: _RoleCard(
+                                title: 'Member',
+                                description: 'Read & write messages',
+                                icon: Icons.group,
+                                iconColor: Colors.blue,
+                                isSelected: _selectedRole == 'member',
+                                onTap: () {
+                                  setState(() {
+                                    _selectedRole = 'member';
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _RoleCard(
+                                title: 'Admin',
+                                description: 'Full access',
+                                icon: Icons.admin_panel_settings,
+                                iconColor: Colors.amber.shade700,
+                                isSelected: _selectedRole == 'admin',
+                                onTap: () {
+                                  setState(() {
+                                    _selectedRole = 'admin';
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
 
                     const SizedBox(height: 24),
@@ -406,7 +444,7 @@ class _RoleCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected ? Colors.blue.shade50 : Colors.white,
           border: Border.all(
@@ -417,27 +455,35 @@ class _RoleCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: iconColor, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                Icon(icon, color: iconColor, size: 18),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               description,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: Colors.grey.shade600,
+                height: 1.2,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

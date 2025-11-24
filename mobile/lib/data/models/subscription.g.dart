@@ -62,6 +62,7 @@ UserSubscription _$UserSubscriptionFromJson(Map<String, dynamic> json) =>
           : DateTime.parse(json['current_period_end'] as String),
       cancelAtPeriodEnd: json['cancel_at_period_end'] as bool,
       features: json['features'] as Map<String, dynamic>,
+      maxWorkspaces: (json['max_workspaces'] as num?)?.toInt(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -79,6 +80,7 @@ Map<String, dynamic> _$UserSubscriptionToJson(UserSubscription instance) =>
       'current_period_end': instance.currentPeriodEnd?.toIso8601String(),
       'cancel_at_period_end': instance.cancelAtPeriodEnd,
       'features': instance.features,
+      'max_workspaces': instance.maxWorkspaces,
       'created_at': instance.createdAt.toIso8601String(),
       'updated_at': instance.updatedAt.toIso8601String(),
     };

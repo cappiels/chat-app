@@ -4,7 +4,9 @@ import '../../../data/models/task.dart';
 import '../../../data/models/thread.dart';
 import '../../../data/models/workspace.dart';
 import '../../../data/services/task_service.dart';
+import '../../../data/services/workspace_service.dart';
 import '../../widgets/tasks/quick_task_dialog.dart';
+import '../../widgets/calendar/workspace_channel_picker.dart';
 
 class ChannelTimelineScreen extends StatefulWidget {
   final Thread thread;
@@ -22,13 +24,16 @@ class ChannelTimelineScreen extends StatefulWidget {
 
 class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
   final TaskService _taskService = TaskService();
+  final WorkspaceService _workspaceService = WorkspaceService();
   final ScrollController _scrollController = ScrollController();
   
   List<ChannelTask> _tasks = [];
+  List<Map<String, dynamic>> _taskData = [];
   bool _isLoading = false;
   String? _error;
   DateTime? _timelineStart;
   DateTime? _timelineEnd;
+  WorkspaceChannelSelection? _selection;
   
   // Task color mappings
   static const Map<String, Color> _statusColors = {
@@ -65,11 +70,37 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
     });
 
     try {
-      final tasks = await _taskService.getChannelTasks(
-        workspaceId: widget.workspace.id,
-        threadId: widget.thread.id,
-        limit: 200,
-      );
+      List<ChannelTask> tasks;
+      
+      if (_selection?.showAllWorkspaces == true) {
+        // Fetch ALL workspaces
+        final taskData = await _workspaceService.getAllWorkspacesTasks();
+        _taskData = taskData;
+        tasks = taskData.map((data) => ChannelTask.fromJson(data)).toList();
+      } else if (_selection?.workspace != null && _selection?.channel == null) {
+        // Fetch all channels in workspace
+        final taskData = await _workspaceService.getWorkspacesTasks(
+          workspaceIds: _selection!.workspaceIds,
+        );
+        _taskData = taskData;
+        tasks = taskData.map((data) => ChannelTask.fromJson(data)).toList();
+      } else if (_selection?.channel != null) {
+        // Fetch specific channel
+        tasks = await _taskService.getChannelTasks(
+          workspaceId: _selection!.workspace!.id,
+          threadId: _selection!.channel!['id'].toString(),
+          limit: 200,
+        );
+        _taskData = [];
+      } else {
+        // Fallback to current channel
+        tasks = await _taskService.getChannelTasks(
+          workspaceId: widget.workspace.id,
+          threadId: widget.thread.id,
+          limit: 200,
+        );
+        _taskData = [];
+      }
       
       // Calculate timeline bounds
       DateTime? minDate;
@@ -627,22 +658,27 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
     final organizedTasks = _organizeTaskHierarchy();
     final timelineWeeks = _generateTimelineWeeks();
     
+    String titleText = _selection?.showAllWorkspaces == true
+        ? 'All Workspaces Timeline'
+        : _selection?.workspace != null
+            ? '${_selection!.workspace!.name} Timeline'
+            : '# ${widget.thread.name} Timeline';
+    
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Text('# ${widget.thread.name}'),
-            const SizedBox(width: 8),
-            const Text(
-              'Timeline',
-              style: TextStyle(
-                fontWeight: FontWeight.normal,
-                fontSize: 16,
-              ),
-            ),
-          ],
+        title: Text(
+          titleText,
+          style: const TextStyle(fontSize: 16),
         ),
         actions: [
+          WorkspaceChannelPicker(
+            currentWorkspace: widget.workspace,
+            onSelectionChange: (selection) {
+              setState(() => _selection = selection);
+              _loadTasks();
+            },
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadTasks,

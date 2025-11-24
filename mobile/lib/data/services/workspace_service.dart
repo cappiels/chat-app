@@ -119,4 +119,53 @@ class WorkspaceService {
       rethrow;
     }
   }
+
+  /// Get channels for a workspace
+  Future<List<Map<String, dynamic>>> getChannels(String workspaceId) async {
+    try {
+      final response = await _httpClient.get('/api/workspaces/$workspaceId/threads');
+      final threads = List<Map<String, dynamic>>.from(response.data['threads'] ?? []);
+      // Filter to only return channels (not DMs)
+      return threads.where((t) => t['type'] == 'channel').toList();
+    } catch (e) {
+      print('❌ Error fetching channels: $e');
+      rethrow;
+    }
+  }
+
+  /// Get tasks from all workspaces
+  Future<List<Map<String, dynamic>>> getAllWorkspacesTasks() async {
+    try {
+      final response = await _httpClient.get('/api/tasks/all');
+      return List<Map<String, dynamic>>.from(response.data['tasks'] ?? []);
+    } catch (e) {
+      print('❌ Error fetching all workspaces tasks: $e');
+      rethrow;
+    }
+  }
+
+  /// Get tasks from specific workspaces or channels
+  Future<List<Map<String, dynamic>>> getWorkspacesTasks({
+    List<String>? workspaceIds,
+    List<String>? channelIds,
+  }) async {
+    try {
+      String queryParams = '';
+      if (workspaceIds != null && workspaceIds.isNotEmpty) {
+        queryParams += 'workspace_ids=${workspaceIds.join(',')}';
+      }
+      if (channelIds != null && channelIds.isNotEmpty) {
+        if (queryParams.isNotEmpty) queryParams += '&';
+        queryParams += 'channel_ids=${channelIds.join(',')}';
+      }
+      
+      final response = await _httpClient.get(
+        '/api/tasks/all${queryParams.isNotEmpty ? '?$queryParams' : ''}'
+      );
+      return List<Map<String, dynamic>>.from(response.data['tasks'] ?? []);
+    } catch (e) {
+      print('❌ Error fetching workspaces tasks: $e');
+      rethrow;
+    }
+  }
 }

@@ -7,8 +7,10 @@ import {
   ClockIcon,
   UserIcon
 } from '@heroicons/react/24/outline';
+import { Building2 } from 'lucide-react';
 import { auth } from '../../firebase';
 import api from '../../utils/api';
+import WorkspaceChannelPicker from './WorkspaceChannelPicker';
 
 // Channel color mapping using our design tokens
 const CHANNEL_COLORS = {
@@ -48,15 +50,35 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [pickerSelection, setPickerSelection] = useState(null);
 
-  // Fetch tasks from API
+  // Fetch tasks from API - supports both single channel and multi-workspace views
   const fetchTasks = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Use api utility which handles auth automatically
-      const response = await api.get(`/workspaces/${workspaceId}/threads/${channel.id}/tasks`);
+      let response;
+      
+      if (pickerSelection?.showAllWorkspaces) {
+        // Fetch tasks from ALL workspaces using global tasks API
+        response = await api.get('/tasks/all');
+      } else if (pickerSelection?.workspace && !pickerSelection?.channel) {
+        // Fetch tasks from all channels in specific workspace
+        const workspaceIds = [pickerSelection.workspace.id].join(',');
+        response = await api.get(`/tasks/all?workspace_ids=${workspaceIds}`);
+      } else if (pickerSelection?.channel) {
+        // Fetch tasks from specific channel
+        response = await api.get(`/workspaces/${pickerSelection.workspace.id}/threads/${pickerSelection.channel.id}/tasks`);
+      } else if (channel?.id && workspaceId) {
+        // Fallback to current channel (original behavior)
+        response = await api.get(`/workspaces/${workspaceId}/threads/${channel.id}/tasks`);
+      } else {
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+      
       setTasks(response.data.tasks || []);
     } catch (err) {
       console.error('Error fetching channel tasks:', err);
@@ -67,10 +89,8 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
   };
 
   useEffect(() => {
-    if (channel?.id && workspaceId) {
-      fetchTasks();
-    }
-  }, [channel?.id, workspaceId]);
+    fetchTasks();
+  }, [pickerSelection, channel?.id, workspaceId]);
 
   // Calendar navigation
   const goToPreviousMonth = () => {
@@ -226,13 +246,28 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
     <div className="calendar-view">
       {/* Calendar Header */}
       <div className="calendar-header">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <h2 className="text-xl font-semibold text-text-primary">
-            #{channel.name} Calendar
+            {pickerSelection?.showAllWorkspaces 
+              ? 'All Workspaces Calendar'
+              : pickerSelection?.workspace && !pickerSelection?.channel
+                ? `${pickerSelection.workspace.name} Calendar`
+                : channel 
+                  ? `#${channel.name} Calendar`
+                  : 'Calendar'
+            }
           </h2>
           <div className="text-sm text-text-tertiary">
             {tasks.length} task{tasks.length !== 1 ? 's' : ''}
           </div>
+          
+          {/* Workspace/Channel Picker */}
+          <WorkspaceChannelPicker
+            currentWorkspace={workspace}
+            currentChannel={channel}
+            onSelectionChange={setPickerSelection}
+            className="ml-auto"
+          />
         </div>
 
         <div className="flex items-center gap-3">
@@ -323,7 +358,7 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
                     <div
                       key={task.id}
                       className={`calendar-task p-1.5 rounded text-xs border ${STATUS_COLORS[task.status]} ${PRIORITY_COLORS[task.priority]} transition-all duration-200`}
-                      title={`${task.title}${task.assigned_to_name ? ` - ${task.assigned_to_name}` : ''}`}
+                      title={`${task.title}${task.workspace_name ? ` - ${task.workspace_name}` : ''}${task.assigned_to_name ? ` - ${task.assigned_to_name}` : ''}`}
                     >
                       <div className="flex items-center gap-1.5">
                         {task.is_all_day ? (
@@ -335,6 +370,16 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
                           {task.title}
                         </span>
                       </div>
+                      
+                      {/* Show workspace badge if viewing multiple workspaces */}
+                      {pickerSelection?.showAllWorkspaces && task.workspace_name && (
+                        <div className="flex items-center gap-1 mt-1 opacity-75">
+                          <Building2 className="w-2.5 h-2.5" />
+                          <span className="text-[10px] truncate">
+                            {task.workspace_name}
+                          </span>
+                        </div>
+                      )}
                       
                       {task.assigned_to_name && (
                         <div className="flex items-center gap-1 mt-1 opacity-75">

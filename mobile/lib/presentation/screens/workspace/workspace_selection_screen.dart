@@ -41,6 +41,8 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   String _newWorkspaceDescription = '';
   bool _creating = false;
   int _selectedBottomNavIndex = 0;
+  bool _canCreateWorkspace = true;
+  String _subscriptionTier = 'free';
   
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -94,6 +96,24 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
         // Try to load from real backend API
         print('🔄 Attempting to load workspaces from backend API...');
         final workspaces = await _workspaceService.getWorkspaces();
+        
+        // Check subscription status for workspace limits
+        try {
+          final subStatus = await _subscriptionService.getSubscriptionStatus();
+          _subscriptionTier = subStatus?.planName ?? 'free';
+          final workspaceCount = workspaces.length;
+          
+          // Free tier: max 1 workspace
+          if (_subscriptionTier == 'free' && workspaceCount >= 1) {
+            _canCreateWorkspace = false;
+          } else {
+            _canCreateWorkspace = true;
+          }
+          print('🔐 Subscription: $_subscriptionTier, Can create: $_canCreateWorkspace');
+        } catch (e) {
+          print('⚠️ Could not fetch subscription status: $e');
+          _canCreateWorkspace = true; // Allow by default if check fails
+        }
         
         setState(() {
           _workspaces = workspaces;
@@ -438,20 +458,25 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   }
 
   Widget _buildWorkspaceGrid() {
+    // Show create card only if user can create workspaces
+    final showCreateCard = _canCreateWorkspace;
+    
     return SliverPadding(
       padding: const EdgeInsets.all(24),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 1,
-          childAspectRatio: 3.2,  // Increased to give more height
+          childAspectRatio: 3.2,
           mainAxisSpacing: 16,
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             if (index < _filteredWorkspaces.length) {
               return _buildWorkspaceCard(_filteredWorkspaces[index], index);
-            } else {
+            } else if (showCreateCard) {
               return _buildCreateWorkspaceCard();
+            } else {
+              return _buildUpgradePromptCard();
             }
           },
           childCount: _filteredWorkspaces.length + 1,
@@ -689,17 +714,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           child: Opacity(
             opacity: _fadeAnimation.value * 0.8,
             child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _showCreateForm = !_showCreateForm;
-                  if (!_showCreateForm) {
-                    _nameController.clear();
-                    _descriptionController.clear();
-                    _newWorkspaceName = '';
-                    _newWorkspaceDescription = '';
-                  }
-                });
-              },
+              onTap: () => _showCreateWorkspaceDialog(),
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -725,7 +740,55 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
                     ),
                   ],
                 ),
-                child: _showCreateForm ? _buildCreateForm() : _buildCreatePrompt(),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          Icons.add_rounded,
+                          size: 28,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Create New Workspace',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Start a new workspace',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -734,180 +797,218 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     );
   }
 
-  Widget _buildCreatePrompt() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.add_rounded,
-              size: 28,
-              color: Colors.grey.shade600,
+  Widget _buildUpgradePromptCard() {
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 30 * (1 - _fadeAnimation.value)),
+          child: Opacity(
+            opacity: _fadeAnimation.value * 0.8,
+            child: GestureDetector(
+              onTap: () => _showSubscriptionLimitDialog(),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.orange.shade50,
+                      Colors.white.withOpacity(0.5),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.orange.shade200,
+                    style: BorderStyle.solid,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orange.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          Icons.workspace_premium,
+                          size: 28,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Upgrade to Pro',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Create unlimited workspaces',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.orange.shade600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Create New Workspace',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Start a new workspace',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildCreateForm() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Create New Workspace',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+  void _showCreateWorkspaceDialog() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Create New Workspace',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              hintText: 'Workspace name',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Workspace name',
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.blue.shade500, width: 2),
+                ),
+                contentPadding: const EdgeInsets.all(16),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.blue.shade500),
-              ),
-              contentPadding: const EdgeInsets.all(16),
+              onChanged: (value) {
+                setState(() => _newWorkspaceName = value);
+              },
             ),
-            onChanged: (value) {
+            const SizedBox(height: 16),
+            TextField(
+              controller: _descriptionController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Description (optional)',
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.blue.shade500, width: 2),
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+              onChanged: (value) {
+                setState(() => _newWorkspaceDescription = value);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: _creating ? null : () {
+              Navigator.of(context).pop();
+              _nameController.clear();
+              _descriptionController.clear();
               setState(() {
-                _newWorkspaceName = value;
+                _newWorkspaceName = '';
+                _newWorkspaceDescription = '';
               });
             },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _descriptionController,
-            decoration: InputDecoration(
-              hintText: 'Description (optional)',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.blue.shade500),
-              ),
-              contentPadding: const EdgeInsets.all(16),
             ),
-            onChanged: (value) {
-              setState(() {
-                _newWorkspaceDescription = value;
-              });
-            },
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: _creating ? null : () {
-                    setState(() {
-                      _showCreateForm = false;
-                      _nameController.clear();
-                      _descriptionController.clear();
-                      _newWorkspaceName = '';
-                      _newWorkspaceDescription = '';
-                    });
+          ElevatedButton(
+            onPressed: _creating || _newWorkspaceName.trim().isEmpty 
+                ? null 
+                : () async {
+                    await _createWorkspace();
+                    if (mounted) Navigator.of(context).pop();
                   },
-                  child: Text(
-                    'Cancel',
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 2,
+            ),
+            child: _creating 
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text(
+                    'Create',
                     style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _creating || _newWorkspaceName.trim().isEmpty ? null : _createWorkspace,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 2,
-                  ),
-                  child: _creating 
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Create',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
-              ),
-            ],
           ),
         ],
       ),

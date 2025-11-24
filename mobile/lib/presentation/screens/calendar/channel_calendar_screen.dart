@@ -5,7 +5,9 @@ import '../../../data/models/task.dart';
 import '../../../data/models/thread.dart';
 import '../../../data/models/workspace.dart';
 import '../../../data/services/task_service.dart';
+import '../../../data/services/workspace_service.dart';
 import '../../widgets/tasks/quick_task_dialog.dart';
+import '../../widgets/calendar/workspace_channel_picker.dart';
 
 class ChannelCalendarScreen extends StatefulWidget {
   final Thread thread;
@@ -23,12 +25,15 @@ class ChannelCalendarScreen extends StatefulWidget {
 
 class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
   final TaskService _taskService = TaskService();
+  final WorkspaceService _workspaceService = WorkspaceService();
   
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
   List<ChannelTask> _tasks = [];
+  List<Map<String, dynamic>> _taskData = [];
   bool _isLoading = false;
   String? _error;
+  WorkspaceChannelSelection? _selection;
   
   // Task color mappings
   static const Map<String, Color> _statusColors = {
@@ -67,16 +72,49 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
     });
 
     try {
-      final tasks = await _taskService.getChannelTasks(
-        workspaceId: widget.workspace.id,
-        threadId: widget.thread.id,
-        limit: 200,
-      );
-      
-      setState(() {
-        _tasks = tasks;
-        _isLoading = false;
-      });
+      if (_selection?.showAllWorkspaces == true) {
+        // Fetch ALL workspaces
+        final taskData = await _workspaceService.getAllWorkspacesTasks();
+        setState(() {
+          _taskData = taskData;
+          _tasks = taskData.map((data) => ChannelTask.fromJson(data)).toList();
+          _isLoading = false;
+        });
+      } else if (_selection?.workspace != null && _selection?.channel == null) {
+        // Fetch all channels in workspace
+        final taskData = await _workspaceService.getWorkspacesTasks(
+          workspaceIds: _selection!.workspaceIds,
+        );
+        setState(() {
+          _taskData = taskData;
+          _tasks = taskData.map((data) => ChannelTask.fromJson(data)).toList();
+          _isLoading = false;
+        });
+      } else if (_selection?.channel != null) {
+        // Fetch specific channel
+        final tasks = await _taskService.getChannelTasks(
+          workspaceId: _selection!.workspace!.id,
+          threadId: _selection!.channel!['id'].toString(),
+          limit: 200,
+        );
+        setState(() {
+          _taskData = [];
+          _tasks = tasks;
+          _isLoading = false;
+        });
+      } else {
+        // Fallback to current channel
+        final tasks = await _taskService.getChannelTasks(
+          workspaceId: widget.workspace.id,
+          threadId: widget.thread.id,
+          limit: 200,
+        );
+        setState(() {
+          _taskData = [];
+          _tasks = tasks;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -352,6 +390,16 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
   }
 
   Widget _buildTaskCard(ChannelTask task) {
+    // Find workspace name from taskData if showing all workspaces
+    String? workspaceName;
+    if (_selection?.showAllWorkspaces == true && _taskData.isNotEmpty) {
+      final taskDataItem = _taskData.firstWhere(
+        (data) => data['id'].toString() == task.id,
+        orElse: () => {},
+      );
+      workspaceName = taskDataItem['workspace_name'];
+    }
+
     return InkWell(
       onTap: () => _showTaskDetails(task),
       child: Container(
@@ -367,33 +415,63 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
             ),
           ),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (task.isAllDay)
-              Icon(
-                Icons.calendar_today,
-                size: 10,
-                color: _statusTextColors[task.status],
-              )
-            else
-              Icon(
-                Icons.access_time,
-                size: 10,
-                color: _statusTextColors[task.status],
-              ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                task.title,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: _statusTextColors[task.status],
+            Row(
+              children: [
+                if (task.isAllDay)
+                  Icon(
+                    Icons.calendar_today,
+                    size: 10,
+                    color: _statusTextColors[task.status],
+                  )
+                else
+                  Icon(
+                    Icons.access_time,
+                    size: 10,
+                    color: _statusTextColors[task.status],
+                  ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    task.title,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _statusTextColors[task.status],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              ],
             ),
+            if (workspaceName != null) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.business, size: 10, color: Colors.purple.shade700),
+                    const SizedBox(width: 4),
+                    Text(
+                      workspaceName,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.purple.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -402,22 +480,27 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    String titleText = _selection?.showAllWorkspaces == true
+        ? 'All Workspaces Calendar'
+        : _selection?.workspace != null
+            ? '${_selection!.workspace!.name} Calendar'
+            : '# ${widget.thread.name} Calendar';
+
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Text('# ${widget.thread.name}'),
-            const SizedBox(width: 8),
-            const Text(
-              'Calendar',
-              style: TextStyle(
-                fontWeight: FontWeight.normal,
-                fontSize: 16,
-              ),
-            ),
-          ],
+        title: Text(
+          titleText,
+          style: const TextStyle(fontSize: 16),
         ),
         actions: [
+          WorkspaceChannelPicker(
+            currentWorkspace: widget.workspace,
+            onSelectionChange: (selection) {
+              setState(() => _selection = selection);
+              _loadTasks();
+            },
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.today),
             onPressed: () {

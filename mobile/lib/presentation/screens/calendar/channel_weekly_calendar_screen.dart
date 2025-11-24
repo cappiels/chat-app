@@ -4,7 +4,9 @@ import '../../../data/models/task.dart';
 import '../../../data/models/thread.dart';
 import '../../../data/models/workspace.dart';
 import '../../../data/services/task_service.dart';
+import '../../../data/services/workspace_service.dart';
 import '../../widgets/tasks/weekly_event_dialog.dart';
+import '../../widgets/calendar/workspace_channel_picker.dart';
 
 class ChannelWeeklyCalendarScreen extends StatefulWidget {
   final Thread thread;
@@ -22,13 +24,16 @@ class ChannelWeeklyCalendarScreen extends StatefulWidget {
 
 class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScreen> {
   final TaskService _taskService = TaskService();
+  final WorkspaceService _workspaceService = WorkspaceService();
   final ScrollController _scrollController = ScrollController();
   
   List<ChannelTask> _tasks = [];
+  List<Map<String, dynamic>> _taskData = [];
   bool _isLoading = false;
   String? _error;
   DateTime _currentWeekStart = DateTime.now();
   CalendarView _currentView = CalendarView.week;
+  WorkspaceChannelSelection? _selection;
   
   // Time range for calendar (6 AM to 10 PM)
   static const int _startHour = 6;
@@ -86,16 +91,55 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
     });
 
     try {
-      final tasks = await _taskService.getChannelTasks(
-        workspaceId: widget.workspace.id,
-        threadId: widget.thread.id,
-        limit: 200,
-      );
-      
-      setState(() {
-        _tasks = tasks.where((task) => task.startDate != null).toList();
-        _isLoading = false;
-      });
+      if (_selection?.showAllWorkspaces == true) {
+        // Fetch ALL workspaces
+        final taskData = await _workspaceService.getAllWorkspacesTasks();
+        setState(() {
+          _taskData = taskData;
+          _tasks = taskData
+              .map((data) => ChannelTask.fromJson(data))
+              .where((task) => task.startDate != null)
+              .toList();
+          _isLoading = false;
+        });
+      } else if (_selection?.workspace != null && _selection?.channel == null) {
+        // Fetch all channels in workspace
+        final taskData = await _workspaceService.getWorkspacesTasks(
+          workspaceIds: _selection!.workspaceIds,
+        );
+        setState(() {
+          _taskData = taskData;
+          _tasks = taskData
+              .map((data) => ChannelTask.fromJson(data))
+              .where((task) => task.startDate != null)
+              .toList();
+          _isLoading = false;
+        });
+      } else if (_selection?.channel != null) {
+        // Fetch specific channel
+        final tasks = await _taskService.getChannelTasks(
+          workspaceId: _selection!.workspace!.id,
+          threadId: _selection!.channel!['id'].toString(),
+          limit: 200,
+        );
+        setState(() {
+          _taskData = [];
+          _tasks = tasks.where((task) => task.startDate != null).toList();
+          _isLoading = false;
+        });
+      } else {
+        // Fallback to current channel
+        final tasks = await _taskService.getChannelTasks(
+          workspaceId: widget.workspace.id,
+          threadId: widget.thread.id,
+          limit: 200,
+        );
+        setState(() {
+          _taskData = [];
+          _tasks = tasks.where((task) => task.startDate != null).toList();
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -475,22 +519,27 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
 
   @override
   Widget build(BuildContext context) {
+    String titleText = _selection?.showAllWorkspaces == true
+        ? 'All Workspaces Weekly'
+        : _selection?.workspace != null
+            ? '${_selection!.workspace!.name} Weekly'
+            : '# ${widget.thread.name} Weekly';
+
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Text('# ${widget.thread.name}'),
-            const SizedBox(width: 8),
-            const Text(
-              'Weekly Calendar',
-              style: TextStyle(
-                fontWeight: FontWeight.normal,
-                fontSize: 16,
-              ),
-            ),
-          ],
+        title: Text(
+          titleText,
+          style: const TextStyle(fontSize: 16),
         ),
         actions: [
+          WorkspaceChannelPicker(
+            currentWorkspace: widget.workspace,
+            onSelectionChange: (selection) {
+              setState(() => _selection = selection);
+              _loadTasks();
+            },
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadTasks,
