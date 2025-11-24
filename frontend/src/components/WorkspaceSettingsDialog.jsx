@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { 
   Settings, 
@@ -8,7 +8,10 @@ import {
   UserMinus, 
   Crown,
   AlertTriangle,
-  X 
+  X,
+  UsersRound,
+  Plus,
+  UserPlus
 } from 'lucide-react';
 import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
@@ -25,6 +28,25 @@ const WorkspaceSettingsDialog = ({
   const [loading, setLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmInput, setConfirmInput] = useState('');
+  
+  // Teams state
+  const [teams, setTeams] = useState([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [showCreateTeamDialog, setShowCreateTeamDialog] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(null);
+  const [newTeam, setNewTeam] = useState({
+    name: '',
+    display_name: '',
+    description: '',
+    color: 'blue'
+  });
+
+  // Load teams when switching to teams tab
+  useEffect(() => {
+    if (activeTab === 'teams' && isAdmin) {
+      loadTeams();
+    }
+  }, [activeTab, isAdmin]);
 
   if (!isOpen || !workspace) return null;
 
@@ -33,6 +55,89 @@ const WorkspaceSettingsDialog = ({
   const members = workspace.members || [];
   const pendingInvitations = workspace.pending_invitations || [];
   const allMembers = [...members, ...pendingInvitations];
+
+  const loadTeams = async () => {
+    try {
+      setLoadingTeams(true);
+      const response = await workspaceAPI.getTeams(workspace.id);
+      setTeams(response.data.teams || []);
+    } catch (error) {
+      console.error('Error loading teams:', error);
+      toast.error('Failed to load teams');
+    } finally {
+      setLoadingTeams(false);
+    }
+  };
+
+  const handleCreateTeam = async () => {
+    if (!newTeam.name || !newTeam.display_name) {
+      toast.error('Team name and display name are required');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await workspaceAPI.createTeam(workspace.id, newTeam);
+      toast.success('Team created successfully');
+      setShowCreateTeamDialog(false);
+      setNewTeam({
+        name: '',
+        display_name: '',
+        description: '',
+        color: 'blue'
+      });
+      loadTeams();
+    } catch (error) {
+      console.error('Error creating team:', error);
+      toast.error(error.response?.data?.error || 'Failed to create team');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddTeamMember = async (teamId, userId) => {
+    try {
+      setLoading(true);
+      await workspaceAPI.addTeamMember(workspace.id, teamId, { user_id: userId, role: 'member' });
+      toast.success('Member added to team');
+      setShowAddMemberDialog(null);
+      loadTeams();
+    } catch (error) {
+      console.error('Error adding team member:', error);
+      toast.error(error.response?.data?.error || 'Failed to add team member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveTeamMember = async (teamId, memberId) => {
+    try {
+      setLoading(true);
+      await workspaceAPI.removeTeamMember(workspace.id, teamId, memberId);
+      toast.success('Member removed from team');
+      loadTeams();
+    } catch (error) {
+      console.error('Error removing team member:', error);
+      toast.error('Failed to remove team member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const teamColors = [
+    { value: 'blue', label: 'Blue', class: 'bg-blue-500' },
+    { value: 'green', label: 'Green', class: 'bg-green-500' },
+    { value: 'purple', label: 'Purple', class: 'bg-purple-500' },
+    { value: 'orange', label: 'Orange', class: 'bg-orange-500' },
+    { value: 'pink', label: 'Pink', class: 'bg-pink-500' },
+    { value: 'teal', label: 'Teal', class: 'bg-teal-500' },
+    { value: 'indigo', label: 'Indigo', class: 'bg-indigo-500' },
+    { value: 'red', label: 'Red', class: 'bg-red-500' },
+    { value: 'yellow', label: 'Yellow', class: 'bg-yellow-500' },
+    { value: 'cyan', label: 'Cyan', class: 'bg-cyan-500' },
+    { value: 'rose', label: 'Rose', class: 'bg-rose-500' },
+    { value: 'violet', label: 'Violet', class: 'bg-violet-500' }
+  ];
 
   const handleDeleteWorkspace = async (archive = false) => {
     try {
@@ -198,16 +303,28 @@ const WorkspaceSettingsDialog = ({
                   General
                 </button>
                 {isAdmin && (
-                  <button
-                    onClick={() => setActiveTab('members')}
-                    className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                      activeTab === 'members' 
-                        ? 'bg-blue-100 text-blue-700' 
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    Members ({members.length})
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setActiveTab('members')}
+                      className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                        activeTab === 'members' 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      Members ({members.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('teams')}
+                      className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                        activeTab === 'teams' 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      Teams ({teams.length})
+                    </button>
+                  </>
                 )}
                 {isOwner && (
                   <button
@@ -376,6 +493,100 @@ const WorkspaceSettingsDialog = ({
                 </div>
               )}
 
+              {activeTab === 'teams' && isAdmin && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Workspace Teams</h3>
+                    <button
+                      onClick={() => setShowCreateTeamDialog(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Team
+                    </button>
+                  </div>
+
+                  {loadingTeams ? (
+                    <div className="text-center py-8">
+                      <div className="loading-spinner mx-auto mb-2"></div>
+                      <p className="text-gray-600">Loading teams...</p>
+                    </div>
+                  ) : teams.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <UsersRound className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-600 mb-2">No teams yet</p>
+                      <p className="text-sm text-gray-500">Create teams to group members and assign tasks</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {teams.map((team) => {
+                        const colorClass = teamColors.find(c => c.value === team.color)?.class || 'bg-blue-500';
+                        const teamMembers = team.members || [];
+                        
+                        return (
+                          <div key={team.id} className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 ${colorClass} rounded-lg flex items-center justify-center text-white font-bold`}>
+                                  {team.display_name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-gray-900">{team.display_name}</h4>
+                                  <p className="text-sm text-gray-600">@{team.name}</p>
+                                  {team.description && (
+                                    <p className="text-sm text-gray-500 mt-1">{team.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setShowAddMemberDialog(team.id)}
+                                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
+                              >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                Add Member
+                              </button>
+                            </div>
+
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium text-gray-700">
+                                Members ({teamMembers.length})
+                              </p>
+                              {teamMembers.length === 0 ? (
+                                <p className="text-sm text-gray-500 italic">No members yet</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {teamMembers.map((member) => (
+                                    <div key={member.user_id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                          {member.display_name?.charAt(0) || 'U'}
+                                        </div>
+                                        <div>
+                                          <p className="text-sm font-medium">{member.display_name}</p>
+                                          <p className="text-xs text-gray-500">{member.email}</p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => handleRemoveTeamMember(team.id, member.user_id)}
+                                        className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                        title="Remove from team"
+                                        disabled={loading}
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {activeTab === 'danger' && isOwner && (
                 <div className="space-y-6">
                   <div>
@@ -448,6 +659,171 @@ const WorkspaceSettingsDialog = ({
             setConfirmInput('');
           }}
         />
+      )}
+
+      {/* Create Team Dialog */}
+      {showCreateTeamDialog && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-4">Create New Team</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Display Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newTeam.display_name}
+                  onChange={(e) => {
+                    const displayName = e.target.value;
+                    const generatedName = displayName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                    setNewTeam({ ...newTeam, display_name: displayName, name: generatedName });
+                  }}
+                  placeholder="e.g., Marketing Team"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Team Handle <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500">@</span>
+                  <input
+                    type="text"
+                    value={newTeam.name}
+                    onChange={(e) => {
+                      const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                      setNewTeam({ ...newTeam, name: value });
+                    }}
+                    placeholder="marketing-team"
+                    className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Lowercase letters, numbers, and hyphens only</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={newTeam.description}
+                  onChange={(e) => setNewTeam({ ...newTeam, description: e.target.value })}
+                  placeholder="Optional team description"
+                  rows={3}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Team Color</label>
+                <div className="grid grid-cols-6 gap-2">
+                  {teamColors.map((color) => (
+                    <button
+                      key={color.value}
+                      onClick={() => setNewTeam({ ...newTeam, color: color.value })}
+                      className={`w-10 h-10 rounded-lg ${color.class} flex items-center justify-center transition-all ${
+                        newTeam.color === color.value ? 'ring-2 ring-offset-2 ring-gray-400' : 'opacity-60 hover:opacity-100'
+                      }`}
+                      title={color.label}
+                    >
+                      {newTeam.color === color.value && (
+                        <svg className="w-5 h-5 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                          <path d="M5 13l4 4L19 7"></path>
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCreateTeamDialog(false);
+                  setNewTeam({ name: '', display_name: '', description: '', color: 'blue' });
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTeam}
+                disabled={loading || !newTeam.name || !newTeam.display_name}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creating...' : 'Create Team'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Member Dialog */}
+      {showAddMemberDialog && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-4">Add Team Member</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select workspace member to add:
+              </label>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {members
+                  .filter(member => {
+                    const team = teams.find(t => t.id === showAddMemberDialog);
+                    return !team?.members?.some(tm => tm.user_id === member.id);
+                  })
+                  .map((member) => (
+                    <button
+                      key={member.id}
+                      onClick={() => handleAddTeamMember(showAddMemberDialog, member.id)}
+                      disabled={loading}
+                      className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors text-left disabled:opacity-50"
+                    >
+                      {member.profile_picture_url ? (
+                        <img
+                          src={member.profile_picture_url}
+                          alt={member.display_name}
+                          className="w-10 h-10 rounded-full"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                          {member.display_name?.charAt(0) || 'U'}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-medium text-gray-900">{member.display_name}</p>
+                        <p className="text-sm text-gray-600">{member.email}</p>
+                      </div>
+                    </button>
+                  ))}
+                {members.filter(member => {
+                  const team = teams.find(t => t.id === showAddMemberDialog);
+                  return !team?.members?.some(tm => tm.user_id === member.id);
+                }).length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    All workspace members are already in this team
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowAddMemberDialog(null)}
+              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </>
   );

@@ -97,6 +97,11 @@ export const workspaceAPI = {
   cancelInvitation: (workspaceId, invitationId) => api.delete(`/workspaces/${workspaceId}/invitations/${invitationId}`),
   getNotifications: (params = {}) => api.get('/workspaces/notifications', { params }),
   markNotificationRead: (id) => api.put(`/workspaces/notifications/${id}/read`),
+  // Teams management
+  getTeams: (workspaceId) => api.get(`/workspaces/${workspaceId}/teams`),
+  createTeam: (workspaceId, data) => api.post(`/workspaces/${workspaceId}/teams`, data),
+  addTeamMember: (workspaceId, teamId, data) => api.post(`/workspaces/${workspaceId}/teams/${teamId}/members`, data),
+  removeTeamMember: (workspaceId, teamId, memberId) => api.delete(`/workspaces/${workspaceId}/teams/${teamId}/members/${memberId}`),
 };
 
 export const threadAPI = {

@@ -7,6 +7,7 @@ import '../../../data/models/workspace.dart';
 import '../chat/chat_screen.dart';
 import '../calendar/channel_calendar_screen.dart';
 import '../timeline/channel_timeline_screen.dart';
+import '../calendar/channel_weekly_calendar_screen.dart';
 
 class ThreadListScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> workspace;
@@ -467,21 +468,20 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
       return _buildFeaturePlaceholder(
         icon: Icons.view_week,
         title: 'Weekly Calendar',
-        description: 'Week view with time blocking and schedules',
+        description: 'Create or join channels to use weekly calendar',
         color: Colors.teal,
       );
     }
 
     // Show weekly calendar for selected thread
+    final workspace = Workspace.fromJson(widget.workspace);
     return Column(
       children: [
         _buildChannelSelectorBar(),
         Expanded(
-          child: _buildFeaturePlaceholder(
-            icon: Icons.view_week,
-            title: 'Weekly Calendar',
-            description: 'Coming soon: Week view for #${_selectedThread!.name}',
-            color: Colors.teal,
+          child: ChannelWeeklyCalendarScreen(
+            thread: _selectedThread!,
+            workspace: workspace,
           ),
         ),
       ],

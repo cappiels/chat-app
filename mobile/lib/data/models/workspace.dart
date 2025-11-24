@@ -38,9 +38,9 @@ class Workspace {
       description: json['description'],
       ownerId: json['owner_user_id'] ?? json['owner_id'] ?? '',
       role: json['role'] ?? 'member',
-      memberCount: json['member_count'] ?? 0,
-      channelCount: json['channel_count'] ?? 0,
-      unreadCount: json['unread_count'] ?? 0,
+      memberCount: _toInt(json['member_count']),
+      channelCount: _toInt(json['channel_count']),
+      unreadCount: _toInt(json['unread_count']),
       createdAt: json['created_at'] != null
         ? DateTime.parse(json['created_at'])
         : DateTime.now(),
@@ -79,6 +79,15 @@ class Workspace {
     } catch (e) {
       return {};
     }
+  }
+
+  /// Helper function to convert dynamic values to int
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   /// Get workspace color from settings
@@ -184,7 +193,9 @@ class WorkspaceTeam {
         ? DateTime.parse(json['created_at'])
         : DateTime.now(),
       members: membersData.map((m) => WorkspaceTeamMember.fromJson(m)).toList(),
-      memberCount: json['member_count'] ?? membersData.length,
+      memberCount: Workspace._toInt(json['member_count']) != 0 
+        ? Workspace._toInt(json['member_count'])
+        : membersData.length,
       isActive: json['is_active'] ?? true,
     );
   }

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../data/models/thread.dart';
 import '../../../data/models/workspace.dart';
 import '../../../data/services/task_service.dart';
+import '../../../data/services/workspace_service.dart';
 
 class QuickTaskDialog extends StatefulWidget {
   final Thread thread;
@@ -23,6 +24,7 @@ class QuickTaskDialog extends StatefulWidget {
 class _QuickTaskDialogState extends State<QuickTaskDialog> {
   final _formKey = GlobalKey<FormState>();
   final _taskService = TaskService();
+  final _workspaceService = WorkspaceService();
   
   final _titleController = TextEditingController();
   final _locationController = TextEditingController();
@@ -35,7 +37,22 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
   String _priority = 'medium';
   
   bool _isLoading = false;
+  bool _loadingMembers = false;
   String? _error;
+  
+  // 🚀 NEW: Assignment functionality  
+  List<String> _selectedAssignees = [];
+  List<int> _selectedTeams = [];
+  String _assignmentMode = 'collaborative';
+  List<Map<String, dynamic>> _workspaceMembers = [];
+  List<Map<String, dynamic>> _workspaceTeams = [];
+  bool _showAssignmentSection = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkspaceData();
+  }
 
   @override
   void dispose() {
@@ -43,6 +60,55 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
     _locationController.dispose();
     _tagsController.dispose();
     super.dispose();
+  }
+
+  // 🚀 NEW: Load workspace members and teams
+  Future<void> _loadWorkspaceData() async {
+    setState(() => _loadingMembers = true);
+    
+    try {
+      final workspaceData = await _workspaceService.getWorkspace(widget.workspace.id);
+      
+      setState(() {
+        _workspaceMembers = List<Map<String, dynamic>>.from(
+          workspaceData['members'] ?? []
+        );
+        _workspaceTeams = List<Map<String, dynamic>>.from(
+          workspaceData['teams'] ?? []
+        );
+        _loadingMembers = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load workspace members';
+        _loadingMembers = false;
+      });
+    }
+  }
+
+  void _toggleAssignee(String userId) {
+    setState(() {
+      if (_selectedAssignees.contains(userId)) {
+        _selectedAssignees.remove(userId);
+      } else {
+        _selectedAssignees.add(userId);
+      }
+    });
+  }
+
+  void _toggleTeam(int teamId) {
+    setState(() {
+      if (_selectedTeams.contains(teamId)) {
+        _selectedTeams.remove(teamId);
+      } else {
+        _selectedTeams.add(teamId);
+      }
+    });
+  }
+
+  // Smart title based on whether times are selected
+  String get _dialogTitle {
+    return (_startTime != null && _endTime != null) ? 'Add Event' : 'Add Task';
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
@@ -170,7 +236,11 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
         isAllDay: isAllDay,
         priority: _priority,
         tags: tags.isNotEmpty ? tags : null,
-        // Note: location field would need to be added to backend API
+        // 🚀 NEW: Multi-assignee support
+        assignees: _selectedAssignees.isNotEmpty ? _selectedAssignees : null,
+        assignedTeams: _selectedTeams.isNotEmpty ? _selectedTeams : null,
+        assignmentMode: _assignmentMode,
+        requiresIndividualResponse: _assignmentMode == 'individual_response',
       );
 
       if (mounted) {
@@ -240,9 +310,9 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Add Task',
-                            style: TextStyle(
+                          Text(
+                            _dialogTitle,
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
@@ -331,6 +401,437 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
                     hintText: 'meeting, urgent, development (comma-separated)',
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.label, size: 20),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 🚀 NEW: Assignment Section
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _showAssignmentSection = !_showAssignmentSection;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Icon(Icons.people, size: 20, color: Colors.blue[700]),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Assign To',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              if (_selectedAssignees.isNotEmpty || _selectedTeams.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[50],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${_selectedAssignees.length + _selectedTeams.length} selected',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.blue[700],
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              Icon(
+                                _showAssignmentSection ? Icons.expand_less : Icons.expand_more,
+                                color: Colors.grey[600],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_showAssignmentSection) ...[
+                        const Divider(height: 1),
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Assignment Mode Toggle
+                              const Text(
+                                'Assignment Mode',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _assignmentMode = 'collaborative';
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: _assignmentMode == 'collaborative'
+                                              ? Colors.blue[100]
+                                              : Colors.grey[50],
+                                          border: Border.all(
+                                            color: _assignmentMode == 'collaborative'
+                                                ? Colors.blue[300]!
+                                                : Colors.grey[300]!,
+                                          ),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Text(
+                                              'Collaborative',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: _assignmentMode == 'collaborative'
+                                                    ? Colors.blue[700]
+                                                    : Colors.grey[700],
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Anyone can complete',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: _assignmentMode == 'collaborative'
+                                                    ? Colors.blue[600]
+                                                    : Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _assignmentMode = 'individual_response';
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: _assignmentMode == 'individual_response'
+                                              ? Colors.blue[100]
+                                              : Colors.grey[50],
+                                          border: Border.all(
+                                            color: _assignmentMode == 'individual_response'
+                                                ? Colors.blue[300]!
+                                                : Colors.grey[300]!,
+                                          ),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Text(
+                                              'Individual',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: _assignmentMode == 'individual_response'
+                                                    ? Colors.blue[700]
+                                                    : Colors.grey[700],
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Each must complete',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: _assignmentMode == 'individual_response'
+                                                    ? Colors.blue[600]
+                                                    : Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Members Selection
+                              if (_loadingMembers)
+                                const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              else ...[
+                                Text(
+                                  'Team Members (${_selectedAssignees.length} selected)',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  constraints: const BoxConstraints(maxHeight: 150),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey[300]!),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: _workspaceMembers.isEmpty
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(16),
+                                          child: Text(
+                                            'No members found',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        )
+                                      : ListView.builder(
+                                          shrinkWrap: true,
+                                          itemCount: _workspaceMembers.length,
+                                          itemBuilder: (context, index) {
+                                            final member = _workspaceMembers[index];
+                                            final memberId = member['id'] as String;
+                                            final isSelected = _selectedAssignees.contains(memberId);
+                                            
+                                            return InkWell(
+                                              onTap: () => _toggleAssignee(memberId),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: isSelected ? Colors.blue[50] : null,
+                                                  border: Border(
+                                                    bottom: BorderSide(
+                                                      color: Colors.grey[200]!,
+                                                      width: index < _workspaceMembers.length - 1 ? 1 : 0,
+                                                    ),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 18,
+                                                      height: 18,
+                                                      decoration: BoxDecoration(
+                                                        color: isSelected ? Colors.blue[600] : Colors.transparent,
+                                                        border: Border.all(
+                                                          color: isSelected ? Colors.blue[600]! : Colors.grey[400]!,
+                                                          width: 2,
+                                                        ),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: isSelected
+                                                          ? const Icon(Icons.check, size: 12, color: Colors.white)
+                                                          : null,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    CircleAvatar(
+                                                      radius: 14,
+                                                      backgroundColor: Colors.grey[300],
+                                                      child: Text(
+                                                        (member['display_name'] as String?)?.substring(0, 1).toUpperCase() ?? 'U',
+                                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text(
+                                                            member['display_name'] as String? ?? 'User',
+                                                            style: const TextStyle(
+                                                              fontSize: 13,
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                          Text(
+                                                            member['email'] as String? ?? '',
+                                                            style: TextStyle(
+                                                              fontSize: 11,
+                                                              color: Colors.grey[600],
+                                                            ),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ),
+                                
+                                // Teams Selection
+                                if (_workspaceTeams.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Teams (${_selectedTeams.length} selected)',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    constraints: const BoxConstraints(maxHeight: 120),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey[300]!),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: _workspaceTeams.length,
+                                      itemBuilder: (context, index) {
+                                        final team = _workspaceTeams[index];
+                                        final teamId = team['id'] as int;
+                                        final isSelected = _selectedTeams.contains(teamId);
+                                        
+                                        return InkWell(
+                                          onTap: () => _toggleTeam(teamId),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? Colors.purple[50] : null,
+                                              border: Border(
+                                                bottom: BorderSide(
+                                                  color: Colors.grey[200]!,
+                                                  width: index < _workspaceTeams.length - 1 ? 1 : 0,
+                                                ),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 18,
+                                                  height: 18,
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected ? Colors.purple[600] : Colors.transparent,
+                                                    border: Border.all(
+                                                      color: isSelected ? Colors.purple[600]! : Colors.grey[400]!,
+                                                      width: 2,
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: isSelected
+                                                      ? const Icon(Icons.check, size: 12, color: Colors.white)
+                                                      : null,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  width: 28,
+                                                  height: 28,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.indigo,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      (team['display_name'] as String?)?.substring(0, 1).toUpperCase() ?? 'T',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        team['display_name'] as String? ?? 'Team',
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      Text(
+                                                        '${team['member_count'] ?? 0} members',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.grey[600],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+
+                                // Assignment Summary
+                                if (_selectedAssignees.isNotEmpty || _selectedTeams.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue[50],
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      _assignmentMode == 'collaborative'
+                                          ? 'Any assignee can complete this task'
+                                          : 'All ${_selectedAssignees.length + _selectedTeams.length} assignee(s) must complete individually',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.blue[900],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -525,7 +1026,7 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
                               ),
                             )
                           : const Icon(Icons.add_task, size: 18),
-                      label: Text(_isLoading ? 'Creating...' : 'Add Task'),
+                      label: Text(_isLoading ? 'Creating...' : _dialogTitle),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,

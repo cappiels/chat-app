@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Calendar, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, MapPin, Users, UserCheck } from 'lucide-react';
 import { Dialog, DialogContent } from '../ui/Dialog';
 import TagsInput from '../ui/TagsInput';
 import { auth } from '../../firebase';
+import { workspaceAPI } from '../../utils/api';
 
 const QuickTaskDialog = ({ 
   isOpen, 
@@ -22,8 +23,69 @@ const QuickTaskDialog = ({
   const [priority, setPriority] = useState('medium');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // 🚀 NEW: Assignment functionality
+  const [assignees, setAssignees] = useState([]);
+  const [assignedTeams, setAssignedTeams] = useState([]);
+  const [assignmentMode, setAssignmentMode] = useState('collaborative');
+  const [workspaceMembers, setWorkspaceMembers] = useState([]);
+  const [workspaceTeams, setWorkspaceTeams] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [showAssignmentSection, setShowAssignmentSection] = useState(true);
 
   console.log('QuickTaskDialog render:', { isOpen, channel, workspaceId, currentUser });
+
+  // 🚀 NEW: Load workspace members and teams when dialog opens
+  useEffect(() => {
+    if (isOpen && workspaceId) {
+      loadWorkspaceData();
+    }
+  }, [isOpen, workspaceId]);
+
+  const loadWorkspaceData = async () => {
+    setLoadingMembers(true);
+    try {
+      // Load workspace members
+      const workspaceResponse = await workspaceAPI.getWorkspace(workspaceId);
+      const members = workspaceResponse.data.workspace.members || [];
+      setWorkspaceMembers(members);
+
+      // Load workspace teams
+      try {
+        const teamsResponse = await workspaceAPI.getTeams(workspaceId);
+        setWorkspaceTeams(teamsResponse.data.teams || []);
+      } catch (teamError) {
+        console.warn('Teams not available:', teamError);
+        setWorkspaceTeams([]);
+      }
+
+      // Auto-assign to current user by default
+      if (currentUser?.id || currentUser?.uid) {
+        setAssignees([currentUser.id || currentUser.uid]);
+      }
+    } catch (error) {
+      console.error('Error loading workspace data:', error);
+      setError('Failed to load workspace members');
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  const toggleAssignee = (memberId) => {
+    setAssignees(prev => 
+      prev.includes(memberId)
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    );
+  };
+
+  const toggleTeam = (teamId) => {
+    setAssignedTeams(prev =>
+      prev.includes(teamId)
+        ? prev.filter(id => id !== teamId)
+        : [...prev, teamId]
+    );
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -70,7 +132,13 @@ const QuickTaskDialog = ({
         tags: tags.length > 0 ? tags : [],
         priority,
         status: 'pending',
-        assigned_to: currentUser?.id || currentUser?.uid
+        // 🚀 NEW: Multi-assignee support
+        assignees: assignees.length > 0 ? assignees : [],
+        assigned_teams: assignedTeams.length > 0 ? assignedTeams : [],
+        assignment_mode: assignmentMode,
+        requires_individual_response: assignmentMode === 'individual_response',
+        // Legacy support - keep for backward compatibility
+        assigned_to: assignees.length > 0 ? assignees[0] : (currentUser?.id || currentUser?.uid)
       };
 
       // Handle different scenarios
@@ -137,6 +205,9 @@ const QuickTaskDialog = ({
       setStartTime('');
       setEndTime('');
       setPriority('medium');
+      setAssignees([]);
+      setAssignedTeams([]);
+      setAssignmentMode('collaborative');
       setError(null);
       
       // Notify parent component
@@ -164,6 +235,9 @@ const QuickTaskDialog = ({
     setStartTime('');
     setEndTime('');
     setPriority('medium');
+    setAssignees([]);
+    setAssignedTeams([]);
+    setAssignmentMode('collaborative');
     setError(null);
     onClose();
   };
@@ -235,6 +309,185 @@ const QuickTaskDialog = ({
               maxTags={8}
               className="w-full"
             />
+          </div>
+
+          {/* 🚀 NEW: Assignment Section */}
+          <div className="border-t border-gray-200 pt-4 mt-2">
+            <button
+              type="button"
+              onClick={() => setShowAssignmentSection(!showAssignmentSection)}
+              className="flex items-center justify-between w-full text-sm font-medium text-gray-700 mb-2"
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600" />
+                <span>Assign To</span>
+                {(assignees.length > 0 || assignedTeams.length > 0) && (
+                  <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                    {assignees.length + assignedTeams.length} selected
+                  </span>
+                )}
+              </div>
+              <span className="text-gray-400">{showAssignmentSection ? '▼' : '▶'}</span>
+            </button>
+
+            {showAssignmentSection && (
+              <div className="space-y-3 pl-6">
+                {/* Assignment Mode Toggle */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                    Assignment Mode
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAssignmentMode('collaborative')}
+                      className={`flex-1 px-3 py-2 text-xs rounded-md transition-colors ${
+                        assignmentMode === 'collaborative'
+                          ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                          : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="font-medium">Collaborative</div>
+                      <div className="text-xs opacity-75">Anyone can complete</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAssignmentMode('individual_response')}
+                      className={`flex-1 px-3 py-2 text-xs rounded-md transition-colors ${
+                        assignmentMode === 'individual_response'
+                          ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                          : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="font-medium">Individual Response</div>
+                      <div className="text-xs opacity-75">Each must complete</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Members Selection */}
+                {loadingMembers ? (
+                  <div className="text-center py-4 text-sm text-gray-500">
+                    <div className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2" />
+                    Loading members...
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-2">
+                        Team Members ({assignees.length} selected)
+                      </label>
+                      <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
+                        {workspaceMembers.length === 0 ? (
+                          <div className="p-3 text-xs text-gray-500 text-center">
+                            No members found
+                          </div>
+                        ) : (
+                          workspaceMembers.map(member => (
+                            <button
+                              key={member.id}
+                              type="button"
+                              onClick={() => toggleAssignee(member.id)}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0 ${
+                                assignees.includes(member.id) ? 'bg-blue-50' : ''
+                              }`}
+                            >
+                              <div className={`flex-shrink-0 w-4 h-4 border-2 rounded ${
+                                assignees.includes(member.id)
+                                  ? 'bg-blue-600 border-blue-600'
+                                  : 'border-gray-300'
+                              } flex items-center justify-center`}>
+                                {assignees.includes(member.id) && (
+                                  <UserCheck className="w-3 h-3 text-white" />
+                                )}
+                              </div>
+                              {member.profile_picture_url ? (
+                                <img
+                                  src={member.profile_picture_url}
+                                  alt={member.display_name}
+                                  className="w-6 h-6 rounded-full"
+                                />
+                              ) : (
+                                <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium">
+                                  {member.display_name?.charAt(0) || 'U'}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {member.display_name}
+                                  {member.id === currentUser?.id && (
+                                    <span className="text-xs text-gray-500 ml-1">(you)</span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  {member.email}
+                                </div>
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Teams Selection */}
+                    {workspaceTeams.length > 0 && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-2">
+                          Teams ({assignedTeams.length} selected)
+                        </label>
+                        <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md">
+                          {workspaceTeams.map(team => (
+                            <button
+                              key={team.id}
+                              type="button"
+                              onClick={() => toggleTeam(team.id)}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0 ${
+                                assignedTeams.includes(team.id) ? 'bg-purple-50' : ''
+                              }`}
+                            >
+                              <div className={`flex-shrink-0 w-4 h-4 border-2 rounded ${
+                                assignedTeams.includes(team.id)
+                                  ? 'bg-purple-600 border-purple-600'
+                                  : 'border-gray-300'
+                              } flex items-center justify-center`}>
+                                {assignedTeams.includes(team.id) && (
+                                  <UserCheck className="w-3 h-3 text-white" />
+                                )}
+                              </div>
+                              <div
+                                className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white`}
+                                style={{ backgroundColor: `var(--${team.color}-500, #6366f1)` }}
+                              >
+                                {team.display_name?.charAt(0) || 'T'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {team.display_name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {team.member_count || 0} members
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Assignment Summary */}
+                    {(assignees.length > 0 || assignedTeams.length > 0) && (
+                      <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded">
+                        <strong>Assignment:</strong>{' '}
+                        {assignmentMode === 'collaborative' 
+                          ? 'Any assignee can complete this task'
+                          : `All ${assignees.length + assignedTeams.length} assignee(s) must complete individually`
+                        }
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Date Fields */}
