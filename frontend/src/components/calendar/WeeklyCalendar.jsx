@@ -86,10 +86,12 @@ const WeeklyCalendar = ({
     }
   }, [channel?.id, workspace?.id]);
 
-  // Initial data load
+  // Initial data load - depend on actual values, not callback
   useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+    if (channel?.id && workspace?.id) {
+      loadTasks();
+    }
+  }, [channel?.id, workspace?.id]);
 
   // Permission system
   const canEditTask = useCallback((task, user, members, teams) => {

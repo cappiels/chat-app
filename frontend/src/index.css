@@ -645,6 +645,9 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .calendar-header {
@@ -654,12 +657,16 @@ body {
   padding: 16px;
   border-bottom: 1px solid #e2e8f0;
   background-color: #f8fafc;
+  width: 100%;
+  max-width: 100%;
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   flex: 1;
+  width: 100%;
+  max-width: 100%;
 }
 
 .calendar-day {
@@ -685,6 +692,9 @@ body {
   overflow: auto;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .timeline-header {
@@ -697,6 +707,8 @@ body {
   align-items: center;
   gap: 16px;
   z-index: 10;
+  width: 100%;
+  max-width: 100%;
 }
 
 .timeline-task-bar {

@@ -10,6 +10,7 @@ import {
   CalendarDaysIcon
 } from '@heroicons/react/24/outline';
 import { auth } from '../../firebase';
+import api from '../../utils/api';
 
 const STATUS_COLORS = {
   'pending': 'bg-gray-400',
@@ -41,34 +42,9 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
       setLoading(true);
       setError(null);
       
-      // Get Firebase auth token
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      let token = null;
-      try {
-        token = await user.getIdToken(true); // Force refresh
-      } catch (tokenError) {
-        console.error('Failed to get auth token:', tokenError);
-        throw new Error('Authentication failed - please sign in again');
-      }
-      
-      const response = await fetch(`/api/workspaces/${workspaceId}/threads/${channel.id}/tasks`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tasks: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const tasksData = data.tasks || [];
+      // Use api utility which handles auth automatically
+      const response = await api.get(`/workspaces/${workspaceId}/threads/${channel.id}/tasks`);
+      const tasksData = response.data.tasks || [];
       setTasks(tasksData);
       
       // Calculate timeline bounds
@@ -111,7 +87,7 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
       }
     } catch (err) {
       console.error('Error fetching channel tasks:', err);
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }

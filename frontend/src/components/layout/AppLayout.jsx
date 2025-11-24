@@ -540,13 +540,15 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
     setShowWorkspaceSettings(true);
   };
 
-  // Import calendar and timeline components at the top level
-  const ChannelCalendar = React.lazy(() => import('../calendar/ChannelCalendar'));
-  const WeeklyCalendar = React.lazy(() => import('../calendar/WeeklyCalendar'));
-  const ChannelTimeline = React.lazy(() => import('../timeline/ChannelTimeline'));
+  // Lazy load calendar components outside render to prevent recreation
+  const ChannelCalendar = React.useMemo(() => React.lazy(() => import('../calendar/ChannelCalendar')), []);
+  const WeeklyCalendar = React.useMemo(() => React.lazy(() => import('../calendar/WeeklyCalendar')), []);
+  const ChannelTimeline = React.useMemo(() => React.lazy(() => import('../timeline/ChannelTimeline')), []);
 
   // Helper function to render full-screen views
   const renderFullScreenView = () => {
+    if (!currentChannel) return null;
+    
     const commonProps = {
       channel: currentChannel,
       workspace: workspace,
@@ -598,9 +600,16 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         />
       </div>
 
-      {/* Full-screen view for calendar/timeline modes */}
+      {/* Full-screen view for calendar/timeline modes - spans entire row */}
       {isFullScreenView && currentChannel ? (
-        <div className="flex-1 overflow-hidden">
+        <div style={{ 
+          gridColumn: '1 / -1',
+          gridRow: '2',
+          display: 'flex', 
+          flexDirection: 'column', 
+          overflow: 'hidden',
+          minWidth: 0
+        }}>
           {renderFullScreenView()}
         </div>
       ) : (
