@@ -14,6 +14,8 @@ class Workspace {
   final String? ownerName;
   final String? ownerEmail;
   final String? ownerAvatar;
+  final List<Map<String, dynamic>> members;
+  final List<Map<String, dynamic>> teams;
 
   Workspace({
     required this.id,
@@ -29,6 +31,8 @@ class Workspace {
     this.ownerName,
     this.ownerEmail,
     this.ownerAvatar,
+    this.members = const [],
+    this.teams = const [],
   });
 
   factory Workspace.fromJson(Map<String, dynamic> json) {
@@ -50,6 +54,12 @@ class Workspace {
       ownerName: json['owner_name'],
       ownerEmail: json['owner_email'],
       ownerAvatar: json['owner_avatar'],
+      members: json['members'] != null 
+        ? List<Map<String, dynamic>>.from(json['members'])
+        : [],
+      teams: json['teams'] != null 
+        ? List<Map<String, dynamic>>.from(json['teams'])
+        : [],
     );
   }
 
@@ -68,6 +78,8 @@ class Workspace {
       'owner_name': ownerName,
       'owner_email': ownerEmail,
       'owner_avatar': ownerAvatar,
+      'members': members,
+      'teams': teams,
     };
   }
 
@@ -133,6 +145,8 @@ class Workspace {
     String? ownerName,
     String? ownerEmail,
     String? ownerAvatar,
+    List<Map<String, dynamic>>? members,
+    List<Map<String, dynamic>>? teams,
   }) {
     return Workspace(
       id: id ?? this.id,
@@ -147,6 +161,8 @@ class Workspace {
       ownerName: ownerName ?? this.ownerName,
       ownerEmail: ownerEmail ?? this.ownerEmail,
       ownerAvatar: ownerAvatar ?? this.ownerAvatar,
+      members: members ?? this.members,
+      teams: teams ?? this.teams,
     );
   }
 }

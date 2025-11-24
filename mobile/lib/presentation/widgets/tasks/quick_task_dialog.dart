@@ -71,13 +71,16 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
       
       setState(() {
         // Access members and teams from the workspace response
-        _workspaceMembers = response.members ?? [];
-        _workspaceTeams = response.teams ?? [];
+        _workspaceMembers = response.members;
+        _workspaceTeams = response.teams;
         _loadingMembers = false;
       });
     } catch (e) {
+      print('Error loading workspace data: $e');
+      // Fallback to workspace passed in props if API fails
       setState(() {
-        _error = 'Failed to load workspace members';
+        _workspaceMembers = widget.workspace.members;
+        _workspaceTeams = widget.workspace.teams;
         _loadingMembers = false;
       });
     }
@@ -823,8 +826,7 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
                                     ),
                                   ),
                                 ],
-                              ],
-                            ],
+                            ),
                           ),
                         ),
                       ],
