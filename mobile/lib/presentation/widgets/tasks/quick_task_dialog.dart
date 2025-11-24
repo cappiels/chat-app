@@ -67,15 +67,12 @@ class _QuickTaskDialogState extends State<QuickTaskDialog> {
     setState(() => _loadingMembers = true);
     
     try {
-      final workspaceData = await _workspaceService.getWorkspace(widget.workspace.id);
+      final response = await _workspaceService.getWorkspace(widget.workspace.id);
       
       setState(() {
-        _workspaceMembers = List<Map<String, dynamic>>.from(
-          workspaceData['members'] ?? []
-        );
-        _workspaceTeams = List<Map<String, dynamic>>.from(
-          workspaceData['teams'] ?? []
-        );
+        // Access members and teams from the workspace response
+        _workspaceMembers = response.members ?? [];
+        _workspaceTeams = response.teams ?? [];
         _loadingMembers = false;
       });
     } catch (e) {

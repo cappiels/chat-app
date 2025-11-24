@@ -140,22 +140,14 @@ class _WeeklyEventDialogState extends State<WeeklyEventDialog> {
     });
 
     try {
-      final taskData = {
-        'title': _titleController.text.trim(),
-        'description': _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
-        'start_date': DateFormat('yyyy-MM-dd').format(_startDate!),
-        'end_date': _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : null,
-        'is_all_day': _isAllDay,
-        'priority': _priority,
-        'status': _status,
-      };
-
-      if (!_isAllDay && _startTime != null) {
-        taskData['start_time'] = '${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}';
-      }
-      if (!_isAllDay && _endTime != null) {
-        taskData['end_time'] = '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}';
-      }
+      final startDateStr = _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : null;
+      final endDateStr = _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : null;
+      final startTimeStr = !_isAllDay && _startTime != null
+          ? '${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}'
+          : null;
+      final endTimeStr = !_isAllDay && _endTime != null
+          ? '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}'
+          : null;
 
       if (widget.task != null) {
         // Update existing task
@@ -163,7 +155,16 @@ class _WeeklyEventDialogState extends State<WeeklyEventDialog> {
           workspaceId: widget.workspace.id,
           threadId: widget.thread.id,
           taskId: widget.task!.id,
-          updates: taskData,
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+          startDate: startDateStr,
+          endDate: endDateStr,
+          dueDate: endDateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          isAllDay: _isAllDay,
+          priority: _priority,
+          status: _status,
         );
         widget.onTaskUpdated?.call();
       } else {
@@ -171,7 +172,15 @@ class _WeeklyEventDialogState extends State<WeeklyEventDialog> {
         await _taskService.createTask(
           workspaceId: widget.workspace.id,
           threadId: widget.thread.id,
-          taskData: taskData,
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+          startDate: startDateStr,
+          endDate: endDateStr,
+          dueDate: endDateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          isAllDay: _isAllDay,
+          priority: _priority,
         );
         widget.onTaskCreated?.call();
       }
