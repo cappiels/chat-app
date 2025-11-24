@@ -408,8 +408,8 @@ const QuickTaskDialog = ({
                                   className="w-6 h-6 rounded-full"
                                 />
                               ) : (
-                                <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium">
-                                  {member.display_name?.charAt(0) || 'U'}
+                                <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-xs font-medium text-white">
+                                  {member.display_name?.charAt(0)?.toUpperCase() || 'U'}
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">

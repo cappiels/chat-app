@@ -696,11 +696,17 @@ const AdminWorkspaceTabs = ({
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <img
-                            className="h-8 w-8 rounded-full"
-                            src={user.profile_picture_url || '/api/placeholder/32/32'}
-                            alt={user.display_name}
-                          />
+                          {user.profile_picture_url ? (
+                            <img
+                              className="h-8 w-8 rounded-full"
+                              src={user.profile_picture_url}
+                              alt={user.display_name}
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-xs font-semibold">
+                              {user.display_name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                          )}
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">
                               {user.display_name}

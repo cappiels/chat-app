@@ -407,9 +407,9 @@ const WorkspaceSettingsDialog = ({
                               className="w-10 h-10 rounded-full border-2 border-gray-200"
                             />
                           ) : (
-                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center border-2 border-gray-200">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center border-2 border-gray-200">
                               <span className="text-white font-semibold">
-                                {member.display_name?.charAt(0) || 'U'}
+                                {member.display_name?.charAt(0)?.toUpperCase() || 'U'}
                               </span>
                             </div>
                           )}
@@ -794,8 +794,8 @@ const WorkspaceSettingsDialog = ({
                           className="w-10 h-10 rounded-full"
                         />
                       ) : (
-                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                          {member.display_name?.charAt(0) || 'U'}
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
+                          {member.display_name?.charAt(0)?.toUpperCase() || 'U'}
                         </div>
                       )}
                       <div>
