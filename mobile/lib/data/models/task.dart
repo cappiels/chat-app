@@ -90,10 +90,35 @@ class ChannelTask {
   });
 
   factory ChannelTask.fromJson(Map<String, dynamic> json) {
+    // Helper function to safely parse int from string or int
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      if (value is num) return value.toInt();
+      return 0;
+    }
+
+    // Helper function to safely parse nullable int
+    int? parseNullableInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value);
+      if (value is num) return value.toInt();
+      return null;
+    }
+
+    // Helper function to parse list of ints (handles string IDs too)
+    List<int> parseIntList(dynamic value) {
+      if (value == null) return [];
+      if (value is! List) return [];
+      return (value as List).map((item) => parseInt(item)).toList();
+    }
+
     return ChannelTask(
-      id: json['id'] as int,
-      threadId: json['thread_id'] as int,
-      workspaceId: json['workspace_id'] as int,
+      id: parseInt(json['id']),
+      threadId: parseInt(json['thread_id']),
+      workspaceId: parseInt(json['workspace_id']),
       title: json['title'] as String,
       description: json['description'] as String?,
       startDate: json['start_date'] != null 
@@ -109,9 +134,7 @@ class ChannelTask {
       assignees: json['assignees'] != null 
           ? List<String>.from(json['assignees'] as List) 
           : [],
-      assignedTeams: json['assigned_teams'] != null 
-          ? List<int>.from(json['assigned_teams'] as List) 
-          : [],
+      assignedTeams: parseIntList(json['assigned_teams']),
       assignmentMode: json['assignment_mode'] as String? ?? 'collaborative',
       requiresIndividualResponse: json['requires_individual_response'] as bool? ?? false,
       status: json['status'] as String? ?? 'pending',
@@ -128,10 +151,8 @@ class ChannelTask {
       isAllDay: json['is_all_day'] as bool? ?? false,
       startTime: json['start_time'] as String?,
       endTime: json['end_time'] as String?,
-      parentTaskId: json['parent_task_id'] as int?,
-      dependencies: json['dependencies'] != null 
-          ? List<int>.from(json['dependencies'] as List) 
-          : [],
+      parentTaskId: parseNullableInt(json['parent_task_id']),
+      dependencies: parseIntList(json['dependencies']),
       googleCalendarEventId: json['google_calendar_event_id'] as String?,
       googleTaskId: json['google_task_id'] as String?,
       completedAt: json['completed_at'] != null 
@@ -144,9 +165,9 @@ class ChannelTask {
       channelName: json['channel_name'] as String?,
       progressInfo: json['progress_info'] as Map<String, dynamic>?,
       isComplete: json['is_complete'] as bool? ?? false,
-      totalAssignees: json['total_assignees'] as int? ?? 0,
-      individualAssigneeCount: json['individual_assignee_count'] as int? ?? 0,
-      teamCount: json['team_count'] as int? ?? 0,
+      totalAssignees: parseInt(json['total_assignees'] ?? 0),
+      individualAssigneeCount: parseInt(json['individual_assignee_count'] ?? 0),
+      teamCount: parseInt(json['team_count'] ?? 0),
       assigneeDetails: json['assignee_details'] != null
           ? (json['assignee_details'] as List)
               .map((detail) => AssigneeDetail.fromJson(detail as Map<String, dynamic>))
@@ -214,8 +235,17 @@ class ChannelTask {
   // Helper to get completion text
   String get completionText {
     if (requiresIndividualResponse && progressInfo != null) {
-      final completed = progressInfo!['completed'] as int? ?? 0;
-      final total = progressInfo!['total'] as int? ?? 0;
+      // Safely parse numeric values from progressInfo
+      int parseIntSafe(dynamic value) {
+        if (value == null) return 0;
+        if (value is int) return value;
+        if (value is String) return int.tryParse(value) ?? 0;
+        if (value is num) return value.toInt();
+        return 0;
+      }
+      
+      final completed = parseIntSafe(progressInfo!['completed']);
+      final total = parseIntSafe(progressInfo!['total']);
       return '$completed/$total done';
     }
     return isComplete ? 'Complete' : '';
@@ -266,12 +296,21 @@ class TeamDetail {
   });
 
   factory TeamDetail.fromJson(Map<String, dynamic> json) {
+    // Helper function to safely parse int from string or int
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      if (value is num) return value.toInt();
+      return 0;
+    }
+
     return TeamDetail(
-      id: json['id'] as int,
+      id: parseInt(json['id']),
       name: json['name'] as String,
       displayName: json['display_name'] as String,
       color: json['color'] as String,
-      memberCount: json['member_count'] as int,
+      memberCount: parseInt(json['member_count']),
     );
   }
 

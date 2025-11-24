@@ -41,13 +41,6 @@ const WorkspaceSettingsDialog = ({
     color: 'blue'
   });
 
-  // Load teams when switching to teams tab
-  useEffect(() => {
-    if (activeTab === 'teams' && isAdmin) {
-      loadTeams();
-    }
-  }, [activeTab, isAdmin]);
-
   if (!isOpen || !workspace) return null;
 
   const isOwner = workspace.owner_user_id === user?.id;
@@ -55,6 +48,13 @@ const WorkspaceSettingsDialog = ({
   const members = workspace.members || [];
   const pendingInvitations = workspace.pending_invitations || [];
   const allMembers = [...members, ...pendingInvitations];
+
+  // Load teams when switching to teams tab
+  useEffect(() => {
+    if (activeTab === 'teams' && isAdmin) {
+      loadTeams();
+    }
+  }, [activeTab, isAdmin]);
 
   const loadTeams = async () => {
     try {
