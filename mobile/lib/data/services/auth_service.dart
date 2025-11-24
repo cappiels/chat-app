@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/config/api_config.dart';
 import 'http_client.dart';
 
@@ -33,6 +34,12 @@ final currentUserProvider = Provider<User?>((ref) {
 class AuthService {
   final HttpClient _httpClient;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'email',
+      'profile',
+    ],
+  );
 
   AuthService(this._httpClient);
 
@@ -61,27 +68,38 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Configure Google Sign-In provider
-      final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+      // Sign out first to force account selection
+      await _googleSignIn.signOut();
       
-      // Add scopes to match your web app
-      googleProvider.addScope('email');
-      googleProvider.addScope('profile');
+      // Trigger the Google Sign-In flow with account selection
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
-      // Set custom parameters for consistent experience
-      googleProvider.setCustomParameters({
-        'prompt': 'select_account',
-      });
+      if (googleUser == null) {
+        // User cancelled the sign-in
+        if (ApiConfig.enableApiLogging) {
+          print('Google sign-in cancelled by user');
+        }
+        return null;
+      }
 
-      // Sign in with popup for web, redirect for mobile
-      final UserCredential credential = await _auth.signInWithProvider(googleProvider);
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Create a new credential for Firebase
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
       
-      if (credential.user != null) {
+      if (userCredential.user != null) {
         // Sync user with backend
-        await _syncUserWithBackend(credential.user!);
+        await _syncUserWithBackend(userCredential.user!);
       }
       
-      return credential;
+      return userCredential;
     } catch (e) {
       if (ApiConfig.enableApiLogging) {
         print('Google sign-in error: $e');
@@ -147,7 +165,15 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      // Sign out from both Google and Firebase
+      await Future.wait([
+        _googleSignIn.signOut(),
+        _auth.signOut(),
+      ]);
+      
+      if (ApiConfig.enableApiLogging) {
+        print('✅ Successfully signed out from Google and Firebase');
+      }
     } catch (e) {
       if (ApiConfig.enableApiLogging) {
         print('Sign-out error: $e');

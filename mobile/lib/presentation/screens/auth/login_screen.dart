@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../data/services/auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -18,20 +18,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // Create a new provider
-      GoogleAuthProvider googleProvider = GoogleAuthProvider();
+      final authService = ref.read(authServiceProvider);
+      final result = await authService.signInWithGoogle();
       
-      googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
-      googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-      
-      // Sign in with popup for web, or redirect for mobile
-      final UserCredential result = await FirebaseAuth.instance.signInWithProvider(googleProvider);
-      
-      // Navigation will be handled by the main app when user state changes
-      print('✅ Firebase Auth Success: ${result.user?.displayName}');
+      if (result != null) {
+        // Navigation will be handled by the main app when user state changes
+        print('✅ Google Sign-In Success: ${result.user?.displayName}');
+      } else {
+        // User cancelled the sign-in
+        print('ℹ️ Google Sign-In cancelled by user');
+      }
       
     } catch (error) {
-      print('❌ Firebase Auth Error: $error');
+      print('❌ Google Sign-In Error: $error');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
