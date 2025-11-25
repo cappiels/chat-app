@@ -1,7 +1,7 @@
 {
   "name": "crew-frontend",
   "private": true,
-  "version": "1.8.90",
+  "version": "1.8.91",
   "type": "module",
   "engines": {
     "node": ">=24.0.0",

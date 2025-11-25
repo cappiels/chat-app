@@ -99,13 +99,19 @@ class _InviteDialogState extends State<InviteDialog> {
   @override
   Widget build(BuildContext context) {
     final workspaceName = widget.workspace['name'] ?? 'Workspace';
+    final screenWidth = MediaQuery.of(context).size.width;
     
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
+        width: screenWidth > 600 ? 500 : screenWidth - 32,
+        constraints: BoxConstraints(
+          maxWidth: 500,
+          minWidth: screenWidth > 600 ? 400 : screenWidth - 32,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
