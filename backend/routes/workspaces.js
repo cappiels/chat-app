@@ -592,7 +592,8 @@ router.post('/:workspaceId/invite', authenticateUser, requireWorkspaceMembership
     const frontendUrl = process.env.FRONTEND_URL || 
                        process.env.REACT_APP_FRONTEND_URL ||
                        'https://coral-app-rgki8.ondigitalocean.app'; // Production fallback
-    const inviteUrl = `${frontendUrl}/#/invite/${inviteToken}`;
+    // Use path-based routing for Universal Links (iOS/Android deep linking)
+    const inviteUrl = `${frontendUrl}/invite/${inviteToken}`;
     
     // Get member count for email
     const memberCountResult = await client.query(`

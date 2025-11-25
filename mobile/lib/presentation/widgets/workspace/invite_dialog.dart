@@ -72,6 +72,9 @@ class _InviteDialogState extends State<InviteDialog> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        
+        // Close dialog after successful invite
+        Navigator.of(context).pop();
       }
     } catch (e) {
       _showError(e.toString().replaceAll('Exception: ', ''));

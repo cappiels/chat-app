@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAM_ID.com.toastconversion.app",
+        "paths": ["/invite/*"]
+      }
+    ]
+  }
+}

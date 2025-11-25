@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+import 'package:uni_links/uni_links.dart';
 import 'auth/login_screen.dart';
 import 'workspace/workspace_selection_screen.dart';
 import 'threads/thread_list_screen.dart';
@@ -15,6 +17,119 @@ class MainApp extends ConsumerStatefulWidget {
 
 class _MainAppState extends ConsumerState<MainApp> {
   Map<String, dynamic>? _selectedWorkspace;
+  String? _pendingInviteToken;
+  StreamSubscription? _linkSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeepLinks();
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// 🔗 DEEP LINK HANDLER: Captures invitation links
+  Future<void> _initDeepLinks() async {
+    // Handle initial link if app was opened via deep link
+    try {
+      final initialLink = await getInitialUri();
+      if (initialLink != null) {
+        _handleDeepLink(initialLink);
+      }
+    } catch (e) {
+      print('❌ Error getting initial link: $e');
+    }
+
+    // Listen for deep links while app is running
+    _linkSubscription = uriLinkStream.listen(
+      (Uri? uri) {
+        if (uri != null) {
+          _handleDeepLink(uri);
+        }
+      },
+      onError: (err) {
+        print('❌ Deep link error: $err');
+      },
+    );
+  }
+
+  /// 📥 PROCESS DEEP LINK: Extract invite token and show dialog
+  void _handleDeepLink(Uri uri) {
+    print('🔗 Deep link received: $uri');
+    
+    // Check if it's an invite link: /invite/TOKEN
+    if (uri.path.startsWith('/invite/')) {
+      final token = uri.path.split('/').last;
+      setState(() {
+        _pendingInviteToken = token;
+      });
+      print('✅ Extracted invite token: $token');
+      
+      // Show invite dialog after a short delay to ensure UI is ready
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _pendingInviteToken != null) {
+          _showInviteDialog(_pendingInviteToken!);
+        }
+      });
+    }
+  }
+
+  /// 💬 SHOW INVITE DIALOG: Display workspace invitation
+  void _showInviteDialog(String token) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Workspace Invitation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('You\'ve been invited to join a workspace!'),
+            const SizedBox(height: 16),
+            Text(
+              'Token: $token',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _pendingInviteToken = null;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Dismiss'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement workspace invitation acceptance API call
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Invitation acceptance coming soon!'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+              setState(() {
+                _pendingInviteToken = null;
+              });
+            },
+            child: const Text('Accept'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

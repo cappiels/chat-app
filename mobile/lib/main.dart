@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'dart:async';
+import 'package:uni_links/uni_links.dart';
 import 'firebase_options.dart';
 import 'presentation/screens/main_app.dart';
 
