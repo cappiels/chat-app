@@ -204,6 +204,10 @@ export const adminAPI = {
   getStats: () => api.get('/admin/stats'),
   deleteWorkspace: (workspaceId, options = {}) => api.delete(`/admin/workspaces/${workspaceId}`, { data: options }),
   archiveWorkspace: (workspaceId) => api.delete(`/admin/workspaces/${workspaceId}`, { data: { archive: true } }),
+  // Site admin: Search registered users by name or email
+  searchUsers: (query) => api.get('/admin/users/search', { params: { q: query } }),
+  // Site admin: Add a registered user directly to a workspace
+  addMemberToWorkspace: (workspaceId, userId, role = 'member') => api.post(`/admin/workspaces/${workspaceId}/add-member`, { user_id: userId, role }),
 };
 
 export default api;

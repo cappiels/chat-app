@@ -11,10 +11,14 @@ import {
   X,
   UsersRound,
   Plus,
-  UserPlus
+  UserPlus,
+  Search
 } from 'lucide-react';
 import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
+import AddMemberDialog from './admin/AddMemberDialog';
+
+const SITE_ADMIN_EMAIL = 'cappiels@gmail.com';
 
 const WorkspaceSettingsDialog = ({ 
   workspace, 
@@ -34,6 +38,7 @@ const WorkspaceSettingsDialog = ({
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [showCreateTeamDialog, setShowCreateTeamDialog] = useState(false);
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(null);
+  const [showAddRegisteredUserDialog, setShowAddRegisteredUserDialog] = useState(false);
   const [newTeam, setNewTeam] = useState({
     name: '',
     display_name: '',
@@ -390,9 +395,21 @@ const WorkspaceSettingsDialog = ({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">Workspace Members</h3>
-                    <span className="text-sm text-gray-500">
-                      {members.length} members {pendingInvitations.length > 0 && `• ${pendingInvitations.length} pending`}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-500">
+                        {members.length} members {pendingInvitations.length > 0 && `• ${pendingInvitations.length} pending`}
+                      </span>
+                      {/* Site Admin: Add from registered users button */}
+                      {user?.email === SITE_ADMIN_EMAIL && (
+                        <button
+                          onClick={() => setShowAddRegisteredUserDialog(true)}
+                          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg hover:from-green-600 hover:to-teal-600 transition-all shadow-sm"
+                        >
+                          <Search className="w-4 h-4" />
+                          Add Member
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Accepted Members */}
@@ -825,6 +842,21 @@ const WorkspaceSettingsDialog = ({
           </div>
         </div>
       )}
+
+      {/* Site Admin: Add Registered User Dialog */}
+      <AddMemberDialog
+        workspace={workspace}
+        user={user}
+        isOpen={showAddRegisteredUserDialog}
+        onClose={() => setShowAddRegisteredUserDialog(false)}
+        onMemberAdded={(newMember) => {
+          // The member was added, refresh the page to show updated members
+          onClose();
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
+        }}
+      />
     </>
   );
 };

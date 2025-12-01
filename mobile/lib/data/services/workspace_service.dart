@@ -168,4 +168,63 @@ class WorkspaceService {
       rethrow;
     }
   }
+
+  // ========== SITE ADMIN FUNCTIONS (cappiels@gmail.com only) ==========
+
+  /// Search registered users by name or email (site admin only)
+  Future<List<Map<String, dynamic>>> searchRegisteredUsers(String query) async {
+    try {
+      if (query.length < 2) {
+        return [];
+      }
+      
+      final response = await _httpClient.get(
+        '/api/admin/users/search',
+        queryParameters: {'q': query},
+      );
+      return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+    } on DioException catch (e) {
+      print('❌ Error searching users: $e');
+      if (e.response?.statusCode == 403) {
+        throw Exception('Site admin access required');
+      }
+      rethrow;
+    } catch (e) {
+      print('❌ Error searching users: $e');
+      rethrow;
+    }
+  }
+
+  /// Add a registered user directly to a workspace (site admin only)
+  Future<Map<String, dynamic>> addRegisteredUserToWorkspace({
+    required String workspaceId,
+    required String userId,
+    String role = 'member',
+  }) async {
+    try {
+      final response = await _httpClient.post(
+        '/api/admin/workspaces/$workspaceId/add-member',
+        data: {
+          'user_id': userId,
+          'role': role,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      print('❌ Error adding user to workspace: $e');
+      if (e.response?.data != null && e.response!.data['message'] != null) {
+        throw Exception(e.response!.data['message']);
+      }
+      if (e.response?.statusCode == 403) {
+        throw Exception('Site admin access required');
+      }
+      if (e.response?.statusCode == 409) {
+        throw Exception('User is already a member of this workspace');
+      }
+      rethrow;
+    } catch (e) {
+      print('❌ Error adding user to workspace: $e');
+      rethrow;
+    }
+  }
 }

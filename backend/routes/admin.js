@@ -179,6 +179,190 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// GET /api/admin/users/search - Search registered users by name or email
+router.get('/users/search', async (req, res) => {
+  try {
+    const { q, limit = 20 } = req.query;
+    
+    if (!q || q.length < 2) {
+      return res.json({ users: [] });
+    }
+    
+    const searchTerm = `%${q.toLowerCase()}%`;
+    
+    const query = `
+      SELECT 
+        u.id,
+        u.email,
+        u.display_name,
+        u.profile_picture_url,
+        u.created_at as joined_date
+      FROM users u
+      WHERE u.is_active = true
+        AND (
+          LOWER(u.email) LIKE $1 
+          OR LOWER(u.display_name) LIKE $1
+        )
+      ORDER BY u.display_name
+      LIMIT $2
+    `;
+    
+    const result = await pool.query(query, [searchTerm, parseInt(limit)]);
+    
+    res.json({ users: result.rows });
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
+// POST /api/admin/workspaces/:workspaceId/add-member - Directly add a registered user to workspace (site admin only)
+router.post('/workspaces/:workspaceId/add-member', async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { workspaceId } = req.params;
+    const { user_id, role = 'member' } = req.body;
+    
+    if (!user_id) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    if (!['admin', 'member'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be either "admin" or "member"' });
+    }
+    
+    await client.query('BEGIN');
+    
+    // Get workspace info
+    const workspaceQuery = await client.query(`
+      SELECT id, name, description FROM workspaces WHERE id = $1
+    `, [workspaceId]);
+    
+    if (workspaceQuery.rows.length === 0) {
+      return res.status(404).json({ error: 'Workspace not found' });
+    }
+    
+    const workspace = workspaceQuery.rows[0];
+    
+    // Get user info
+    const userQuery = await client.query(`
+      SELECT id, email, display_name, is_active FROM users WHERE id = $1
+    `, [user_id]);
+    
+    if (userQuery.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const targetUser = userQuery.rows[0];
+    
+    if (!targetUser.is_active) {
+      return res.status(400).json({ error: 'User account is not active' });
+    }
+    
+    // Check if user is already a member
+    const existingMember = await client.query(`
+      SELECT id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2
+    `, [workspaceId, user_id]);
+    
+    if (existingMember.rows.length > 0) {
+      return res.status(409).json({ 
+        error: 'Already Member', 
+        message: 'User is already a member of this workspace' 
+      });
+    }
+    
+    // Add user to workspace
+    await client.query(`
+      INSERT INTO workspace_members (workspace_id, user_id, role)
+      VALUES ($1, $2, $3)
+    `, [workspaceId, user_id, role]);
+    
+    // Add user to general channel automatically
+    const generalChannel = await client.query(`
+      SELECT id FROM threads 
+      WHERE workspace_id = $1 AND name = 'general' AND type = 'channel'
+      LIMIT 1
+    `, [workspaceId]);
+    
+    if (generalChannel.rows.length > 0) {
+      await client.query(`
+        INSERT INTO thread_members (thread_id, user_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+      `, [generalChannel.rows[0].id, user_id]);
+    }
+    
+    // Create notification for the added user
+    await client.query(`
+      INSERT INTO notifications (
+        user_id, 
+        workspace_id, 
+        type, 
+        title, 
+        message, 
+        data
+      )
+      VALUES ($1, $2, 'workspace_added', $3, $4, $5)
+    `, [
+      user_id,
+      workspaceId,
+      '🎉 Added to Workspace',
+      `You've been added to ${workspace.name} by admin`,
+      JSON.stringify({
+        workspace_id: workspaceId,
+        workspace_name: workspace.name,
+        role: role,
+        added_by: req.user.email,
+        added_at: new Date().toISOString()
+      })
+    ]);
+    
+    await client.query('COMMIT');
+    
+    // Send email notification to the added user
+    const emailService = require('../services/emailService');
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 
+                         process.env.REACT_APP_FRONTEND_URL ||
+                         'https://coral-app-rgki8.ondigitalocean.app';
+      
+      await emailService.sendWorkspaceAddedNotification({
+        to: targetUser.email,
+        workspaceName: workspace.name,
+        workspaceDescription: workspace.description,
+        adminName: req.user.display_name || req.user.email,
+        userRole: role,
+        workspaceUrl: `${frontendUrl}/workspace/${workspaceId}`
+      });
+      
+      console.log(`📧 Workspace added notification sent to ${targetUser.email}`);
+    } catch (emailError) {
+      console.error('Failed to send workspace added email:', emailError.message);
+      // Don't fail if email fails
+    }
+    
+    console.log(`👥 [ADMIN] User ${targetUser.email} added to workspace ${workspace.name} by ${req.user.email}`);
+    
+    res.status(201).json({
+      message: 'User added to workspace successfully',
+      member: {
+        id: targetUser.id,
+        email: targetUser.email,
+        display_name: targetUser.display_name,
+        role: role
+      }
+    });
+    
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Add member error:', error);
+    res.status(500).json({ error: 'Failed to add member to workspace' });
+  } finally {
+    client.release();
+  }
+});
+
 // DELETE /api/admin/workspaces/:workspaceId - Admin delete or archive workspace
 router.delete('/workspaces/:workspaceId', async (req, res) => {
   const client = await pool.connect();
