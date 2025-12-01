@@ -9,11 +9,11 @@ services:
   routes:
   - path: /api
   - path: /socket.io
-static_sites:
 - name: frontend
   source_dir: /frontend
   build_command: npm run build
-  output_dir: dist
-  catchall_document: index.html
+  run_command: npx serve -s dist -p $PORT --single
+  environment_slug: node-js
+  http_port: 3000
   routes:
   - path: /

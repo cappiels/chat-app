@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../models/attachment.dart';
 import '../../core/config/api_config.dart';
 
@@ -17,6 +18,51 @@ class FileUploadService {
 
   final Map<String, UploadProgress> _uploadProgress = {};
   final Map<String, http.StreamedResponse> _activeUploads = {};
+
+  /// Sanitize filename from iOS image_picker temp files
+  /// Converts ugly names like "image_picker_12345.jpg" to "Photo_2024-11-30_123456.jpg"
+  static String sanitizeFileName(String originalName, String mimeType) {
+    // Check if this is an iOS image_picker temp file
+    final lowerName = originalName.toLowerCase();
+    final isImagePickerTemp = lowerName.startsWith('image_picker') ||
+        lowerName.contains('image_picker') ||
+        // Also handle camera temp files
+        lowerName.startsWith('cap_') ||
+        lowerName.startsWith('img_') && lowerName.contains('_');
+    
+    // Also check for temporary file patterns from iOS
+    final isTempImage = RegExp(r'^(image_picker|IMG_|cap_|photo_)\d+', caseSensitive: false)
+        .hasMatch(originalName);
+    
+    if ((isImagePickerTemp || isTempImage) && mimeType.startsWith('image/')) {
+      // Generate a user-friendly name
+      final now = DateTime.now();
+      final dateStr = DateFormat('yyyy-MM-dd').format(now);
+      final timeStr = DateFormat('HHmmss').format(now);
+      
+      // Get extension from original filename
+      final ext = originalName.split('.').last.toLowerCase();
+      final safeExt = ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif', 'webp'].contains(ext) 
+          ? ext 
+          : 'jpg';
+      
+      return 'Photo_${dateStr}_$timeStr.$safeExt';
+    }
+    
+    // Check for video temp files
+    final isTempVideo = (isImagePickerTemp || isTempImage) && mimeType.startsWith('video/');
+    if (isTempVideo) {
+      final now = DateTime.now();
+      final dateStr = DateFormat('yyyy-MM-dd').format(now);
+      final timeStr = DateFormat('HHmmss').format(now);
+      final ext = originalName.split('.').last.toLowerCase();
+      final safeExt = ['mp4', 'mov', 'avi', 'webm'].contains(ext) ? ext : 'mp4';
+      return 'Video_${dateStr}_$timeStr.$safeExt';
+    }
+    
+    // Return original name for non-temp files
+    return originalName;
+  }
 
   /// Upload a single file
   Future<Attachment?> uploadFile({
@@ -34,9 +80,15 @@ class FileUploadService {
       }
 
       final token = await user.getIdToken();
-      final fileName = path.basename(file.path);
+      final originalFileName = path.basename(file.path);
       final fileSize = await file.length();
       final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+      
+      // 🔧 FIX: Sanitize iOS image_picker temp filenames for better display
+      final fileName = sanitizeFileName(originalFileName, mimeType);
+      if (fileName != originalFileName) {
+        debugPrint('📝 Sanitized filename: $originalFileName → $fileName');
+      }
 
       // Create unique upload ID
       final uploadId = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
