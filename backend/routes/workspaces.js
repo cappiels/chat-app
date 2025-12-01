@@ -1198,6 +1198,45 @@ router.delete('/:workspaceId/teams/:teamId/members/:memberId', authenticateUser,
 });
 
 /**
+ * GET /api/workspaces/:workspaceId/members
+ * Get workspace members list
+ */
+router.get('/:workspaceId/members', authenticateUser, requireWorkspaceMembership, async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+
+    const membersQuery = `
+      SELECT 
+        wm.user_id as id,
+        u.email,
+        u.display_name,
+        u.profile_picture_url,
+        wm.role,
+        wm.joined_at,
+        u.last_login
+      FROM workspace_members wm
+      JOIN users u ON wm.user_id = u.id
+      WHERE wm.workspace_id = $1
+      ORDER BY wm.role DESC, wm.joined_at ASC;
+    `;
+
+    const result = await pool.query(membersQuery, [workspaceId]);
+
+    res.json({
+      members: result.rows,
+      count: result.rows.length
+    });
+
+  } catch (error) {
+    console.error('Get workspace members error:', error);
+    res.status(500).json({ 
+      error: 'Server Error', 
+      message: 'Unable to retrieve workspace members' 
+    });
+  }
+});
+
+/**
  * DELETE /api/workspaces/:workspaceId/members/:userId
  * Remove member from workspace (admin only)
  */

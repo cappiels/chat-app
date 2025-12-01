@@ -46,20 +46,21 @@ const WorkspaceSettingsDialog = ({
     color: 'blue'
   });
 
-  if (!isOpen || !workspace) return null;
+  // Derive values - must be before hooks to maintain consistent hook order
+  const isOwner = workspace?.owner_user_id === user?.id;
+  const isAdmin = workspace?.user_role === 'admin' || isOwner;
+  const members = workspace?.members || [];
+  const pendingInvitations = workspace?.pending_invitations || [];
 
-  const isOwner = workspace.owner_user_id === user?.id;
-  const isAdmin = workspace.user_role === 'admin' || isOwner;
-  const members = workspace.members || [];
-  const pendingInvitations = workspace.pending_invitations || [];
-  const allMembers = [...members, ...pendingInvitations];
-
-  // Load teams when switching to teams tab
+  // Load teams when switching to teams tab - must be before early return
   useEffect(() => {
-    if (activeTab === 'teams' && isAdmin) {
+    if (isOpen && workspace && activeTab === 'teams' && isAdmin) {
       loadTeams();
     }
-  }, [activeTab, isAdmin]);
+  }, [activeTab, isAdmin, isOpen, workspace?.id]);
+
+  // Early return after all hooks
+  if (!isOpen || !workspace) return null;
 
   const loadTeams = async () => {
     try {
