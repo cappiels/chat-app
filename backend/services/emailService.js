@@ -514,6 +514,217 @@ class EmailService {
   }
 
   /**
+   * Send task assignment notification email
+   */
+  async sendTaskAssignmentNotification({
+    to,
+    assigneeName,
+    assignerName,
+    taskTitle,
+    taskDescription,
+    workspaceName,
+    channelName,
+    dueDate,
+    taskUrl
+  }) {
+    await this.ensureInitialized();
+    
+    const formattedDueDate = dueDate ? new Date(dueDate).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }) : null;
+    
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Task Assigned: ${taskTitle}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 40px 30px; text-align: center; }
+        .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        .content { padding: 40px 30px; }
+        .task-info { background: #eff6ff; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #3b82f6; }
+        .task-title { font-size: 20px; font-weight: bold; color: #1e40af; margin-bottom: 10px; }
+        .task-description { color: #374151; margin-bottom: 15px; }
+        .task-meta { font-size: 14px; color: #6b7280; }
+        .task-meta-item { display: flex; align-items: center; margin-bottom: 8px; }
+        .cta-button { display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin: 25px 0; }
+        .footer { background: #f8f9fa; padding: 30px; text-align: center; font-size: 14px; color: #666; }
+        .due-date { background: #fef3c7; border: 1px solid #fcd34d; padding: 12px 16px; border-radius: 6px; margin: 15px 0; color: #92400e; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">✅ crew</div>
+            <h1>New Task Assigned to You</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hi ${assigneeName},</p>
+            <p><strong>${assignerName}</strong> has assigned you a new task in <strong>${workspaceName}</strong>.</p>
+            
+            <div class="task-info">
+                <div class="task-title">${taskTitle}</div>
+                ${taskDescription ? `<div class="task-description">${taskDescription}</div>` : ''}
+                <div class="task-meta">
+                    <div class="task-meta-item">📁 <span style="margin-left: 8px;">Channel: <strong>#${channelName}</strong></span></div>
+                    <div class="task-meta-item">👤 <span style="margin-left: 8px;">Assigned by: <strong>${assignerName}</strong></span></div>
+                </div>
+            </div>
+            
+            ${formattedDueDate ? `
+            <div class="due-date">
+                📅 <strong>Due Date:</strong> ${formattedDueDate}
+            </div>
+            ` : ''}
+            
+            <div style="text-align: center;">
+                <a href="${taskUrl}" class="cta-button">View Task</a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            
+            <div style="font-size: 14px; color: #666;">
+                <p><strong>Quick Tips:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li>Click "View Task" to see full details and collaborate</li>
+                    <li>Mark the task complete when you're done</li>
+                    <li>Add comments to discuss progress with your team</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>You received this email because a task was assigned to you in crew.</p>
+            <p style="margin: 10px 0 0 0;">
+                <a href="${taskUrl}" style="color: #3b82f6;">View this task in crew</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    return this.sendEmail({
+      to,
+      subject: `📋 New Task: "${taskTitle}" assigned to you in ${workspaceName}`,
+      html,
+      category: 'task-assignment'
+    });
+  }
+
+  /**
+   * Send task completion notification email to the task creator
+   */
+  async sendTaskCompletionNotification({
+    to,
+    creatorName,
+    completerName,
+    taskTitle,
+    workspaceName,
+    channelName,
+    completedAt,
+    progressInfo,
+    taskUrl
+  }) {
+    await this.ensureInitialized();
+    
+    const formattedDate = completedAt ? new Date(completedAt).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }) : new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Completed: ${taskTitle}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 40px 30px; text-align: center; }
+        .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        .content { padding: 40px 30px; }
+        .task-info { background: #f0fdf4; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #22c55e; }
+        .task-title { font-size: 20px; font-weight: bold; color: #166534; margin-bottom: 10px; }
+        .task-meta { font-size: 14px; color: #6b7280; }
+        .task-meta-item { display: flex; align-items: center; margin-bottom: 8px; }
+        .cta-button { display: inline-block; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin: 25px 0; }
+        .footer { background: #f8f9fa; padding: 30px; text-align: center; font-size: 14px; color: #666; }
+        .completion-badge { display: inline-block; background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 20px; font-weight: 600; margin: 10px 0; }
+        .progress-info { background: #eff6ff; padding: 12px 16px; border-radius: 6px; margin: 15px 0; color: #1e40af; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">✅ crew</div>
+            <h1>Task Completed!</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hi ${creatorName},</p>
+            <p>Great news! <strong>${completerName}</strong> has completed a task you assigned.</p>
+            
+            <div class="task-info">
+                <div class="task-title">${taskTitle}</div>
+                <div class="completion-badge">✓ Completed</div>
+                <div class="task-meta">
+                    <div class="task-meta-item">📁 <span style="margin-left: 8px;">Channel: <strong>#${channelName}</strong></span></div>
+                    <div class="task-meta-item">👤 <span style="margin-left: 8px;">Completed by: <strong>${completerName}</strong></span></div>
+                    <div class="task-meta-item">🕐 <span style="margin-left: 8px;">Completed: <strong>${formattedDate}</strong></span></div>
+                </div>
+            </div>
+            
+            ${progressInfo ? `
+            <div class="progress-info">
+                📊 <strong>Progress:</strong> ${progressInfo}
+            </div>
+            ` : ''}
+            
+            <div style="text-align: center;">
+                <a href="${taskUrl}" class="cta-button">View Task</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>You received this email because someone completed a task you created in crew.</p>
+            <p style="margin: 10px 0 0 0;">
+                <a href="${taskUrl}" style="color: #22c55e;">View this task in crew</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    return this.sendEmail({
+      to,
+      subject: `✅ Task Completed: "${taskTitle}" by ${completerName}`,
+      html,
+      category: 'task-completion'
+    });
+  }
+
+  /**
    * Send notification when admin adds a user directly to a workspace
    */
   async sendWorkspaceAddedNotification({

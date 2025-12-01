@@ -11,9 +11,18 @@ import {
   Archive,
   Trash2,
   AlertTriangle,
-  Crown
+  Crown,
+  CheckSquare,
+  Clock,
+  Calendar,
+  CheckCircle2,
+  Circle,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink
 } from 'lucide-react';
-import { workspaceAPI } from '../utils/api';
+import { workspaceAPI, globalTasksAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import { logAbsoluteTiming, logTiming } from '../utils/timing.js';
 import WorkspaceSettingsDialog from './WorkspaceSettingsDialog';
@@ -21,6 +30,100 @@ import { getVersionString } from '../utils/version';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import SubscriptionGate from './subscription/SubscriptionGate';
 import AdminWorkspaceTabs from './admin/AdminWorkspaceTabs';
+import { auth } from '../firebase';
+
+// Todoist-style Task Item Component
+const TaskItem = ({ task, workspaces, onSelectWorkspace, onToggleComplete, getPriorityColor, formatTaskDate, isOverdue }) => {
+  const isCompleted = task.status === 'completed' || task.user_completed;
+  const workspace = workspaces.find(w => w.id === task.workspace_id);
+  
+  // Priority ring colors
+  const getPriorityRing = (priority) => {
+    switch (priority) {
+      case 'high': return 'border-red-500 hover:bg-red-50';
+      case 'medium': return 'border-yellow-500 hover:bg-yellow-50';
+      case 'low': return 'border-green-500 hover:bg-green-50';
+      default: return 'border-gray-300 hover:bg-gray-50';
+    }
+  };
+
+  return (
+    <div className="flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg transition-colors group">
+      {/* Clickable Checkbox */}
+      <button
+        onClick={() => onToggleComplete(task)}
+        className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+          isCompleted 
+            ? 'bg-green-500 border-green-500' 
+            : getPriorityRing(task.priority)
+        }`}
+        title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+      >
+        {isCompleted && (
+          <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+        )}
+      </button>
+
+      {/* Task Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            {/* Task Title */}
+            <h4 className={`text-sm font-medium leading-tight ${
+              isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'
+            }`}>
+              {task.title}
+            </h4>
+            
+            {/* Task Metadata - Channel Navigation */}
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              {/* Workspace Badge */}
+              <button
+                onClick={() => workspace && onSelectWorkspace(workspace)}
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded text-xs font-medium text-gray-600 transition-colors"
+                title={`Go to ${task.workspace_name}`}
+              >
+                <MessageCircle className="w-3 h-3" />
+                {task.workspace_name}
+              </button>
+              
+              {/* Channel Link */}
+              <button
+                onClick={() => workspace && onSelectWorkspace(workspace)}
+                className="inline-flex items-center gap-1 px-2 py-0.5 hover:bg-blue-50 rounded text-xs text-blue-600 hover:text-blue-700 transition-colors"
+                title={`Go to #${task.channel_name} to add a note`}
+              >
+                <span className="text-blue-400">#</span>
+                {task.channel_name}
+                <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+
+              {/* Multi-assignee progress */}
+              {task.progress_info && task.total_assignees > 1 && (
+                <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">
+                  <Users className="w-3 h-3 mr-1" />
+                  {task.progress_info}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Due Date Badge */}
+          {(task.due_date || task.end_date) && !isCompleted && (
+            <div className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+              isOverdue(task)
+                ? 'bg-red-100 text-red-700'
+                : 'text-gray-500'
+            }`}>
+              <Calendar className="w-3 h-3" />
+              {formatTaskDate(task.due_date || task.end_date)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Beautiful workspace selection screen
 const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
@@ -37,9 +140,17 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const [selectedWorkspaceForSettings, setSelectedWorkspaceForSettings] = useState(null);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showNewUserOnboarding, setShowNewUserOnboarding] = useState(false);
+  
+  // Task list state
+  const [myTasks, setMyTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [tasksExpanded, setTasksExpanded] = useState(true);
+  const [taskFilter, setTaskFilter] = useState('pending'); // 'all', 'pending', 'completed', 'overdue'
+  const [roleFilter, setRoleFilter] = useState('all'); // 'all', 'assigned', 'created'
 
   useEffect(() => {
     loadWorkspaces();
+    loadMyTasks();
   }, []);
 
   // Check if this is a new user who needs onboarding
@@ -132,6 +243,169 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const getWorkspaceColor = (name) => {
     const colors = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-red-500', 'bg-yellow-500', 'bg-indigo-500'];
     return colors[name.length % colors.length];
+  };
+
+  // Load tasks assigned to OR created by current user
+  const loadMyTasks = async () => {
+    try {
+      setTasksLoading(true);
+      const response = await globalTasksAPI.getMyTasks({ limit: 100 });
+      setMyTasks(response.data.tasks || []);
+      console.log(`📋 Loaded ${response.data.tasks?.length || 0} tasks for My Tasks section`);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      // Don't show error toast - tasks are secondary to workspaces
+      setMyTasks([]);
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  // Filter tasks based on current filters (status + role)
+  const getFilteredTasks = () => {
+    const now = new Date();
+    return myTasks.filter(task => {
+      // Role filter (assigned vs created)
+      if (roleFilter === 'assigned' && !task.user_is_assignee) return false;
+      if (roleFilter === 'created' && task.created_by !== user?.id) return false;
+      
+      // Status filter
+      switch (taskFilter) {
+        case 'pending':
+          return task.status !== 'completed' && !task.user_completed;
+        case 'completed':
+          return task.status === 'completed' || task.user_completed;
+        case 'overdue':
+          const dueDate = task.due_date || task.end_date;
+          return dueDate && new Date(dueDate) < now && task.status !== 'completed' && !task.user_completed;
+        default:
+          return true;
+      }
+    });
+  };
+
+  // Group tasks by date (Todoist-style)
+  const getTasksGroupedByDate = () => {
+    const filtered = getFilteredTasks();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const groups = {
+      overdue: [],
+      today: [],
+      tomorrow: [],
+      thisWeek: [],
+      later: [],
+      noDueDate: []
+    };
+    
+    filtered.forEach(task => {
+      const dueDate = task.due_date || task.end_date;
+      if (!dueDate) {
+        groups.noDueDate.push(task);
+        return;
+      }
+      
+      const due = new Date(dueDate);
+      due.setHours(0, 0, 0, 0);
+      
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(endOfWeek.getDate() + 7);
+      
+      if (due < today && task.status !== 'completed' && !task.user_completed) {
+        groups.overdue.push(task);
+      } else if (due.getTime() === today.getTime()) {
+        groups.today.push(task);
+      } else if (due.getTime() === tomorrow.getTime()) {
+        groups.tomorrow.push(task);
+      } else if (due <= endOfWeek) {
+        groups.thisWeek.push(task);
+      } else {
+        groups.later.push(task);
+      }
+    });
+    
+    return groups;
+  };
+
+  // Format date for display
+  const formatTaskDate = (dateStr) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  // Format relative date for section headers
+  const formatSectionDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  };
+
+  // Handle task completion toggle
+  const handleToggleComplete = async (task) => {
+    // Find the workspace to construct the API URL
+    const workspace = workspaces.find(w => w.id === task.workspace_id);
+    if (!workspace) return;
+    
+    try {
+      const isCompleted = task.status === 'completed' || task.user_completed;
+      const endpoint = `/workspaces/${task.workspace_id}/threads/${task.thread_id}/tasks/${task.id}/complete`;
+      
+      if (isCompleted) {
+        // Mark incomplete
+        await fetch(`${import.meta.env.VITE_API_URL || '/api'}${endpoint}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+          }
+        });
+      } else {
+        // Mark complete
+        await fetch(`${import.meta.env.VITE_API_URL || '/api'}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+          }
+        });
+      }
+      
+      // Refresh tasks
+      await loadMyTasks();
+      toast.success(isCompleted ? 'Task marked incomplete' : 'Task completed!');
+    } catch (error) {
+      console.error('Error toggling task:', error);
+      toast.error('Failed to update task');
+    }
+  };
+
+  // Check if task is overdue
+  const isOverdue = (task) => {
+    const dueDate = task.due_date || task.end_date;
+    if (!dueDate || task.status === 'completed' || task.user_completed) return false;
+    return new Date(dueDate) < new Date();
+  };
+
+  // Get priority color
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'text-red-500';
+      case 'medium': return 'text-yellow-500';
+      case 'low': return 'text-green-500';
+      default: return 'text-gray-400';
+    }
   };
 
   const filteredWorkspaces = workspaces.filter(workspace =>
@@ -550,6 +824,216 @@ const WorkspaceScreen = ({ user, onSignOut, onSelectWorkspace }) => {
               )}
             </div>
           </motion.div>
+        </motion.div>
+
+        {/* My Tasks Section - All Workspaces */}
+        <motion.div
+          className="mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+        >
+          {/* Section Header */}
+          <div 
+            className="flex items-center justify-between mb-4 cursor-pointer"
+            onClick={() => setTasksExpanded(!tasksExpanded)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <CheckSquare className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">My Tasks</h3>
+                <p className="text-sm text-gray-500">
+                  {myTasks.length} task{myTasks.length !== 1 ? 's' : ''} across all workspaces
+                </p>
+              </div>
+            </div>
+            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              {tasksExpanded ? (
+                <ChevronUp className="w-5 h-5 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-500" />
+              )}
+            </button>
+          </div>
+
+          {/* Task List Content */}
+          {tasksExpanded && (
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+              {/* Role Filter (Assigned vs Created) */}
+              <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+                <span className="text-sm text-gray-500 mr-2">Show:</span>
+                {[
+                  { key: 'all', label: 'All Tasks' },
+                  { key: 'assigned', label: 'Assigned to Me' },
+                  { key: 'created', label: 'Created by Me' },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setRoleFilter(key)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                      roleFilter === key
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status Filter Tabs */}
+              <div className="flex border-b border-gray-100 px-4">
+                {[
+                  { key: 'pending', label: 'Pending', icon: Circle },
+                  { key: 'overdue', label: 'Overdue', icon: AlertCircle },
+                  { key: 'completed', label: 'Completed', icon: CheckCircle2 },
+                  { key: 'all', label: 'All Statuses', icon: CheckSquare },
+                ].map(({ key, label, icon: Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setTaskFilter(key)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      taskFilter === key
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                    {key === 'overdue' && myTasks.filter(t => isOverdue(t)).length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
+                        {myTasks.filter(t => isOverdue(t)).length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Todoist-Style Task List - Grouped by Date */}
+              <div className="px-2 py-3">
+                {tasksLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="loading-spinner w-6 h-6"></div>
+                    <span className="ml-3 text-gray-500">Loading tasks...</span>
+                  </div>
+                ) : getFilteredTasks().length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                      <CheckCircle2 className="w-10 h-10 text-gray-300" />
+                    </div>
+                    <p className="font-semibold text-lg text-gray-700">No {taskFilter === 'all' ? '' : taskFilter} tasks</p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      {taskFilter === 'pending' && "You're all caught up! 🎉"}
+                      {taskFilter === 'overdue' && "No overdue tasks - great job!"}
+                      {taskFilter === 'completed' && "Complete some tasks to see them here"}
+                      {taskFilter === 'all' && "No tasks assigned to you yet"}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Overdue Section */}
+                    {getTasksGroupedByDate().overdue.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg mb-2">
+                          <AlertCircle className="w-4 h-4 text-red-500" />
+                          <span className="text-sm font-semibold text-red-700">Overdue</span>
+                          <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full ml-auto">
+                            {getTasksGroupedByDate().overdue.length}
+                          </span>
+                        </div>
+                        {getTasksGroupedByDate().overdue.map(task => (
+                          <TaskItem key={task.id} task={task} workspaces={workspaces} onSelectWorkspace={onSelectWorkspace} onToggleComplete={handleToggleComplete} getPriorityColor={getPriorityColor} formatTaskDate={formatTaskDate} isOverdue={isOverdue} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Today Section */}
+                    {getTasksGroupedByDate().today.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 px-3 py-2 border-b-2 border-blue-500 mb-2">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm font-bold text-gray-900">Today</span>
+                          <span className="text-xs text-gray-500 ml-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+                          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full ml-auto">
+                            {getTasksGroupedByDate().today.length}
+                          </span>
+                        </div>
+                        {getTasksGroupedByDate().today.map(task => (
+                          <TaskItem key={task.id} task={task} workspaces={workspaces} onSelectWorkspace={onSelectWorkspace} onToggleComplete={handleToggleComplete} getPriorityColor={getPriorityColor} formatTaskDate={formatTaskDate} isOverdue={isOverdue} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tomorrow Section */}
+                    {getTasksGroupedByDate().tomorrow.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 mb-2">
+                          <Calendar className="w-4 h-4 text-orange-500" />
+                          <span className="text-sm font-semibold text-gray-800">Tomorrow</span>
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full ml-auto">
+                            {getTasksGroupedByDate().tomorrow.length}
+                          </span>
+                        </div>
+                        {getTasksGroupedByDate().tomorrow.map(task => (
+                          <TaskItem key={task.id} task={task} workspaces={workspaces} onSelectWorkspace={onSelectWorkspace} onToggleComplete={handleToggleComplete} getPriorityColor={getPriorityColor} formatTaskDate={formatTaskDate} isOverdue={isOverdue} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* This Week Section */}
+                    {getTasksGroupedByDate().thisWeek.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 mb-2">
+                          <Clock className="w-4 h-4 text-purple-500" />
+                          <span className="text-sm font-semibold text-gray-800">This Week</span>
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full ml-auto">
+                            {getTasksGroupedByDate().thisWeek.length}
+                          </span>
+                        </div>
+                        {getTasksGroupedByDate().thisWeek.map(task => (
+                          <TaskItem key={task.id} task={task} workspaces={workspaces} onSelectWorkspace={onSelectWorkspace} onToggleComplete={handleToggleComplete} getPriorityColor={getPriorityColor} formatTaskDate={formatTaskDate} isOverdue={isOverdue} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Later Section */}
+                    {getTasksGroupedByDate().later.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 mb-2">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm font-semibold text-gray-800">Later</span>
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full ml-auto">
+                            {getTasksGroupedByDate().later.length}
+                          </span>
+                        </div>
+                        {getTasksGroupedByDate().later.map(task => (
+                          <TaskItem key={task.id} task={task} workspaces={workspaces} onSelectWorkspace={onSelectWorkspace} onToggleComplete={handleToggleComplete} getPriorityColor={getPriorityColor} formatTaskDate={formatTaskDate} isOverdue={isOverdue} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* No Due Date Section */}
+                    {getTasksGroupedByDate().noDueDate.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-dashed border-gray-200 mb-2">
+                          <Circle className="w-4 h-4 text-gray-300" />
+                          <span className="text-sm font-medium text-gray-500">No Due Date</span>
+                          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full ml-auto">
+                            {getTasksGroupedByDate().noDueDate.length}
+                          </span>
+                        </div>
+                        {getTasksGroupedByDate().noDueDate.map(task => (
+                          <TaskItem key={task.id} task={task} workspaces={workspaces} onSelectWorkspace={onSelectWorkspace} onToggleComplete={handleToggleComplete} getPriorityColor={getPriorityColor} formatTaskDate={formatTaskDate} isOverdue={isOverdue} />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
 

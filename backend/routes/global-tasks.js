@@ -144,6 +144,30 @@ router.get('/all', async (req, res) => {
       query += ` AND is_task_assignee(ct.assignees, ct.assigned_teams, $1)`;
     }
 
+    // Filter tasks created by current user
+    if (req.query.created_by_me === 'true') {
+      query += ` AND ct.created_by = $1`;
+    }
+
+    // Filter tasks either assigned to OR created by current user (default for "My Tasks")
+    if (req.query.my_tasks === 'true') {
+      query += ` AND (is_task_assignee(ct.assignees, ct.assigned_teams, $1) OR ct.created_by = $1)`;
+    }
+
+    // Filter by specific assignee ID
+    if (req.query.assignee_id) {
+      paramCount++;
+      query += ` AND ct.assignees ? $${paramCount}`;
+      params.push(req.query.assignee_id);
+    }
+
+    // Filter by creator ID
+    if (req.query.creator_id) {
+      paramCount++;
+      query += ` AND ct.created_by = $${paramCount}`;
+      params.push(req.query.creator_id);
+    }
+
     // Order by start_date, due_date, then created_at
     query += ` 
       ORDER BY 

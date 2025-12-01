@@ -4,6 +4,7 @@ const router = express.Router({ mergeParams: true }); // Important: merge params
 // Middleware
 const { authenticateUser } = require('../middleware/auth');
 const { createPool } = require('../config/database');
+const emailService = require('../services/emailService');
 
 // Database connection
 const pool = createPool();
@@ -318,6 +319,174 @@ router.post('/', async (req, res) => {
       is_all_day, cleanStartTime, cleanEndTime, cleanParentTaskId, JSON.stringify(dependencies), userId
     ]);
 
+    const taskId = result.rows[0].id;
+
+    // Send email notifications to all assignees (don't notify the creator)
+    if (finalAssignees.length > 0) {
+      // Get assigner info, assignee info, workspace info, and channel info
+      try {
+        const contextQuery = await pool.query(`
+          SELECT 
+            u.display_name as assigner_name,
+            w.name as workspace_name,
+            t.name as channel_name
+          FROM users u, workspaces w, threads t
+          WHERE u.id = $1 AND w.id = $2 AND t.id = $3
+        `, [userId, req.params.workspaceId, threadId]);
+
+        if (contextQuery.rows.length > 0) {
+          const { assigner_name, workspace_name, channel_name } = contextQuery.rows[0];
+          
+          // Get all assignee details
+          const assigneesQuery = await pool.query(
+            'SELECT id, display_name, email FROM users WHERE id = ANY($1)',
+            [finalAssignees]
+          );
+
+          const baseUrl = process.env.FRONTEND_URL || 'https://crew.do';
+          const taskUrl = `${baseUrl}/#/workspace/${req.params.workspaceId}`;
+
+          // Send email to each assignee (except the creator)
+              // Get creator email to CC them
+              const creatorQuery = await pool.query(
+                'SELECT email, display_name FROM users WHERE id = $1',
+                [userId]
+              );
+              const creatorEmail = creatorQuery.rows[0]?.email;
+              const creatorDisplayName = creatorQuery.rows[0]?.display_name;
+
+              for (const assignee of assigneesQuery.rows) {
+                if (assignee.id !== userId && assignee.email) {
+                  console.log(`📧 Sending task assignment email to ${assignee.email} for task "${title.trim()}"`);
+                  
+                  emailService.sendTaskAssignmentNotification({
+                    to: assignee.email,
+                    assigneeName: assignee.display_name || 'Team Member',
+                    assignerName: assigner_name,
+                    taskTitle: title.trim(),
+                    taskDescription: description || null,
+                    workspaceName: workspace_name,
+                    channelName: channel_name,
+                    dueDate: cleanDueDate || cleanEndDate || null,
+                    taskUrl
+                  }).then(result => {
+                    if (result.success) {
+                      console.log(`✅ Task assignment email sent to ${assignee.email}`);
+                    } else {
+                      console.log(`⚠️ Task assignment email failed for ${assignee.email}: ${result.error}`);
+                    }
+                  }).catch(err => {
+                    console.error(`❌ Error sending task assignment email to ${assignee.email}:`, err);
+                  });
+                }
+              }
+
+              // Send confirmation copy to the assignor (task creator)
+              if (creatorEmail && assigneesQuery.rows.length > 0) {
+                console.log(`📧 Sending task assignment confirmation to creator ${creatorEmail}`);
+                
+                const assigneeNames = assigneesQuery.rows
+                  .filter(a => a.id !== userId)
+                  .map(a => a.display_name || a.email)
+                  .join(', ');
+                
+                emailService.sendEmail({
+                  to: creatorEmail,
+                  subject: `📋 Task Created: "${title.trim()}" assigned to ${assigneeNames}`,
+                  html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Task Assignment Confirmation</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; }
+        .content { padding: 30px; }
+        .task-info { background: #f5f3ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6366f1; }
+        .cta-button { display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 14px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Task Created Successfully</h1>
+        </div>
+        <div class="content">
+            <p>Hi ${creatorDisplayName || 'there'},</p>
+            <p>Your task has been created and assigned. Here's a summary:</p>
+            <div class="task-info">
+                <h3 style="margin-top: 0; color: #6366f1;">${title.trim()}</h3>
+                ${description ? `<p>${description}</p>` : ''}
+                <p><strong>Assigned to:</strong> ${assigneeNames}</p>
+                <p><strong>Channel:</strong> #${channel_name}</p>
+                ${cleanDueDate || cleanEndDate ? `<p><strong>Due:</strong> ${new Date(cleanDueDate || cleanEndDate).toLocaleDateString()}</p>` : ''}
+            </div>
+            <p style="text-align: center;">
+                <a href="${taskUrl}" class="cta-button">View Task</a>
+            </p>
+        </div>
+        <div class="footer">
+            <p>You'll be notified when assignees complete this task.</p>
+        </div>
+    </div>
+</body>
+</html>`,
+                  category: 'task-assignment-confirmation'
+                }).then(result => {
+                  if (result.success) {
+                    console.log(`✅ Task assignment confirmation sent to creator ${creatorEmail}`);
+                  }
+                }).catch(err => {
+                  console.error(`❌ Error sending confirmation to creator:`, err);
+                });
+              }
+
+          // Also send emails to team members if teams are assigned
+          if (assigned_teams.length > 0) {
+            const teamMembersQuery = await pool.query(`
+              SELECT DISTINCT u.id, u.display_name, u.email
+              FROM workspace_team_members wtm
+              JOIN users u ON u.id = wtm.user_id
+              WHERE wtm.team_id = ANY($1) AND wtm.is_active = true AND u.id != $2
+            `, [assigned_teams.map(id => parseInt(id)), userId]);
+
+            for (const member of teamMembersQuery.rows) {
+              // Skip if already in individual assignees
+              if (member.email && !finalAssignees.includes(member.id)) {
+                console.log(`📧 Sending team task assignment email to ${member.email} for task "${title.trim()}"`);
+                
+                emailService.sendTaskAssignmentNotification({
+                  to: member.email,
+                  assigneeName: member.display_name || 'Team Member',
+                  assignerName: assigner_name,
+                  taskTitle: title.trim(),
+                  taskDescription: description || null,
+                  workspaceName: workspace_name,
+                  channelName: channel_name,
+                  dueDate: cleanDueDate || cleanEndDate || null,
+                  taskUrl
+                }).then(result => {
+                  if (result.success) {
+                    console.log(`✅ Team task assignment email sent to ${member.email}`);
+                  } else {
+                    console.log(`⚠️ Team task assignment email failed for ${member.email}: ${result.error}`);
+                  }
+                }).catch(err => {
+                  console.error(`❌ Error sending team task assignment email to ${member.email}:`, err);
+                });
+              }
+            }
+          }
+        }
+      } catch (emailError) {
+        // Don't fail the request if email sending fails - just log it
+        console.error('Error sending task assignment emails:', emailError);
+      }
+    }
+
     res.status(201).json({
       message: 'Channel task created successfully',
       task: result.rows[0]
@@ -506,7 +675,7 @@ router.get('/:taskId/subtasks', async (req, res) => {
 // Mark task as completed by current user (individual completion)
 router.post('/:taskId/complete', async (req, res) => {
   try {
-    const { taskId } = req.params;
+    const { workspaceId, threadId, taskId } = req.params;
     const userId = req.user.id; // Fixed: use req.user.id
 
     const result = await pool.query(
@@ -520,6 +689,72 @@ router.post('/:taskId/complete', async (req, res) => {
       return res.status(400).json({ 
         error: completion_result.error 
       });
+    }
+
+    // Send email notification to task creator
+    try {
+      // Get task details, creator info, completer info, workspace/channel info
+      const taskInfoQuery = await pool.query(`
+        SELECT 
+          ct.title,
+          ct.created_by,
+          ct.progress_info,
+          u_creator.email as creator_email,
+          u_creator.display_name as creator_name,
+          u_completer.display_name as completer_name,
+          w.name as workspace_name,
+          t.name as channel_name
+        FROM channel_tasks ct
+        JOIN users u_creator ON ct.created_by = u_creator.id
+        JOIN users u_completer ON u_completer.id = $2
+        JOIN workspaces w ON ct.workspace_id = w.id
+        JOIN threads t ON ct.thread_id = t.id
+        WHERE ct.id = $1
+      `, [taskId, userId]);
+
+      if (taskInfoQuery.rows.length > 0) {
+        const { 
+          title, 
+          created_by, 
+          progress_info,
+          creator_email, 
+          creator_name, 
+          completer_name,
+          workspace_name, 
+          channel_name 
+        } = taskInfoQuery.rows[0];
+
+        // Only notify if completer is not the creator
+        if (created_by !== userId && creator_email) {
+          const baseUrl = process.env.FRONTEND_URL || 'https://crew.do';
+          const taskUrl = `${baseUrl}/#/workspace/${workspaceId}`;
+
+          console.log(`📧 Sending task completion email to creator ${creator_email} for task "${title}"`);
+          
+          emailService.sendTaskCompletionNotification({
+            to: creator_email,
+            creatorName: creator_name || 'there',
+            completerName: completer_name || 'A team member',
+            taskTitle: title,
+            workspaceName: workspace_name,
+            channelName: channel_name,
+            completedAt: new Date().toISOString(),
+            progressInfo: completion_result.progress || progress_info,
+            taskUrl
+          }).then(result => {
+            if (result.success) {
+              console.log(`✅ Task completion email sent to ${creator_email}`);
+            } else {
+              console.log(`⚠️ Task completion email failed for ${creator_email}: ${result.error}`);
+            }
+          }).catch(err => {
+            console.error(`❌ Error sending task completion email to ${creator_email}:`, err);
+          });
+        }
+      }
+    } catch (emailError) {
+      // Don't fail the request if email sending fails
+      console.error('Error sending task completion email:', emailError);
     }
 
     res.json({

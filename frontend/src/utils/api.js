@@ -210,4 +210,19 @@ export const adminAPI = {
   addMemberToWorkspace: (workspaceId, userId, role = 'member') => api.post(`/admin/workspaces/${workspaceId}/add-member`, { user_id: userId, role }),
 };
 
+export const globalTasksAPI = {
+  // Get all tasks across all workspaces the user has access to
+  getAllTasks: (params = {}) => api.get('/tasks/all', { params }),
+  // Get tasks assigned to OR created by the current user (for "My Tasks" on home screen)
+  getMyTasks: (params = {}) => api.get('/tasks/all', { params: { ...params, my_tasks: 'true' } }),
+  // Get tasks assigned to the current user only
+  getAssignedToMe: (params = {}) => api.get('/tasks/all', { params: { ...params, assigned_to_me: 'true' } }),
+  // Get tasks created by the current user only
+  getCreatedByMe: (params = {}) => api.get('/tasks/all', { params: { ...params, created_by_me: 'true' } }),
+  // Get list of workspaces user has access to (for filtering)
+  getWorkspaces: () => api.get('/tasks/workspaces'),
+  // Get list of channels user has access to (for filtering)
+  getChannels: (workspaceIds = []) => api.get('/tasks/channels', { params: { workspace_ids: workspaceIds.join(',') } }),
+};
+
 export default api;
