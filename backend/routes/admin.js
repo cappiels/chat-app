@@ -262,7 +262,7 @@ router.post('/workspaces/:workspaceId/add-member', async (req, res) => {
     
     // Check if user is already a member
     const existingMember = await client.query(`
-      SELECT id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2
+      SELECT workspace_id, user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2
     `, [workspaceId, user_id]);
     
     if (existingMember.rows.length > 0) {
@@ -357,7 +357,16 @@ router.post('/workspaces/:workspaceId/add-member', async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Add member error:', error);
-    res.status(500).json({ error: 'Failed to add member to workspace' });
+    console.error('Add member error stack:', error.stack);
+    console.error('Add member error details:', {
+      workspaceId: req.params.workspaceId,
+      userId: req.body.user_id,
+      role: req.body.role
+    });
+    res.status(500).json({ 
+      error: 'Failed to add member to workspace',
+      message: error.message
+    });
   } finally {
     client.release();
   }
