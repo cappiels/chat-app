@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -117,13 +118,24 @@ class FileUploadService {
       request.headers['x-workspace-name'] = workspaceId;
       request.headers['x-channel-name'] = threadId;
 
-      // Add file
+      // Add file WITH content-type (critical for image preview to work)
       final fileStream = http.ByteStream(file.openRead());
+      
+      // Parse the MIME type for the content-type header
+      MediaType? contentType;
+      if (mimeType.contains('/')) {
+        final parts = mimeType.split('/');
+        contentType = MediaType(parts[0], parts.length > 1 ? parts[1] : 'octet-stream');
+      }
+      
+      debugPrint('📤 Uploading with content-type: $contentType');
+      
       final multipartFile = http.MultipartFile(
         'file',
         fileStream,
         fileSize,
         filename: fileName,
+        contentType: contentType,
       );
       request.files.add(multipartFile);
 
