@@ -193,10 +193,10 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
   }
 
   List<ChannelTask> _organizeTaskHierarchy() {
-    final Map<int, ChannelTask> taskMap = {};
+    final Map<String, ChannelTask> taskMap = {};
     final List<ChannelTask> rootTasks = [];
     
-    // Create map for quick lookup
+    // Create map for quick lookup (task.id is now String UUID)
     for (var task in _tasks) {
       taskMap[task.id] = task;
     }
