@@ -35,63 +35,65 @@ router.get('/all', async (req, res) => {
       ? (Array.isArray(channel_ids) ? channel_ids : channel_ids.split(','))
       : null;
 
+    // Use simpler query that works without views/functions
     let query = `
       SELECT 
-        ct.*,
+        ct.id,
+        ct.thread_id,
+        ct.workspace_id,
+        ct.title,
+        ct.description,
+        ct.status,
+        ct.priority,
+        ct.start_date,
+        ct.end_date,
+        ct.due_date,
+        ct.start_time,
+        ct.end_time,
+        ct.is_all_day,
+        ct.estimated_hours,
+        ct.actual_hours,
+        ct.created_by,
+        ct.created_at,
+        ct.updated_at,
+        ct.tags,
+        ct.assignees,
+        ct.assigned_teams,
+        ct.assignment_mode,
+        ct.requires_individual_response,
+        COALESCE(ct.individual_completions, '{}'::jsonb) as individual_completions,
+        ct.parent_task_id,
+        ct.task_order,
+        ct.dependencies,
         u2.display_name as created_by_name,
         t.name as channel_name,
         t.id as channel_id,
         w.name as workspace_name,
         w.id as workspace_id,
-        ct.progress_info,
-        ct.is_complete,
-        ct.total_assignees,
-        ct.individual_assignee_count,
-        ct.team_count,
-        -- Get assignee details
-        (
-          SELECT json_agg(
-            json_build_object(
-              'id', u.id,
-              'display_name', u.display_name,
-              'email', u.email
-            )
-          )
-          FROM users u 
-          WHERE u.id IN (
-            SELECT jsonb_array_elements_text(ct.assignees)
-          )
-        ) as assignee_details,
-        -- Get team details
-        (
-          SELECT json_agg(
-            json_build_object(
-              'id', wt.id,
-              'name', wt.name,
-              'display_name', wt.display_name,
-              'color', wt.color,
-              'member_count', (
-                SELECT count(*) 
-                FROM workspace_team_members wtm 
-                WHERE wtm.team_id = wt.id AND wtm.is_active = true
-              )
-            )
-          )
-          FROM workspace_teams wt
-          WHERE wt.id IN (
-            SELECT (jsonb_array_elements_text(ct.assigned_teams))::integer
-          )
-        ) as team_details,
-        -- Check if current user can edit this task
-        can_user_edit_task(ct.assignees, ct.assigned_teams, ct.created_by, $1) as user_can_edit,
-        -- Check if current user is assignee
-        is_task_assignee(ct.assignees, ct.assigned_teams, $1) as user_is_assignee,
+        -- Calculate completion status
+        CASE 
+          WHEN ct.status = 'completed' THEN true
+          WHEN ct.requires_individual_response = true THEN false
+          ELSE ct.status = 'completed'
+        END as is_complete,
         -- Check if current user has completed this task
         CASE 
           WHEN ct.individual_completions ? $1 THEN true
           ELSE false
-        END as user_completed
-      FROM channel_tasks_with_progress ct
+        END as user_completed,
+        -- Check if current user is assignee (simplified check)
+        CASE 
+          WHEN ct.assignees ? $1 THEN true
+          WHEN ct.created_by = $1 THEN true
+          ELSE false
+        END as user_is_assignee,
+        -- User can edit if they're creator or assignee
+        CASE 
+          WHEN ct.created_by = $1 THEN true
+          WHEN ct.assignees ? $1 THEN true
+          ELSE false
+        END as user_can_edit
+      FROM channel_tasks ct
       LEFT JOIN users u2 ON ct.created_by = u2.id
       JOIN threads t ON ct.thread_id = t.id
       JOIN workspaces w ON ct.workspace_id = w.id
@@ -139,9 +141,9 @@ router.get('/all', async (req, res) => {
       params.push(end_date);
     }
 
-    // Filter tasks assigned to current user
+    // Filter tasks assigned to current user (simplified - just check assignees array)
     if (assigned_to_me === 'true') {
-      query += ` AND is_task_assignee(ct.assignees, ct.assigned_teams, $1)`;
+      query += ` AND (ct.assignees ? $1 OR ct.created_by = $1)`;
     }
 
     // Filter tasks created by current user
@@ -151,7 +153,7 @@ router.get('/all', async (req, res) => {
 
     // Filter tasks either assigned to OR created by current user (default for "My Tasks")
     if (req.query.my_tasks === 'true') {
-      query += ` AND (is_task_assignee(ct.assignees, ct.assigned_teams, $1) OR ct.created_by = $1)`;
+      query += ` AND (ct.assignees ? $1 OR ct.created_by = $1)`;
     }
 
     // Filter by specific assignee ID
