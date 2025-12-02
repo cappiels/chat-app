@@ -185,6 +185,88 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     return _myTasks;
   }
 
+  // Optimistic UI update for task completion - no screen blink!
+  Future<void> _toggleTaskCompletion(ChannelTask task) async {
+    final taskIndex = _myTasks.indexWhere((t) => t.id == task.id);
+    if (taskIndex == -1) return;
+    
+    final wasCompleted = task.userCompleted || task.isComplete;
+    final originalTask = _myTasks[taskIndex];
+    
+    // Step 1: Optimistically update UI immediately (no loading state!)
+    setState(() {
+      _myTasks[taskIndex] = ChannelTask(
+        id: task.id,
+        threadId: task.threadId,
+        workspaceId: task.workspaceId,
+        title: task.title,
+        description: task.description,
+        startDate: task.startDate,
+        endDate: task.endDate,
+        dueDate: task.dueDate,
+        assignedTo: task.assignedTo,
+        assignees: task.assignees,
+        assignedTeams: task.assignedTeams,
+        assignmentMode: task.assignmentMode,
+        requiresIndividualResponse: task.requiresIndividualResponse,
+        status: wasCompleted ? 'pending' : 'completed',
+        priority: task.priority,
+        tags: task.tags,
+        estimatedHours: task.estimatedHours,
+        actualHours: task.actualHours,
+        isAllDay: task.isAllDay,
+        startTime: task.startTime,
+        endTime: task.endTime,
+        parentTaskId: task.parentTaskId,
+        dependencies: task.dependencies,
+        googleCalendarEventId: task.googleCalendarEventId,
+        googleTaskId: task.googleTaskId,
+        completedAt: wasCompleted ? null : DateTime.now(),
+        createdBy: task.createdBy,
+        createdAt: task.createdAt,
+        updatedAt: DateTime.now(),
+        createdByName: task.createdByName,
+        channelName: task.channelName,
+        progressInfo: task.progressInfo,
+        isComplete: !wasCompleted,
+        totalAssignees: task.totalAssignees,
+        individualAssigneeCount: task.individualAssigneeCount,
+        teamCount: task.teamCount,
+        assigneeDetails: task.assigneeDetails,
+        teamDetails: task.teamDetails,
+        userCanEdit: task.userCanEdit,
+        userIsAssignee: task.userIsAssignee,
+        userCompleted: !wasCompleted,
+        individualCompletions: task.individualCompletions,
+      );
+    });
+    
+    // Step 2: Call API in background
+    try {
+      if (wasCompleted) {
+        await _taskService.markTaskIncomplete(
+          workspaceId: task.workspaceId,
+          threadId: task.threadId,
+          taskId: task.id,
+        );
+      } else {
+        await _taskService.markTaskComplete(
+          workspaceId: task.workspaceId,
+          threadId: task.threadId,
+          taskId: task.id,
+        );
+      }
+      // Success! Optionally refresh in background to get latest server state
+      // _loadMyTasks(); // Uncomment if you want to sync with server after success
+    } catch (e) {
+      // Step 3: Revert on failure
+      setState(() {
+        _myTasks[taskIndex] = originalTask;
+      });
+      _showErrorSnackBar('Failed to update task: $e');
+    }
+  }
+
   Future<void> _loadWorkspaces() async {
     try {
       setState(() => _loadingWorkspaces = true);
@@ -631,26 +713,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
-                  onTap: () async {
-                    try {
-                      if (task.userCompleted || task.isComplete) {
-                        await _taskService.markTaskIncomplete(
-                          workspaceId: task.workspaceId,  // Already String (UUID)
-                          threadId: task.threadId,  // Already String (UUID)
-                          taskId: task.id,  // Already String (UUID)
-                        );
-                      } else {
-                        await _taskService.markTaskComplete(
-                          workspaceId: task.workspaceId,  // Already String (UUID)
-                          threadId: task.threadId,  // Already String (UUID)
-                          taskId: task.id,  // Already String (UUID)
-                        );
-                      }
-                      _loadMyTasks();
-                    } catch (e) {
-                      _showErrorSnackBar('Failed to update task: $e');
-                    }
-                  },
+                  onTap: () => _toggleTaskCompletion(task),
                   child: Container(
                     width: 24,
                     height: 24,
