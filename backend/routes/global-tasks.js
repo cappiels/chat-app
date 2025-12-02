@@ -36,6 +36,7 @@ router.get('/all', async (req, res) => {
       : null;
 
     // Use simpler query that works without views/functions
+    // NOTE: Only select columns that actually exist in database
     let query = `
       SELECT 
         ct.id,
@@ -48,28 +49,23 @@ router.get('/all', async (req, res) => {
         ct.start_date,
         ct.end_date,
         ct.due_date,
-        ct.start_time,
-        ct.end_time,
-        ct.is_all_day,
         ct.estimated_hours,
         ct.actual_hours,
         ct.created_by,
         ct.created_at,
         ct.updated_at,
         ct.tags,
-        ct.assignees,
-        ct.assigned_teams,
-        ct.assignment_mode,
-        ct.requires_individual_response,
+        COALESCE(ct.assignees, '[]'::jsonb) as assignees,
+        COALESCE(ct.assigned_teams, '[]'::jsonb) as assigned_teams,
+        COALESCE(ct.assignment_mode, 'collaborative') as assignment_mode,
+        COALESCE(ct.requires_individual_response, false) as requires_individual_response,
         COALESCE(ct.individual_completions, '{}'::jsonb) as individual_completions,
         ct.parent_task_id,
-        ct.task_order,
         ct.dependencies,
         u2.display_name as created_by_name,
         t.name as channel_name,
         t.id as channel_id,
         w.name as workspace_name,
-        w.id as workspace_id,
         -- Calculate completion status
         CASE 
           WHEN ct.status = 'completed' THEN true
