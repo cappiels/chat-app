@@ -171,19 +171,24 @@ class HttpClient {
         final statusCode = dioError.response?.statusCode;
         final errorData = dioError.response?.data;
         
+        // Backend returns 'error' key, not 'message'
+        final errorMessage = errorData?['error'] ?? errorData?['message'];
+        final errorDetails = errorData?['details'];
+        final fullMessage = errorDetails != null ? '$errorMessage ($errorDetails)' : errorMessage;
+        
         switch (statusCode) {
           case 400:
-            return BadRequestException(errorData?['message'] ?? 'Bad request');
+            return BadRequestException(fullMessage ?? 'Bad request');
           case 401:
-            return UnauthorizedException(errorData?['message'] ?? 'Unauthorized');
+            return UnauthorizedException(fullMessage ?? 'Unauthorized');
           case 403:
-            return ForbiddenException(errorData?['message'] ?? 'Forbidden');
+            return ForbiddenException(fullMessage ?? 'Forbidden');
           case 404:
-            return NotFoundException(errorData?['message'] ?? 'Not found');
+            return NotFoundException(fullMessage ?? 'Not found');
           case 500:
-            return ServerException(errorData?['message'] ?? 'Internal server error');
+            return ServerException(fullMessage ?? 'Internal server error');
           default:
-            return ServerException(errorData?['message'] ?? 'Server error');
+            return ServerException(fullMessage ?? 'Server error ($statusCode)');
         }
       
       case DioExceptionType.cancel:
