@@ -112,7 +112,7 @@ class TaskService {
   Future<ChannelTask?> getTask({
     required String workspaceId,
     required String threadId,
-    required int taskId,
+    required String taskId,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -216,7 +216,7 @@ class TaskService {
   Future<Map<String, dynamic>> updateTask({
     required String workspaceId,
     required String threadId,
-    required int taskId,
+    required String taskId,
     String? title,
     String? description,
     String? startDate,
@@ -281,7 +281,7 @@ class TaskService {
   Future<void> deleteTask({
     required String workspaceId,
     required String threadId,
-    required int taskId,
+    required String taskId,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -309,7 +309,7 @@ class TaskService {
   Future<Map<String, dynamic>> markTaskComplete({
     required String workspaceId,
     required String threadId,
-    required int taskId,
+    required String taskId,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -339,7 +339,7 @@ class TaskService {
   Future<Map<String, dynamic>> markTaskIncomplete({
     required String workspaceId,
     required String threadId,
-    required int taskId,
+    required String taskId,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -369,7 +369,7 @@ class TaskService {
   Future<Map<String, dynamic>> getTaskProgress({
     required String workspaceId,
     required String threadId,
-    required int taskId,
+    required String taskId,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -399,7 +399,7 @@ class TaskService {
   Future<List<ChannelTask>> getSubtasks({
     required String workspaceId,
     required String threadId,
-    required int taskId,
+    required String taskId,
   }) async {
     try {
       final user = _auth.currentUser;

@@ -1,6 +1,6 @@
 class ChannelTask {
-  final int id;
-  final int threadId;
+  final String id;  // UUID from database
+  final String threadId;  // UUID from database
   final int workspaceId;
   final String title;
   final String? description;
@@ -20,7 +20,7 @@ class ChannelTask {
   final bool isAllDay;
   final String? startTime;
   final String? endTime;
-  final int? parentTaskId;
+  final String? parentTaskId;  // UUID from database
   final List<int> dependencies;
   final String? googleCalendarEventId;
   final String? googleTaskId;
@@ -99,13 +99,16 @@ class ChannelTask {
       return 0;
     }
 
-    // Helper function to safely parse nullable int
-    int? parseNullableInt(dynamic value) {
+    // Helper function to parse ID (keep as string for UUID)
+    String parseId(dynamic value) {
+      if (value == null) return '';
+      return value.toString();
+    }
+
+    // Helper function to safely parse nullable string ID
+    String? parseNullableId(dynamic value) {
       if (value == null) return null;
-      if (value is int) return value;
-      if (value is String) return int.tryParse(value);
-      if (value is num) return value.toInt();
-      return null;
+      return value.toString();
     }
 
     // Helper function to parse list of ints (handles string IDs too)
@@ -116,8 +119,8 @@ class ChannelTask {
     }
 
     return ChannelTask(
-      id: parseInt(json['id']),
-      threadId: parseInt(json['thread_id']),
+      id: parseId(json['id']),
+      threadId: parseId(json['thread_id']),
       workspaceId: parseInt(json['workspace_id']),
       title: json['title'] as String,
       description: json['description'] as String?,
@@ -151,7 +154,7 @@ class ChannelTask {
       isAllDay: json['is_all_day'] as bool? ?? false,
       startTime: json['start_time'] as String?,
       endTime: json['end_time'] as String?,
-      parentTaskId: parseNullableInt(json['parent_task_id']),
+      parentTaskId: parseNullableId(json['parent_task_id']),
       dependencies: parseIntList(json['dependencies']),
       googleCalendarEventId: json['google_calendar_event_id'] as String?,
       googleTaskId: json['google_task_id'] as String?,
