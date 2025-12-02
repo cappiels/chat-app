@@ -676,20 +676,51 @@ router.get('/:taskId/subtasks', async (req, res) => {
 router.post('/:taskId/complete', async (req, res) => {
   try {
     const { workspaceId, threadId, taskId } = req.params;
-    const userId = req.user.id; // Fixed: use req.user.id
+    const userId = req.user.id;
 
-    const result = await pool.query(
-      'SELECT mark_task_complete_individual($1, $2)',
-      [taskId, userId]
+    // Simplified completion - directly update the task without complex SQL function
+    // 1. First, get the current task
+    const taskResult = await pool.query(
+      'SELECT * FROM channel_tasks WHERE id = $1 AND thread_id = $2',
+      [taskId, threadId]
     );
 
-    const completion_result = result.rows[0].mark_task_complete_individual;
-    
-    if (!completion_result.success) {
-      return res.status(400).json({ 
-        error: completion_result.error 
-      });
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
     }
+
+    const task = taskResult.rows[0];
+    const timestamp = new Date().toISOString();
+
+    // 2. Update individual_completions to include this user
+    const currentCompletions = task.individual_completions || {};
+    const updatedCompletions = { ...currentCompletions, [userId]: timestamp };
+    const completionCount = Object.keys(updatedCompletions).length;
+
+    // 3. Update the task
+    await pool.query(`
+      UPDATE channel_tasks 
+      SET 
+        individual_completions = $1,
+        completion_count = $2,
+        completed_at = $3,
+        status = CASE WHEN $4 = 'individual_response' THEN status ELSE 'completed' END,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $5
+    `, [
+      JSON.stringify(updatedCompletions),
+      completionCount,
+      timestamp,
+      task.assignment_mode || 'collaborative',
+      taskId
+    ]);
+
+    const completion_result = {
+      success: true,
+      progress: { completed: completionCount, total: completionCount },
+      completed_by_user: userId,
+      timestamp: timestamp
+    };
 
     // Send email notification to task creator
     try {
@@ -773,26 +804,47 @@ router.post('/:taskId/complete', async (req, res) => {
 // Mark task as incomplete by current user (remove individual completion)
 router.delete('/:taskId/complete', async (req, res) => {
   try {
-    const { taskId } = req.params;
-    const userId = req.user.id; // Fixed: use req.user.id
+    const { threadId, taskId } = req.params;
+    const userId = req.user.id;
 
-    const result = await pool.query(
-      'SELECT mark_task_incomplete_individual($1, $2)',
-      [taskId, userId]
+    // Simplified - directly update the task without complex SQL function
+    // 1. First, get the current task
+    const taskResult = await pool.query(
+      'SELECT * FROM channel_tasks WHERE id = $1 AND thread_id = $2',
+      [taskId, threadId]
     );
 
-    const completion_result = result.rows[0].mark_task_incomplete_individual;
-    
-    if (!completion_result.success) {
-      return res.status(400).json({ 
-        error: completion_result.error 
-      });
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
     }
+
+    const task = taskResult.rows[0];
+
+    // 2. Remove user from individual_completions
+    const currentCompletions = task.individual_completions || {};
+    delete currentCompletions[userId];
+    const completionCount = Object.keys(currentCompletions).length;
+
+    // 3. Update the task
+    await pool.query(`
+      UPDATE channel_tasks 
+      SET 
+        individual_completions = $1,
+        completion_count = $2,
+        completed_at = CASE WHEN $2 = 0 THEN NULL ELSE completed_at END,
+        status = CASE WHEN $2 = 0 THEN 'pending' ELSE status END,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+    `, [
+      JSON.stringify(currentCompletions),
+      completionCount,
+      taskId
+    ]);
 
     res.json({
       message: 'Task marked as incomplete',
-      progress: completion_result.progress,
-      uncompleted_by: completion_result.uncompleted_by_user
+      progress: { completed: completionCount, total: completionCount },
+      uncompleted_by: userId
     });
   } catch (error) {
     console.error('Error marking task incomplete:', error);
