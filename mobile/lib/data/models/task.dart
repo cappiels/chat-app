@@ -1,7 +1,7 @@
 class ChannelTask {
   final String id;  // UUID from database
   final String threadId;  // UUID from database
-  final int workspaceId;
+  final String workspaceId;  // UUID from database - FIXED: was int, now String
   final String title;
   final String? description;
   final DateTime? startDate;
@@ -121,7 +121,7 @@ class ChannelTask {
     return ChannelTask(
       id: parseId(json['id']),
       threadId: parseId(json['thread_id']),
-      workspaceId: parseInt(json['workspace_id']),
+      workspaceId: parseId(json['workspace_id']),  // FIXED: use parseId for UUID
       title: json['title'] as String,
       description: json['description'] as String?,
       startDate: json['start_date'] != null 

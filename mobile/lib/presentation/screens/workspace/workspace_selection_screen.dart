@@ -635,15 +635,15 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
                     try {
                       if (task.userCompleted || task.isComplete) {
                         await _taskService.markTaskIncomplete(
-                          workspaceId: task.workspaceId.toString(),
-                          threadId: task.threadId.toString(),
-                          taskId: task.id,
+                          workspaceId: task.workspaceId,  // Already String (UUID)
+                          threadId: task.threadId,  // Already String (UUID)
+                          taskId: task.id,  // Already String (UUID)
                         );
                       } else {
                         await _taskService.markTaskComplete(
-                          workspaceId: task.workspaceId.toString(),
-                          threadId: task.threadId.toString(),
-                          taskId: task.id,
+                          workspaceId: task.workspaceId,  // Already String (UUID)
+                          threadId: task.threadId,  // Already String (UUID)
+                          taskId: task.id,  // Already String (UUID)
                         );
                       }
                       _loadMyTasks();
