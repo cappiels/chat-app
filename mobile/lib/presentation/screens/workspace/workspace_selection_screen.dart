@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import '../../../data/services/subscription_service.dart';
 import '../../../data/services/workspace_service.dart';
+import '../../../data/services/task_service.dart';
 import '../../../data/services/http_client.dart';
 import '../../../data/models/workspace.dart';
+import '../../../data/models/task.dart';
 
 class WorkspaceSelectionScreen extends ConsumerStatefulWidget {
   final VoidCallback? onSignOut;
@@ -31,16 +34,19 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   final HttpClient _httpClient = HttpClient();
   late final SubscriptionService _subscriptionService;
   late final WorkspaceService _workspaceService;
+  late final TaskService _taskService;
   
   List<Workspace> _workspaces = [];
+  List<ChannelTask> _myTasks = [];
   bool _useRealBackend = true;
-  bool _loading = true;
-  bool _showCreateForm = false;
+  bool _loadingWorkspaces = true;
+  bool _loadingTasks = true;
   String _searchQuery = '';
   String _newWorkspaceName = '';
   String _newWorkspaceDescription = '';
   bool _creating = false;
-  int _selectedBottomNavIndex = 0;
+  int _selectedBottomNavIndex = 0; // 0 = Today (tasks), 1 = Calendar, 2 = Workspaces, 3 = Knowledge
+  int _selectedCalendarView = 0; // 0 = Monthly, 1 = Weekly, 2 = Timeline
   bool _canCreateWorkspace = true;
   String _subscriptionTier = 'free';
   
@@ -53,8 +59,8 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     super.initState();
     _subscriptionService = SubscriptionService(_httpClient);
     _workspaceService = WorkspaceService();
+    _taskService = TaskService();
     
-    // Initialize animations
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -71,9 +77,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
     );
     
-    _loadWorkspaces();
-    
-    // Start animations
+    _loadData();
     _fadeController.forward();
     _slideController.forward();
   }
@@ -88,41 +92,118 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     super.dispose();
   }
 
-  Future<void> _loadWorkspaces() async {
+  Future<void> _loadData() async {
+    await Future.wait([
+      _loadMyTasks(),
+      _loadWorkspaces(),
+    ]);
+  }
+
+  Future<void> _loadMyTasks() async {
     try {
-      setState(() => _loading = true);
+      setState(() => _loadingTasks = true);
       
       if (_useRealBackend) {
-        // Try to load from real backend API
+        print('🔄 Loading my tasks from backend API...');
+        final tasks = await _taskService.getMyTasks();
+        setState(() {
+          _myTasks = tasks;
+          _loadingTasks = false;
+        });
+        print('✅ Loaded ${tasks.length} tasks');
+      } else {
+        await Future.delayed(const Duration(milliseconds: 1000));
+        setState(() {
+          _myTasks = _getDemoTasks();
+          _loadingTasks = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading tasks: $e');
+      setState(() {
+        _myTasks = _getDemoTasks();
+        _loadingTasks = false;
+      });
+    }
+  }
+
+  List<ChannelTask> _getDemoTasks() {
+    final now = DateTime.now();
+    return [
+      ChannelTask(
+        id: 1,
+        threadId: 1,
+        workspaceId: 1,
+        title: 'Submit Project Proposal',
+        description: 'Complete and submit the final project proposal',
+        dueDate: now,
+        startTime: '19:00',
+        endTime: '20:30',
+        status: 'pending',
+        priority: 'high',
+        createdBy: 'user1',
+        createdAt: now.subtract(const Duration(days: 1)),
+        updatedAt: now,
+        channelName: 'work',
+        tags: ['work', 'important'],
+      ),
+      ChannelTask(
+        id: 2,
+        threadId: 1,
+        workspaceId: 1,
+        title: 'Yoga Class',
+        description: 'Attend the evening yoga session at the wellness center',
+        dueDate: now,
+        status: 'pending',
+        priority: 'medium',
+        createdBy: 'user1',
+        createdAt: now.subtract(const Duration(days: 2)),
+        updatedAt: now,
+        channelName: 'personal',
+      ),
+      ChannelTask(
+        id: 3,
+        threadId: 2,
+        workspaceId: 1,
+        title: 'Grocery shopping',
+        description: 'Buy groceries for upcoming weeks',
+        dueDate: now.add(const Duration(days: 1)),
+        status: 'pending',
+        priority: 'low',
+        createdBy: 'user1',
+        createdAt: now.subtract(const Duration(hours: 5)),
+        updatedAt: now,
+        channelName: 'personal',
+        tags: ['personal', 'routines'],
+      ),
+    ];
+  }
+
+  Future<void> _loadWorkspaces() async {
+    try {
+      setState(() => _loadingWorkspaces = true);
+      
+      if (_useRealBackend) {
         print('🔄 Attempting to load workspaces from backend API...');
         final workspaces = await _workspaceService.getWorkspaces();
         
-        // Check subscription status for workspace limits
         try {
           final subStatus = await _subscriptionService.getSubscriptionStatus();
           _subscriptionTier = subStatus?.planName ?? 'free';
           final workspaceCount = workspaces.length;
-          
-          // Free tier: max 1 workspace
-          if (_subscriptionTier == 'free' && workspaceCount >= 1) {
-            _canCreateWorkspace = false;
-          } else {
-            _canCreateWorkspace = true;
-          }
+          _canCreateWorkspace = !(_subscriptionTier == 'free' && workspaceCount >= 1);
           print('🔐 Subscription: $_subscriptionTier, Can create: $_canCreateWorkspace');
         } catch (e) {
           print('⚠️ Could not fetch subscription status: $e');
-          _canCreateWorkspace = true; // Allow by default if check fails
+          _canCreateWorkspace = true;
         }
         
         setState(() {
           _workspaces = workspaces;
-          _loading = false;
+          _loadingWorkspaces = false;
         });
-        
         print('✅ Loaded ${workspaces.length} workspaces from backend');
       } else {
-        // Fallback to demo data for development
         print('🔄 Using demo workspaces for development');
         await Future.delayed(const Duration(milliseconds: 1500));
         
@@ -149,35 +230,22 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
             createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
             settings: {'color': 'blue'},
           ),
-          Workspace(
-            id: 'ws_demo_3',
-            name: 'Customer Success',
-            description: 'Support tickets, onboarding, and customer feedback',
-            ownerId: 'other_user',
-            role: 'member',
-            memberCount: 5,
-            channelCount: 3,
-            createdAt: DateTime.now().subtract(const Duration(days: 1)),
-            settings: {'color': 'green'},
-          ),
         ];
         
         setState(() {
           _workspaces = demoWorkspaces;
-          // Sort workspaces by creation date
           _workspaces.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          _loading = false;
+          _loadingWorkspaces = false;
         });
       }
     } catch (e) {
       print('❌ Error loading workspaces: $e');
-      setState(() => _loading = false);
+      setState(() => _loadingWorkspaces = false);
       
-      // Try demo data as fallback
       if (_useRealBackend) {
         print('🔄 Falling back to demo data...');
         setState(() => _useRealBackend = false);
-        _loadWorkspaces(); // Retry with demo data
+        _loadWorkspaces();
       } else {
         _showErrorSnackBar('Failed to load workspaces: $e');
       }
@@ -224,34 +292,318 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.grey.shade50,
-              Colors.white,
-              Colors.grey.shade50,
-            ],
+            colors: [Colors.grey.shade50, Colors.white, Colors.grey.shade50],
             stops: const [0.0, 0.5, 1.0],
           ),
         ),
-        child: SafeArea(
-          child: _loading ? _buildLoadingScreen() : _buildBodyContent(),
-        ),
+        child: SafeArea(child: _buildBodyContent()),
       ),
       bottomNavigationBar: _buildBottomNavigation(),
+      floatingActionButton: _selectedBottomNavIndex == 0 
+          ? FloatingActionButton(
+              onPressed: () => _showSuccessSnackBar('Quick add task coming soon!'),
+              backgroundColor: Colors.red.shade500,
+              child: const Icon(Icons.add, color: Colors.white, size: 28),
+            )
+          : null,
     );
   }
 
   Widget _buildBodyContent() {
-    if (_selectedBottomNavIndex == 0) {
-      return _buildMainContent();
-    } else if (_selectedBottomNavIndex == 1) {
-      return _buildCalendarPlaceholder();
-    } else if (_selectedBottomNavIndex == 2) {
-      return _buildTimelinePlaceholder();
-    } else if (_selectedBottomNavIndex == 3) {
-      return _buildKnowledgePlaceholder();
-    } else {
-      return _buildWeeklyCalendarPlaceholder();
+    switch (_selectedBottomNavIndex) {
+      case 0: return _buildTodayView();
+      case 1: return _buildCalendarView();
+      case 2: return _buildWorkspacesView();
+      case 3: return _buildKnowledgePlaceholder();
+      default: return _buildTodayView();
     }
+  }
+
+  // ==================== TODAY VIEW (Todoist-style) ====================
+  Widget _buildTodayView() {
+    final now = DateTime.now();
+    final dateFormatter = DateFormat('MMM d');
+    final dayFormatter = DateFormat('EEEE');
+    
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.more_horiz, color: Colors.red),
+                          onPressed: () {},
+                        ),
+                        GestureDetector(
+                          onTap: widget.onSignOut,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Text(
+                              'Sign Out',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Today', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${dateFormatter.format(now)} · ${dayFormatter.format(now)}',
+                      style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    Divider(color: Colors.grey.shade200, thickness: 1),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (_loadingTasks)
+          const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+        else if (_myTasks.isEmpty)
+          SliverFillRemaining(child: _buildEmptyTasksState())
+        else
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildTaskItem(_myTasks[index]),
+              childCount: _myTasks.length,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyTasksState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 80, color: Colors.grey.shade300),
+            const SizedBox(height: 24),
+            Text('All caught up!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+            const SizedBox(height: 12),
+            Text('No tasks for today. Enjoy your free time!', style: TextStyle(fontSize: 16, color: Colors.grey.shade500), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskItem(ChannelTask task) {
+    Color priorityColor;
+    switch (task.priority) {
+      case 'high': priorityColor = Colors.red.shade400; break;
+      case 'medium': priorityColor = Colors.orange.shade400; break;
+      default: priorityColor = Colors.blue.shade400;
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _showSuccessSnackBar('Task detail coming soon!'),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    try {
+                      if (task.userCompleted || task.isComplete) {
+                        await _taskService.markTaskIncomplete(
+                          workspaceId: task.workspaceId.toString(),
+                          threadId: task.threadId.toString(),
+                          taskId: task.id,
+                        );
+                      } else {
+                        await _taskService.markTaskComplete(
+                          workspaceId: task.workspaceId.toString(),
+                          threadId: task.threadId.toString(),
+                          taskId: task.id,
+                        );
+                      }
+                      _loadMyTasks();
+                    } catch (e) {
+                      _showErrorSnackBar('Failed to update task: $e');
+                    }
+                  },
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: task.userCompleted || task.isComplete ? Colors.green : priorityColor,
+                        width: 2,
+                      ),
+                      color: task.userCompleted || task.isComplete ? Colors.green : Colors.transparent,
+                    ),
+                    child: task.userCompleted || task.isComplete
+                        ? const Icon(Icons.check, size: 16, color: Colors.white)
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        task.title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: task.userCompleted || task.isComplete ? Colors.grey.shade400 : Colors.black87,
+                          decoration: task.userCompleted || task.isComplete ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      if (task.description != null && task.description!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(task.description!, style: TextStyle(fontSize: 14, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 4,
+                        children: [
+                          if (task.startTime != null)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.access_time, size: 14, color: Colors.green.shade600),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${task.startTime}${task.endTime != null ? '-${task.endTime}' : ''}',
+                                  style: TextStyle(fontSize: 12, color: Colors.green.shade600, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          if (task.requiresIndividualResponse && task.progressInfo != null)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.group, size: 14, color: Colors.grey.shade500),
+                                const SizedBox(width: 4),
+                                Text(task.completionText, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                              ],
+                            ),
+                          if (task.tags.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.label_outline, size: 14, color: Colors.grey.shade500),
+                                const SizedBox(width: 4),
+                                Text(task.tags.length.toString(), style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                              ],
+                            ),
+                          if (task.channelName != null)
+                            Text(task.channelName!, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== CALENDAR VIEW ====================
+  Widget _buildCalendarView() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              _buildCalendarTypeButton('Monthly', 0, Icons.calendar_month),
+              const SizedBox(width: 8),
+              _buildCalendarTypeButton('Weekly', 1, Icons.view_week),
+              const SizedBox(width: 8),
+              _buildCalendarTypeButton('Timeline', 2, Icons.timeline),
+            ],
+          ),
+        ),
+        Expanded(child: _buildSelectedCalendarView()),
+      ],
+    );
+  }
+
+  Widget _buildCalendarTypeButton(String label, int index, IconData icon) {
+    final isSelected = _selectedCalendarView == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedCalendarView = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.blue.shade600 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.grey.shade600),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : Colors.grey.shade600)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedCalendarView() {
+    switch (_selectedCalendarView) {
+      case 0: return _buildCalendarPlaceholder();
+      case 1: return _buildWeeklyCalendarPlaceholder();
+      case 2: return _buildTimelinePlaceholder();
+      default: return _buildCalendarPlaceholder();
+    }
+  }
+
+  // ==================== WORKSPACES VIEW ====================
+  Widget _buildWorkspacesView() {
+    if (_loadingWorkspaces) return _buildLoadingScreen();
+    return CustomScrollView(
+      slivers: [
+        _buildWorkspacesHeader(),
+        _buildSearchBar(),
+        _buildWorkspaceGrid(),
+      ],
+    );
   }
 
   Widget _buildLoadingScreen() {
@@ -264,55 +616,24 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 2,
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 2, blurRadius: 10, offset: const Offset(0, 2))],
             ),
-            child: const Icon(
-              Icons.message_rounded,
-              size: 48,
-              color: Colors.grey,
-            ),
+            child: const Icon(Icons.message_rounded, size: 48, color: Colors.grey),
           ),
           const SizedBox(height: 32),
           SizedBox(
             width: 40,
             height: 40,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
-            ),
+            child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600)),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Loading your workspaces...',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text('Loading your workspaces...', style: TextStyle(fontSize: 16, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
-  Widget _buildMainContent() {
-    return CustomScrollView(
-      slivers: [
-        _buildHeader(),
-        _buildSearchBar(),
-        _buildWorkspaceGrid(),
-      ],
-    );
-  }
-
-  Widget _buildHeader() {
+  Widget _buildWorkspacesHeader() {
     return SliverToBoxAdapter(
       child: FadeTransition(
         opacity: _fadeAnimation,
@@ -320,79 +641,42 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           position: _slideAnimation,
           child: Container(
             padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // App Header
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 4, offset: const Offset(0, 1))],
+                      ),
+                      child: Icon(Icons.message_rounded, size: 24, color: Colors.grey.shade700),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                spreadRadius: 1,
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.message_rounded,
-                            size: 24,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'crew',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              'Welcome back, Demo User!',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
+                        const Text('crew', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        Text('Your Workspaces', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
                       ],
                     ),
-                    GestureDetector(
-                      onTap: widget.onSignOut,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Text(
-                          'Sign Out',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
+                ),
+                GestureDetector(
+                  onTap: widget.onSignOut,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Text('Sign Out', style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                  ),
                 ),
               ],
             ),
@@ -418,35 +702,18 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey.shade200),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.05),
-                        spreadRadius: 1,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), spreadRadius: 1, blurRadius: 8, offset: const Offset(0, 2))],
                   ),
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Search workspaces...',
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
-                        color: Colors.grey.shade400,
-                      ),
+                      prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade400),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.all(20),
-                      hintStyle: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 16,
-                      ),
+                      hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 16),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                    },
+                    onChanged: (value) => setState(() => _searchQuery = value),
                   ),
                 ),
               ),
@@ -458,9 +725,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   }
 
   Widget _buildWorkspaceGrid() {
-    // Show create card only if user can create workspaces
     final showCreateCard = _canCreateWorkspace;
-    
     return SliverPadding(
       padding: const EdgeInsets.all(24),
       sliver: SliverGrid(
@@ -486,32 +751,6 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   }
 
   Widget _buildWorkspaceCard(Workspace workspace, int index) {
-    return AnimatedBuilder(
-      animation: _fadeAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, 30 * (1 - _fadeAnimation.value)),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: TweenAnimationBuilder<double>(
-              duration: Duration(milliseconds: 800 + (index * 100)),
-              tween: Tween(begin: 0.0, end: 1.0),
-              curve: Curves.easeOutBack,
-              builder: (context, value, child) {
-                return Transform.scale(
-                  scale: 0.8 + (0.2 * value),
-                  child: _buildWorkspaceCardContent(workspace),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildWorkspaceCardContent(Workspace workspace) {
-    // Get color from workspace settings
     Color workspaceColor = Colors.blue;
     final colorName = workspace.color;
     switch (colorName) {
@@ -529,363 +768,140 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       onTap: () => widget.onSelectWorkspace?.call(workspace.toJson()),
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white,
-              Colors.white.withOpacity(0.8),
-            ],
-          ),
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.white.withOpacity(0.8)]),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white.withOpacity(0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 2,
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 2, blurRadius: 12, offset: const Offset(0, 4))],
         ),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  Stack(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: workspaceColor,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: workspaceColor.withOpacity(0.3),
-                              spreadRadius: 1,
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.workspaces_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: workspaceColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: workspaceColor.withOpacity(0.3), spreadRadius: 1, blurRadius: 8, offset: const Offset(0, 2))],
+                ),
+                child: const Icon(Icons.workspaces_rounded, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(workspace.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Text(workspace.description ?? 'No description', style: TextStyle(fontSize: 13, color: Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                workspace.name,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (workspace.unreadCount > 0) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade600,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  workspace.unreadCount > 99 ? '99+' : '${workspace.unreadCount}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          workspace.description ?? 'No description',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                            height: 1.2,
+                        Icon(Icons.people_rounded, size: 16, color: Colors.grey.shade500),
+                        const SizedBox(width: 6),
+                        Text('${workspace.memberCount}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                        const SizedBox(width: 4),
+                        Text('·', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                        const SizedBox(width: 4),
+                        Flexible(child: Text(workspace.lastActivity, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        if (workspace.isAdmin) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                            child: Text('Admin', style: TextStyle(fontSize: 10, color: Colors.blue.shade700, fontWeight: FontWeight.w600)),
                           ),
-                          maxLines: 1,  // Reduced to 1 line to save space
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.people_rounded,
-                              size: 16,
-                              color: Colors.grey.shade500,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${workspace.memberCount}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '•',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade400,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                workspace.lastActivity,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade500,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (workspace.isAdmin) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Admin',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.blue.shade700,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
+                        ],
                       ],
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: Colors.grey.shade400,
-                    size: 28,
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 28),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCreateWorkspaceCard() {
-    return AnimatedBuilder(
-      animation: _fadeAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, 30 * (1 - _fadeAnimation.value)),
-          child: Opacity(
-            opacity: _fadeAnimation.value * 0.8,
-            child: GestureDetector(
-              onTap: () => _showCreateWorkspaceDialog(),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.grey.shade50,
-                      Colors.white.withOpacity(0.5),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.grey.shade300,
-                    style: BorderStyle.solid,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.05),
-                      spreadRadius: 1,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
+    return GestureDetector(
+      onTap: () => _showCreateWorkspaceDialog(),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.grey.shade50, Colors.white.withOpacity(0.5)]),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid, width: 2),
+          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), spreadRadius: 1, blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(14)),
+                child: Icon(Icons.add_rounded, size: 28, color: Colors.grey.shade600),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Create New Workspace', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey.shade700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text('Start a new workspace', style: TextStyle(fontSize: 13, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(
-                          Icons.add_rounded,
-                          size: 28,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Create New Workspace',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade700,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Start a new workspace',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
-            ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   Widget _buildUpgradePromptCard() {
-    return AnimatedBuilder(
-      animation: _fadeAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, 30 * (1 - _fadeAnimation.value)),
-          child: Opacity(
-            opacity: _fadeAnimation.value * 0.8,
-            child: GestureDetector(
-              onTap: () => _showSubscriptionLimitDialog(),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.orange.shade50,
-                      Colors.white.withOpacity(0.5),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.orange.shade200,
-                    style: BorderStyle.solid,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.orange.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
+    return GestureDetector(
+      onTap: () => _showSubscriptionLimitDialog(),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.orange.shade50, Colors.white.withOpacity(0.5)]),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.orange.shade200, style: BorderStyle.solid, width: 2),
+          boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.1), spreadRadius: 1, blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(14)),
+                child: Icon(Icons.workspace_premium, size: 28, color: Colors.orange.shade700),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Upgrade to Pro', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange.shade700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text('Create unlimited workspaces', style: TextStyle(fontSize: 13, color: Colors.orange.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade100,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(
-                          Icons.workspace_premium,
-                          size: 28,
-                          color: Colors.orange.shade700,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Upgrade to Pro',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange.shade700,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Create unlimited workspaces',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.orange.shade600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
-            ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -895,13 +911,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       barrierColor: Colors.black54,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Create New Workspace',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Create New Workspace', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -912,23 +922,12 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
                 hintText: 'Workspace name',
                 filled: true,
                 fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.blue.shade500, width: 2),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.blue.shade500, width: 2)),
                 contentPadding: const EdgeInsets.all(16),
               ),
-              onChanged: (value) {
-                setState(() => _newWorkspaceName = value);
-              },
+              onChanged: (value) => setState(() => _newWorkspaceName = value),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -938,23 +937,12 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
                 hintText: 'Description (optional)',
                 filled: true,
                 fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.blue.shade500, width: 2),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.blue.shade500, width: 2)),
                 contentPadding: const EdgeInsets.all(16),
               ),
-              onChanged: (value) {
-                setState(() => _newWorkspaceDescription = value);
-              },
+              onChanged: (value) => setState(() => _newWorkspaceDescription = value),
             ),
           ],
         ),
@@ -964,51 +952,25 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
               Navigator.of(context).pop();
               _nameController.clear();
               _descriptionController.clear();
-              setState(() {
-                _newWorkspaceName = '';
-                _newWorkspaceDescription = '';
-              });
+              setState(() { _newWorkspaceName = ''; _newWorkspaceDescription = ''; });
             },
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
-            onPressed: _creating || _newWorkspaceName.trim().isEmpty 
-                ? null 
-                : () async {
-                    await _createWorkspace();
-                    if (mounted) Navigator.of(context).pop();
-                  },
+            onPressed: _creating || _newWorkspaceName.trim().isEmpty ? null : () async {
+              await _createWorkspace();
+              if (mounted) Navigator.of(context).pop();
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade600,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 2,
             ),
-            child: _creating 
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    'Create',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
+            child: _creating
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
+                : const Text('Create', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
           ),
         ],
       ),
@@ -1017,29 +979,22 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
 
   Future<void> _createWorkspace() async {
     setState(() => _creating = true);
-    
     try {
       if (_useRealBackend) {
-        // Use real backend API
         print('🏗️ Creating workspace via backend API: $_newWorkspaceName');
         final newWorkspace = await _workspaceService.createWorkspace(
           name: _newWorkspaceName,
           description: _newWorkspaceDescription.isEmpty ? null : _newWorkspaceDescription,
         );
-        
         setState(() {
           _workspaces.insert(0, newWorkspace);
-          _showCreateForm = false;
           _nameController.clear();
           _descriptionController.clear();
           _newWorkspaceName = '';
           _newWorkspaceDescription = '';
           _creating = false;
         });
-        
         print('✅ Workspace created successfully: ${newWorkspace.name}');
-        
-        // Refetch subscription status to update workspace count
         try {
           await _subscriptionService.getSubscriptionStatus();
           print('🔄 Subscription status refreshed after workspace creation');
@@ -1047,9 +1002,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           print('⚠️ Failed to refresh subscription status: $e');
         }
       } else {
-        // Simulate workspace creation for demo mode
         await Future.delayed(const Duration(milliseconds: 1500));
-        
         final newWorkspace = Workspace(
           id: 'ws_demo_${DateTime.now().millisecondsSinceEpoch}',
           name: _newWorkspaceName,
@@ -1061,10 +1014,8 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           createdAt: DateTime.now(),
           settings: {'color': _getRandomColorName()},
         );
-        
         setState(() {
           _workspaces.insert(0, newWorkspace);
-          _showCreateForm = false;
           _nameController.clear();
           _descriptionController.clear();
           _newWorkspaceName = '';
@@ -1072,13 +1023,10 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           _creating = false;
         });
       }
-      
       _showSuccessSnackBar('Workspace created successfully!');
     } catch (e) {
       print('❌ Error creating workspace: $e');
       setState(() => _creating = false);
-      
-      // Handle subscription limit error specifically
       final errorMessage = e.toString();
       if (errorMessage.contains('403') || errorMessage.contains('Subscription Limit')) {
         _showSubscriptionLimitDialog();
@@ -1087,55 +1035,33 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       }
     }
   }
-  
+
   void _showSubscriptionLimitDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.workspace_premium, color: Colors.orange),
-            SizedBox(width: 12),
-            Text('Workspace Limit Reached'),
-          ],
-        ),
+        title: const Row(children: [Icon(Icons.workspace_premium, color: Colors.orange), SizedBox(width: 12), Text('Workspace Limit Reached')]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'You\'ve reached your workspace limit for the Free Plan.',
-              style: TextStyle(fontSize: 16),
-            ),
+            const Text('You\'ve reached your workspace limit for the Free Plan.', style: TextStyle(fontSize: 16)),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                '💡 Upgrade to a paid plan to create unlimited workspaces and unlock more features!',
-                style: TextStyle(fontSize: 14),
-              ),
+              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+              child: const Text('💡 Upgrade to a paid plan to create unlimited workspaces and unlock more features!', style: TextStyle(fontSize: 14)),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Maybe Later'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Maybe Later')),
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // TODO: Navigate to subscription/upgrade screen
               _showSuccessSnackBar('Subscription upgrade coming soon!');
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade600, foregroundColor: Colors.white),
             child: const Text('View Plans'),
           ),
         ],
@@ -1148,61 +1074,24 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     return colors[math.Random().nextInt(colors.length)];
   }
 
-  Color _getRandomColor() {
-    final colors = [
-      Colors.purple.shade500,
-      Colors.blue.shade500,
-      Colors.green.shade500,
-      Colors.red.shade500,
-      Colors.orange.shade500,
-      Colors.teal.shade500,
-      Colors.indigo.shade500,
-    ];
-    return colors[math.Random().nextInt(colors.length)];
-  }
-
+  // ==================== PLACEHOLDER VIEWS ====================
   Widget _buildCalendarPlaceholder() {
-    return _buildFeaturePlaceholder(
-      icon: Icons.calendar_month,
-      title: 'Monthly Calendar',
-      description: 'View tasks and events across all workspaces',
-      color: Colors.purple,
-    );
+    return _buildFeaturePlaceholder(icon: Icons.calendar_month, title: 'Monthly Calendar', description: 'View tasks and events across all workspaces', color: Colors.purple);
   }
 
   Widget _buildWeeklyCalendarPlaceholder() {
-    return _buildFeaturePlaceholder(
-      icon: Icons.view_week,
-      title: 'Weekly Calendar',
-      description: 'Week view with time blocking and schedules',
-      color: Colors.teal,
-    );
+    return _buildFeaturePlaceholder(icon: Icons.view_week, title: 'Weekly Calendar', description: 'Week view with time blocking and schedules', color: Colors.teal);
   }
 
   Widget _buildTimelinePlaceholder() {
-    return _buildFeaturePlaceholder(
-      icon: Icons.timeline,
-      title: 'Timeline',
-      description: 'Gantt chart with task dependencies and progress',
-      color: Colors.orange,
-    );
+    return _buildFeaturePlaceholder(icon: Icons.timeline, title: 'Timeline', description: 'Gantt chart with task dependencies and progress', color: Colors.orange);
   }
 
   Widget _buildKnowledgePlaceholder() {
-    return _buildFeaturePlaceholder(
-      icon: Icons.library_books,
-      title: 'Knowledge Base',
-      description: 'Organized knowledge with categories and tagging',
-      color: Colors.green,
-    );
+    return _buildFeaturePlaceholder(icon: Icons.library_books, title: 'Knowledge Base', description: 'Organized knowledge with categories and tagging', color: Colors.green);
   }
 
-  Widget _buildFeaturePlaceholder({
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-  }) {
+  Widget _buildFeaturePlaceholder({required IconData icon, required String title, required String description, required Color color}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1211,46 +1100,18 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
-              ),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(24)),
               child: Icon(icon, size: 64, color: color),
             ),
             const SizedBox(height: 24),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(title, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey.shade800), textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            Text(
-              description,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(description, style: TextStyle(fontSize: 16, color: Colors.grey.shade600), textAlign: TextAlign.center),
             const SizedBox(height: 32),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '🚀 Navigate directly from home',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.blue.shade700,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+              child: Text('🚀 Navigate directly from home', style: TextStyle(fontSize: 14, color: Colors.blue.shade700, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -1258,45 +1119,21 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     );
   }
 
+  // ==================== BOTTOM NAVIGATION ====================
   Widget _buildBottomNavigation() {
     return BottomNavigationBar(
       currentIndex: _selectedBottomNavIndex,
-      onTap: (index) {
-        setState(() {
-          _selectedBottomNavIndex = index;
-        });
-      },
+      onTap: (index) => setState(() => _selectedBottomNavIndex = index),
       type: BottomNavigationBarType.fixed,
       selectedItemColor: Colors.blue.shade600,
       unselectedItemColor: Colors.grey.shade500,
       selectedFontSize: 12,
       unselectedFontSize: 11,
       items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.workspaces_outlined),
-          activeIcon: Icon(Icons.workspaces),
-          label: 'Workspaces',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.calendar_month_outlined),
-          activeIcon: Icon(Icons.calendar_month),
-          label: 'Calendar',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.timeline_outlined),
-          activeIcon: Icon(Icons.timeline),
-          label: 'Timeline',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.library_books_outlined),
-          activeIcon: Icon(Icons.library_books),
-          label: 'Knowledge',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.view_week_outlined),
-          activeIcon: Icon(Icons.view_week),
-          label: 'Weekly',
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.today_outlined), activeIcon: Icon(Icons.today), label: 'Today'),
+        BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), activeIcon: Icon(Icons.calendar_month), label: 'Calendar'),
+        BottomNavigationBarItem(icon: Icon(Icons.workspaces_outlined), activeIcon: Icon(Icons.workspaces), label: 'Workspaces'),
+        BottomNavigationBarItem(icon: Icon(Icons.library_books_outlined), activeIcon: Icon(Icons.library_books), label: 'Knowledge'),
       ],
     );
   }

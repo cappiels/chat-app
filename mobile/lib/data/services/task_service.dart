@@ -9,6 +9,54 @@ class TaskService {
 
   TaskService() : _httpClient = HttpClient();
 
+  // Get all tasks assigned to or created by the current user (across all workspaces)
+  Future<List<ChannelTask>> getMyTasks({
+    String? status,
+    String? startDate,
+    String? endDate,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final token = await user.getIdToken(true);
+      final queryParams = <String, dynamic>{
+        'my_tasks': 'true',
+        'limit': limit,
+        'offset': offset,
+      };
+
+      if (status != null) queryParams['status'] = status;
+      if (startDate != null) queryParams['start_date'] = startDate;
+      if (endDate != null) queryParams['end_date'] = endDate;
+
+      final response = await _httpClient.get(
+        '/api/tasks/all',
+        queryParameters: queryParams,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (response.data != null && response.data['tasks'] != null) {
+        final tasksData = response.data['tasks'] as List;
+        return tasksData
+            .map((taskJson) => ChannelTask.fromJson(taskJson as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching my tasks: $e');
+      rethrow;
+    }
+  }
+
   // Get all tasks for a channel
   Future<List<ChannelTask>> getChannelTasks({
     required String workspaceId,
