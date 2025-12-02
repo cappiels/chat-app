@@ -13,7 +13,9 @@ const pool = createPool();
 const requireChannelMembership = async (req, res, next) => {
   try {
     const { workspaceId, threadId } = req.params;
-    const userId = req.user.id; // Fixed: use req.user.id instead of req.user.uid
+    const userId = req.user.id;
+
+    console.log(`🔍 Checking channel membership - workspaceId: ${workspaceId}, threadId: ${threadId}, userId: ${userId}`);
 
     // Check if user is member of this channel
     const result = await pool.query(`
@@ -23,15 +25,20 @@ const requireChannelMembership = async (req, res, next) => {
       WHERE t.id = $1 AND t.workspace_id = $2 AND tm.user_id = $3
     `, [threadId, workspaceId, userId]);
 
+    console.log(`🔍 Channel membership result: ${JSON.stringify(result.rows)}`);
+
     if (result.rows.length === 0) {
+      console.log(`❌ User ${userId} is not a member of channel ${threadId} in workspace ${workspaceId}`);
       return res.status(403).json({ error: 'Not a member of this channel' });
     }
 
     req.channelRole = result.rows[0].role;
+    console.log(`✅ User is member with role: ${req.channelRole}`);
     next();
   } catch (error) {
-    console.error('Error checking channel membership:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ Error checking channel membership:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };
 
@@ -678,12 +685,16 @@ router.post('/:taskId/complete', async (req, res) => {
     const { workspaceId, threadId, taskId } = req.params;
     const userId = req.user.id;
 
+    console.log(`📝 Task completion request - workspaceId: ${workspaceId}, threadId: ${threadId}, taskId: ${taskId}, userId: ${userId}`);
+
     // Simplified completion - directly update the task without complex SQL function
     // 1. First, get the current task
+    console.log(`🔍 Looking for task: SELECT * FROM channel_tasks WHERE id = '${taskId}' AND thread_id = '${threadId}'`);
     const taskResult = await pool.query(
       'SELECT * FROM channel_tasks WHERE id = $1 AND thread_id = $2',
       [taskId, threadId]
     );
+    console.log(`🔍 Task result: found ${taskResult.rows.length} rows`);
 
     if (taskResult.rows.length === 0) {
       return res.status(404).json({ error: 'Task not found' });
