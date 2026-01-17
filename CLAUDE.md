@@ -7,7 +7,7 @@
 - **Node.js backend** (Express + Socket.IO)
 - **Flutter mobile app** (iOS/Android)
 
-Current version: **1.8.112**
+Current version: **1.8.115**
 
 ## Project Structure
 
@@ -101,12 +101,26 @@ See `TESTFLIGHT-AUTOMATED-UPLOAD.md` for setup instructions.
 **Team ID:** `6F3PF6MQQ3`
 **Developer:** Steven Cappiello
 
+### App Store Connect API Key (TestFlight Uploads)
+- **Key ID:** `X4J63BNVLN`
+- **Issuer ID:** `69a6de7c-f98d-47e3-e053-5b8c7c11a4d1`
+- **Key File:** `~/private_keys/AuthKey_X4J63BNVLN.p8`
+- **Purpose:** Uploading builds to TestFlight via `xcrun altool`
+- **Environment Variables:** `ASC_KEY_ID`, `ASC_ISSUER_ID` (set in `~/.zshrc`)
+
 ### APNs Key (Push Notifications)
-- **Key Name:** CrewChat Push Notifications
 - **Key ID:** `6T9WAAP9SY`
 - **Key File:** `~/private_keys/AuthKey_6T9WAAP9SY.p8`
-- **Services:** Apple Push Notifications service (APNs)
+- **Purpose:** Push notifications (APNs) - used by backend, NOT for TestFlight
 - **Environment:** Sandbox & Production
+
+### Manual TestFlight Upload
+If the deploy script fails to upload to TestFlight, run manually:
+```bash
+export ASC_KEY_ID="X4J63BNVLN"
+export ASC_ISSUER_ID="69a6de7c-f98d-47e3-e053-5b8c7c11a4d1"
+xcrun altool --upload-app --type ios -f "mobile/build/ios/ipa/Crew Chat.ipa" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+```
 
 ## Production URLs
 
