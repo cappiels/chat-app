@@ -106,18 +106,18 @@ router.get('/all', async (req, res) => {
     const params = [userId];
     let paramCount = 1;
 
-    // Filter by workspace IDs
+    // Filter by workspace IDs (UUIDs - do not parseInt!)
     if (workspaceIds && workspaceIds.length > 0) {
       paramCount++;
-      query += ` AND ct.workspace_id = ANY($${paramCount})`;
-      params.push(workspaceIds.map(id => parseInt(id)));
+      query += ` AND ct.workspace_id = ANY($${paramCount}::uuid[])`;
+      params.push(workspaceIds);
     }
 
-    // Filter by channel IDs
+    // Filter by channel IDs (UUIDs - do not parseInt!)
     if (channelIds && channelIds.length > 0) {
       paramCount++;
-      query += ` AND ct.thread_id = ANY($${paramCount})`;
-      params.push(channelIds.map(id => parseInt(id)));
+      query += ` AND ct.thread_id = ANY($${paramCount}::uuid[])`;
+      params.push(channelIds);
     }
 
     // Filter by status
@@ -195,14 +195,14 @@ router.get('/all', async (req, res) => {
 
     if (workspaceIds && workspaceIds.length > 0) {
       countParamCount++;
-      countQuery += ` AND ct.workspace_id = ANY($${countParamCount})`;
-      countParams.push(workspaceIds.map(id => parseInt(id)));
+      countQuery += ` AND ct.workspace_id = ANY($${countParamCount}::uuid[])`;
+      countParams.push(workspaceIds);
     }
 
     if (channelIds && channelIds.length > 0) {
       countParamCount++;
-      countQuery += ` AND ct.thread_id = ANY($${countParamCount})`;
-      countParams.push(channelIds.map(id => parseInt(id)));
+      countQuery += ` AND ct.thread_id = ANY($${countParamCount}::uuid[])`;
+      countParams.push(channelIds);
     }
 
     if (status) {
@@ -326,8 +326,8 @@ router.get('/channels', async (req, res) => {
 
     if (workspaceIds && workspaceIds.length > 0) {
       paramCount++;
-      query += ` AND t.workspace_id = ANY($${paramCount})`;
-      params.push(workspaceIds.map(id => parseInt(id)));
+      query += ` AND t.workspace_id = ANY($${paramCount}::uuid[])`;
+      params.push(workspaceIds);
     }
 
     query += ` ORDER BY w.name ASC, t.name ASC`;

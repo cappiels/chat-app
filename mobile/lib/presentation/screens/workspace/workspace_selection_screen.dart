@@ -75,6 +75,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   String _subscriptionTier = 'free';
   String? _selectedAssigneeFilter; // null = all, 'me' = assigned to me, 'by_me' = created by me
   String? _taskLoadError;
+  bool _showCompletedTasks = false; // Toggle to show/hide completed tasks
 
   // Task fade-out animation state
   final Map<String, AnimationController> _taskFadeControllers = {};
@@ -216,12 +217,18 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     return keys;
   }
 
-  // Filter tasks based on assignee filter
+  // Filter tasks based on assignee filter and completion status
   List<ChannelTask> get _filteredTasks {
-    if (_selectedAssigneeFilter == null) return _myTasks;
+    var tasks = _myTasks;
+
+    // Filter out completed tasks if toggle is off
+    if (!_showCompletedTasks) {
+      tasks = tasks.where((t) => t.status != 'completed' && !t.isComplete && !t.userCompleted).toList();
+    }
+
     // Note: The API already filters by my_tasks=true which includes both assigned to me AND created by me
     // For more granular filtering, we'd need additional API parameters
-    return _myTasks;
+    return tasks;
   }
 
   // Optimistic UI update for task completion - no screen blink!
@@ -617,6 +624,40 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           _buildFilterChip('Assigned to Me', 'me'),
           const SizedBox(width: 8),
           _buildFilterChip('Created by Me', 'by_me'),
+          const SizedBox(width: 16),
+          // Show completed toggle
+          GestureDetector(
+            onTap: () => setState(() => _showCompletedTasks = !_showCompletedTasks),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _showCompletedTasks ? Colors.green.shade100 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _showCompletedTasks ? Colors.green.shade400 : Colors.grey.shade300,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _showCompletedTasks ? Icons.check_circle : Icons.check_circle_outline,
+                    size: 16,
+                    color: _showCompletedTasks ? Colors.green.shade700 : Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Completed',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _showCompletedTasks ? Colors.green.shade700 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
