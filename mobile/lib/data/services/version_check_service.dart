@@ -42,7 +42,7 @@ class VersionCheckService {
       final currentVersion = packageInfo.version;
 
       // Get server version
-      final response = await _httpClient.get('/version');
+      final response = await _httpClient.get('/api/version');
 
       if (response.statusCode == 200) {
         final serverVersion = response.data['version'] as String;
