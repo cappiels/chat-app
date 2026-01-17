@@ -69,7 +69,6 @@ dependencies:
   # UI enhancements
   cached_network_image: ^3.3.0
   photo_view: ^0.14.0
-  url_launcher: ^6.1.12
   
   # Additional utilities
   mime: ^1.0.4
