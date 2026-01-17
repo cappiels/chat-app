@@ -7,6 +7,7 @@ import 'auth/login_screen.dart';
 import 'workspace/workspace_selection_screen.dart';
 import 'threads/thread_list_screen.dart';
 import '../../data/services/push_notification_service.dart';
+import '../../data/services/version_check_service.dart';
 
 /// 🏆 STEP 2: REAL APP WITH FIREBASE AUTHENTICATION
 class MainApp extends ConsumerStatefulWidget {
@@ -21,12 +22,39 @@ class _MainAppState extends ConsumerState<MainApp> {
   String? _pendingInviteToken;
   StreamSubscription? _linkSubscription;
   bool _pushNotificationsInitialized = false;
+  bool _versionCheckDone = false;
 
   @override
   void initState() {
     super.initState();
     _initDeepLinks();
     _initPushNotifications();
+    _checkForUpdates();
+  }
+
+  /// 📱 VERSION CHECK: Check for app updates on startup
+  Future<void> _checkForUpdates() async {
+    if (_versionCheckDone) return;
+
+    // Wait a moment for the app to initialize
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    try {
+      final versionService = ref.read(versionCheckServiceProvider);
+      final result = await versionService.checkForUpdate();
+
+      _versionCheckDone = true;
+
+      if (result.updateAvailable && mounted) {
+        // Show update dialog
+        versionService.showUpdateDialog(context, result);
+      }
+    } catch (e) {
+      debugPrint('❌ Version check error: $e');
+      _versionCheckDone = true;
+    }
   }
 
   /// 🔔 PUSH NOTIFICATIONS: Initialize when user is authenticated
