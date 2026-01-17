@@ -2,32 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
 import 'package:uni_links/uni_links.dart';
 import 'firebase_options.dart';
 import 'presentation/screens/main_app.dart';
+import 'data/services/push_notification_service.dart';
 
 void main() async {
   // Catch ALL errors to prevent white screen
   FlutterError.onError = (details) {
     print('❌ Flutter Error: ${details.exceptionAsString()}');
   };
-  
+
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // 🏆 FIREBASE INITIALIZATION: Properly configured with FlutterFire CLI
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print('✅ Firebase initialized successfully');
+
+    // Set up background message handler (must be done before runApp)
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    print('✅ Firebase Messaging background handler registered');
   } catch (e) {
     print('⚠️ Firebase initialization failed: $e');
     // App continues even if Firebase fails - graceful degradation
   }
-  
+
   print('🚀 Starting Crew Mobile App');
-  
+
   // 🚀 BEST PRACTICE: ProviderScope for world-class state management
   runApp(const ProviderScope(child: CrewMobileApp()));
 }

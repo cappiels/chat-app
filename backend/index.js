@@ -24,6 +24,7 @@ const googleSyncRoutes = require('./routes/googleSync');
 const subscriptionRoutes = require('./routes/subscriptions');
 const adminRoutes = require('./routes/admin');
 const globalTasksRoutes = require('./routes/global-tasks');
+const pushNotificationRoutes = require('./routes/pushNotifications');
 
 // Import Socket.IO server
 const SocketServer = require('./socket/socketServer');
@@ -31,6 +32,7 @@ const SocketServer = require('./socket/socketServer');
 // Import email service (initializes automatically)
 const emailService = require('./services/emailService');
 const emailNotificationService = require('./services/emailNotificationService');
+const pushNotificationService = require('./services/pushNotificationService');
 
 // --- Initialization ---
 const app = express();
@@ -245,6 +247,7 @@ app.use('/api/sync/google', googleSyncRoutes); // Google sync routes
 app.use('/api/subscriptions', subscriptionRoutes); // Stripe subscription routes
 app.use('/api/admin', adminRoutes); // Site admin routes
 app.use('/api/tasks', globalTasksRoutes); // Global multi-workspace tasks routes
+app.use('/api/push', pushNotificationRoutes); // Push notification routes
 
 // Legacy workspace endpoint (for backward compatibility)
 app.post('/workspaces', async (req, res) => {
@@ -337,6 +340,7 @@ process.removeAllListeners('SIGINT');
 
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
+  pushNotificationService.shutdown();
   socketServer.io.close();
   await pool.end();
   process.exit(0);
@@ -344,6 +348,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully...');
+  pushNotificationService.shutdown();
   socketServer.io.close();
   await pool.end();
   process.exit(0);
@@ -356,8 +361,11 @@ httpServer.listen(port, '0.0.0.0', () => {
   console.log(`⏰ Started at: ${new Date().toISOString()}`);
   console.log(`🔌 Socket.IO server initialized and ready for real-time connections`);
   console.log(`📧 Gmail service account configured: ${!!process.env.GMAIL_SERVICE_ACCOUNT_EMAIL}`);
-  
+
   // 🔥 Connect socket server to already mounted workspace routes
   workspaceRoutes.setSocketServer && workspaceRoutes.setSocketServer(socketServer);
   console.log(`🔌 Socket server connected to workspace routes for real-time messaging`);
+
+  // 🔔 Start push notification background processing
+  pushNotificationService.startBackgroundProcessing();
 });

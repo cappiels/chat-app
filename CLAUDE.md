@@ -96,6 +96,18 @@ To enable automatic TestFlight uploads, set these environment variables:
 
 See `TESTFLIGHT-AUTOMATED-UPLOAD.md` for setup instructions.
 
+## Apple Developer Credentials
+
+**Team ID:** `6F3PF6MQQ3`
+**Developer:** Steven Cappiello
+
+### APNs Key (Push Notifications)
+- **Key Name:** CrewChat Push Notifications
+- **Key ID:** `6T9WAAP9SY`
+- **Key File:** `~/private_keys/AuthKey_6T9WAAP9SY.p8`
+- **Services:** Apple Push Notifications service (APNs)
+- **Environment:** Sandbox & Production
+
 ## Production URLs
 
 - **Web App**: https://crewchat.elbarriobk.com

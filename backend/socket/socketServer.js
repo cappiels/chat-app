@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const admin = require('firebase-admin');
 const { Pool } = require('pg');
 const emailNotificationService = require('../services/emailNotificationService');
+const pushNotificationService = require('../services/pushNotificationService');
 
 // Database connection
 const pool = new Pool({
@@ -417,8 +418,13 @@ class SocketServer {
 
       // Send notifications for mentions
       if (mentions && mentions.length > 0) {
+        // Get thread name for notification
+        const threadResult = await pool.query('SELECT name FROM threads WHERE id = $1', [threadId]);
+        const threadName = threadResult.rows[0]?.name || 'channel';
+        const workspaceId = connection.currentWorkspace;
+
         for (const mention of mentions) {
-          this.sendMentionNotification(mention.user_id, message);
+          await this.sendMentionNotification(mention.user_id, message, workspaceId, threadName);
         }
       }
 
@@ -436,18 +442,19 @@ class SocketServer {
   async updateUnreadCountsForNewMessage(senderSocket, message, threadId) {
     try {
       const workspaceId = this.activeConnections.get(senderSocket.id)?.currentWorkspace;
-      
+
       if (!workspaceId) return;
 
-      // Get thread info to determine entity type
+      // Get thread info to determine entity type and name
       const threadResult = await pool.query(
-        'SELECT type FROM threads WHERE id = $1',
+        'SELECT type, name FROM threads WHERE id = $1',
         [threadId]
       );
 
       if (threadResult.rows.length === 0) return;
 
       const entityType = threadResult.rows[0].type;
+      const threadName = threadResult.rows[0].name || 'channel';
 
       // Get all workspace members except the sender
       const membersResult = await pool.query(`
@@ -469,14 +476,14 @@ class SocketServer {
             INSERT INTO user_read_status (user_id, workspace_id, entity_type, entity_id, unread_count, unread_mentions)
             VALUES ($1, $2, $3, $4, 1, $5)
             ON CONFLICT (user_id, workspace_id, entity_type, entity_id)
-            DO UPDATE SET 
+            DO UPDATE SET
               unread_count = user_read_status.unread_count + 1,
               unread_mentions = user_read_status.unread_mentions + $5
           `, [
-            memberId, 
-            workspaceId, 
-            entityType, 
-            threadId, 
+            memberId,
+            workspaceId,
+            entityType,
+            threadId,
             message.mentions?.some(m => m.user_id === memberId) ? 1 : 0
           ]);
 
@@ -496,6 +503,40 @@ class SocketServer {
             },
             timestamp: new Date()
           });
+
+          // Send push notification if user has no active socket connections
+          const hasActiveConnection = Array.from(this.activeConnections.values())
+            .some(conn => conn.userId === memberId);
+
+          if (!hasActiveConnection) {
+            // User is completely offline, queue a push notification
+            // Only for DMs or thread replies, not all messages (configurable via preferences)
+            const isMentioned = message.mentions?.some(m => m.user_id === memberId);
+            const isDM = entityType === 'dm';
+
+            if (isDM) {
+              // Direct message notification
+              pushNotificationService.notifyDirectMessage(
+                memberId,
+                workspaceId,
+                threadId,
+                message.id,
+                message.sender_name,
+                message.content || ''
+              ).catch(err => console.error('Push DM notification error:', err));
+            } else if (!isMentioned) {
+              // Thread reply notification (mentions are handled separately)
+              pushNotificationService.notifyThreadReply(
+                memberId,
+                workspaceId,
+                threadId,
+                message.id,
+                message.sender_name,
+                threadName,
+                message.content || ''
+              ).catch(err => console.error('Push thread reply notification error:', err));
+            }
+          }
 
           // Update workspace-level counts for this user
           await this.updateWorkspaceNotificationCounts(memberId, workspaceId);
@@ -692,16 +733,35 @@ class SocketServer {
     ).catch(err => console.error('Failed to update user presence:', err));
   }
 
-  sendMentionNotification(userId, message) {
+  async sendMentionNotification(userId, message, workspaceId, threadName) {
     // Find all sockets for the mentioned user
+    let userIsOnline = false;
     for (const [socketId, connection] of this.activeConnections) {
       if (connection.userId === userId) {
+        userIsOnline = true;
         this.io.to(socketId).emit('mention_notification', {
           message,
           mentionedBy: message.sender_name,
           threadId: message.thread_id,
           timestamp: new Date()
         });
+      }
+    }
+
+    // Send push notification if user is offline
+    if (!userIsOnline) {
+      try {
+        await pushNotificationService.notifyMention(
+          userId,
+          workspaceId,
+          message.thread_id,
+          message.id,
+          message.sender_name,
+          threadName || 'channel',
+          message.content || ''
+        );
+      } catch (err) {
+        console.error('Failed to send push mention notification:', err);
       }
     }
   }

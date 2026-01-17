@@ -6,6 +6,7 @@ import 'package:uni_links/uni_links.dart';
 import 'auth/login_screen.dart';
 import 'workspace/workspace_selection_screen.dart';
 import 'threads/thread_list_screen.dart';
+import '../../data/services/push_notification_service.dart';
 
 /// 🏆 STEP 2: REAL APP WITH FIREBASE AUTHENTICATION
 class MainApp extends ConsumerStatefulWidget {
@@ -19,11 +20,79 @@ class _MainAppState extends ConsumerState<MainApp> {
   Map<String, dynamic>? _selectedWorkspace;
   String? _pendingInviteToken;
   StreamSubscription? _linkSubscription;
+  bool _pushNotificationsInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _initDeepLinks();
+    _initPushNotifications();
+  }
+
+  /// 🔔 PUSH NOTIFICATIONS: Initialize when user is authenticated
+  Future<void> _initPushNotifications() async {
+    if (_pushNotificationsInitialized) return;
+
+    // Wait for auth state to be ready
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Will be called again when user logs in
+      FirebaseAuth.instance.authStateChanges().first.then((user) {
+        if (user != null && mounted) {
+          _initPushNotifications();
+        }
+      });
+      return;
+    }
+
+    try {
+      final pushService = ref.read(pushNotificationServiceProvider);
+
+      // Set up notification tap handler
+      pushService.onNotificationTap = (data) {
+        _handleNotificationTap(data);
+      };
+
+      // Initialize the service
+      await pushService.initialize();
+      _pushNotificationsInitialized = true;
+      print('✅ Push notifications initialized for user ${user.uid}');
+
+    } catch (e) {
+      print('❌ Failed to initialize push notifications: $e');
+    }
+  }
+
+  /// 🔔 Handle notification tap - navigate to the appropriate screen
+  void _handleNotificationTap(Map<String, dynamic> data) {
+    print('🔔 Notification tapped with data: $data');
+
+    final workspaceId = data['workspaceId'];
+    final threadId = data['threadId'];
+
+    if (workspaceId != null) {
+      // Navigate to workspace/thread
+      // For now, we'll set the workspace and let the user see it
+      // Full deep navigation to specific thread would require more work
+      setState(() {
+        _selectedWorkspace = {
+          'id': workspaceId,
+          'name': 'Loading...',
+        };
+      });
+
+      // Show a snackbar to indicate what happened
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(threadId != null
+                ? 'Opening conversation...'
+                : 'Opening workspace...'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
