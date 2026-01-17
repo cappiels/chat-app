@@ -439,12 +439,31 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   }
 
   Widget _buildCalendarView() {
+    // Show loading state while threads are being fetched
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (_threads.isEmpty) {
       return _buildFeaturePlaceholder(
         icon: Icons.calendar_month,
         title: 'No Channels',
         description: 'Create or join channels to use calendar view',
         color: Colors.purple,
+      );
+    }
+
+    // Safety check for null thread (race condition protection)
+    if (_selectedThread == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading channel...'),
+          ],
+        ),
       );
     }
 
@@ -464,12 +483,31 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   }
 
   Widget _buildWeeklyCalendarPlaceholder() {
+    // Show loading state while threads are being fetched
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (_threads.isEmpty) {
       return _buildFeaturePlaceholder(
         icon: Icons.view_week,
         title: 'Weekly Calendar',
         description: 'Create or join channels to use weekly calendar',
         color: Colors.teal,
+      );
+    }
+
+    // Safety check for null thread (race condition protection)
+    if (_selectedThread == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading channel...'),
+          ],
+        ),
       );
     }
 
@@ -489,12 +527,31 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   }
 
   Widget _buildTimelineView() {
+    // Show loading state while threads are being fetched
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (_threads.isEmpty) {
       return _buildFeaturePlaceholder(
         icon: Icons.timeline,
         title: 'No Channels',
         description: 'Create or join channels to use timeline view',
         color: Colors.orange,
+      );
+    }
+
+    // Safety check for null thread (race condition protection)
+    if (_selectedThread == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading channel...'),
+          ],
+        ),
       );
     }
 
@@ -514,12 +571,31 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   }
 
   Widget _buildKnowledgePlaceholder() {
+    // Show loading state while threads are being fetched
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (_threads.isEmpty) {
       return _buildFeaturePlaceholder(
         icon: Icons.library_books,
         title: 'Knowledge Base',
         description: 'Organized knowledge with categories and tagging',
         color: Colors.green,
+      );
+    }
+
+    // Safety check for null thread (race condition protection)
+    if (_selectedThread == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading channel...'),
+          ],
+        ),
       );
     }
 

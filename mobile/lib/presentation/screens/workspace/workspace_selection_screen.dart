@@ -8,6 +8,8 @@ import '../../../data/services/task_service.dart';
 import '../../../data/services/http_client.dart';
 import '../../../data/models/workspace.dart';
 import '../../../data/models/task.dart';
+import '../../../data/models/thread.dart';
+import '../../widgets/tasks/quick_task_dialog.dart';
 
 class WorkspaceSelectionScreen extends ConsumerStatefulWidget {
   final VoidCallback? onSignOut;
@@ -25,7 +27,31 @@ class WorkspaceSelectionScreen extends ConsumerStatefulWidget {
 
 class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScreen>
     with TickerProviderStateMixin {
-  
+
+  // Task color mappings for detail sheet
+  static const Map<String, Color> _statusColors = {
+    'pending': Color(0xFFF3F4F6),
+    'in_progress': Color(0xFFDBEAFE),
+    'completed': Color(0xFFD1FAE5),
+    'blocked': Color(0xFFFEE2E2),
+    'cancelled': Color(0xFFF3F4F6),
+  };
+
+  static const Map<String, Color> _statusTextColors = {
+    'pending': Color(0xFF374151),
+    'in_progress': Color(0xFF1E40AF),
+    'completed': Color(0xFF065F46),
+    'blocked': Color(0xFF991B1B),
+    'cancelled': Color(0xFF6B7280),
+  };
+
+  static const Map<String, Color> _priorityColors = {
+    'low': Color(0xFFD1D5DB),
+    'medium': Color(0xFF3B82F6),
+    'high': Color(0xFFF97316),
+    'urgent': Color(0xFFEF4444),
+  };
+
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -49,6 +75,15 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   String _subscriptionTier = 'free';
   String? _selectedAssigneeFilter; // null = all, 'me' = assigned to me, 'by_me' = created by me
   String? _taskLoadError;
+
+  // Task fade-out animation state
+  final Map<String, AnimationController> _taskFadeControllers = {};
+  final Set<String> _tasksBeingRemoved = {};
+
+  // Quick add: track last used channel and cache threads
+  String? _lastUsedWorkspaceId;
+  String? _lastUsedThreadId;
+  final Map<String, List<Thread>> _threadCache = {};
   
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -89,6 +124,10 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     _searchController.dispose();
     _nameController.dispose();
     _descriptionController.dispose();
+    // Dispose task fade-out animation controllers
+    for (final controller in _taskFadeControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -187,9 +226,13 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
 
   // Optimistic UI update for task completion - no screen blink!
   Future<void> _toggleTaskCompletion(ChannelTask task) async {
+    // Track last used channel for quick add
+    _lastUsedWorkspaceId = task.workspaceId;
+    _lastUsedThreadId = task.threadId;
+
     final taskIndex = _myTasks.indexWhere((t) => t.id == task.id);
     if (taskIndex == -1) return;
-    
+
     final wasCompleted = task.userCompleted || task.isComplete;
     final originalTask = _myTasks[taskIndex];
     
@@ -256,8 +299,10 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           taskId: task.id,
         );
       }
-      // Success! Optionally refresh in background to get latest server state
-      // _loadMyTasks(); // Uncomment if you want to sync with server after success
+      // Success! Start fade-out animation for completed tasks
+      if (!wasCompleted) {
+        _scheduleFadeOut(task.id);
+      }
     } catch (e) {
       // Step 3: Revert on failure
       setState(() {
@@ -265,6 +310,32 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       });
       _showErrorSnackBar('Failed to update task: $e');
     }
+  }
+
+  // Schedule a task to fade out and be removed after 1 second
+  void _scheduleFadeOut(String taskId) {
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
+
+      final controller = AnimationController(
+        duration: const Duration(milliseconds: 500),
+        vsync: this,
+      );
+
+      setState(() {
+        _taskFadeControllers[taskId] = controller;
+        _tasksBeingRemoved.add(taskId);
+      });
+
+      controller.forward().then((_) {
+        if (!mounted) return;
+        setState(() {
+          _myTasks.removeWhere((t) => t.id == taskId);
+          _taskFadeControllers.remove(taskId)?.dispose();
+          _tasksBeingRemoved.remove(taskId);
+        });
+      });
+    });
   }
 
   Future<void> _loadWorkspaces() async {
@@ -439,7 +510,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       bottomNavigationBar: _buildBottomNavigation(),
       floatingActionButton: _selectedBottomNavIndex == 0 
           ? FloatingActionButton(
-              onPressed: () => _showSuccessSnackBar('Quick add task coming soon!'),
+              onPressed: _showQuickAddTask,
               backgroundColor: Colors.red.shade500,
               child: const Icon(Icons.add, color: Colors.white, size: 28),
             )
@@ -695,7 +766,11 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       default: priorityColor = Colors.blue.shade400;
     }
 
-    return Container(
+    // Check if this task is fading out
+    final fadeController = _taskFadeControllers[task.id];
+    final isFading = _tasksBeingRemoved.contains(task.id);
+
+    Widget taskWidget = Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -706,7 +781,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => _showSuccessSnackBar('Task detail coming soon!'),
+          onTap: () => _showTaskDetails(task),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -802,6 +877,355 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
             ),
           ),
         ),
+      ),
+    );
+
+    // Wrap with fade animation if task is being removed
+    if (isFading && fadeController != null) {
+      return AnimatedBuilder(
+        animation: fadeController,
+        builder: (context, child) => Opacity(
+          opacity: 1.0 - fadeController.value,
+          child: child,
+        ),
+        child: taskWidget,
+      );
+    }
+
+    return taskWidget;
+  }
+
+  // ==================== TASK DETAIL SHEET ====================
+  void _showTaskDetails(ChannelTask task) {
+    // Track last used channel for quick add
+    _lastUsedWorkspaceId = task.workspaceId;
+    _lastUsedThreadId = task.threadId;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => _buildTaskDetailsSheet(
+          task,
+          scrollController,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskDetailsSheet(ChannelTask task, ScrollController scrollController) {
+    final dateFormat = DateFormat('MMM d, yyyy');
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: ListView(
+        controller: scrollController,
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Title
+          Text(
+            task.title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Status and Priority
+          Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: _statusColors[task.status] ?? Colors.grey,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                task.status.replaceAll('_', ' ').toUpperCase(),
+                style: TextStyle(
+                  color: _statusTextColors[task.status],
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 16),
+              if (task.priority != 'medium') ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _priorityColors[task.priority]?.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    task.priority.toUpperCase(),
+                    style: TextStyle(
+                      color: _priorityColors[task.priority],
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Description
+          if (task.description != null && task.description!.isNotEmpty) ...[
+            Text(
+              task.description!,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Channel name
+          if (task.channelName != null)
+            _buildDetailRow(
+              icon: Icons.tag,
+              label: 'Channel',
+              value: task.channelName!,
+            ),
+
+          // Details grid
+          _buildDetailRow(
+            icon: Icons.calendar_today,
+            label: 'Start Date',
+            value: task.startDate != null
+                ? dateFormat.format(task.startDate!)
+                : 'Not set',
+          ),
+          if (task.endDate != null)
+            _buildDetailRow(
+              icon: Icons.event,
+              label: 'End Date',
+              value: dateFormat.format(task.endDate!),
+            ),
+          if (task.dueDate != null)
+            _buildDetailRow(
+              icon: Icons.flag,
+              label: 'Due Date',
+              value: dateFormat.format(task.dueDate!),
+            ),
+          if (task.startTime != null)
+            _buildDetailRow(
+              icon: Icons.access_time,
+              label: 'Time',
+              value: '${task.startTime}${task.endTime != null ? ' - ${task.endTime}' : ''}',
+            ),
+          if (task.estimatedHours != null)
+            _buildDetailRow(
+              icon: Icons.hourglass_empty,
+              label: 'Estimated Hours',
+              value: '${task.estimatedHours}h',
+            ),
+          if (task.assigneeDetails != null && task.assigneeDetails!.isNotEmpty)
+            _buildDetailRow(
+              icon: Icons.person,
+              label: 'Assigned To',
+              value: task.assigneeDetails!
+                  .map((a) => a.displayName)
+                  .join(', '),
+            ),
+          if (task.teamDetails != null && task.teamDetails!.isNotEmpty)
+            _buildDetailRow(
+              icon: Icons.group,
+              label: 'Teams',
+              value: task.teamDetails!
+                  .map((t) => t.displayName)
+                  .join(', '),
+            ),
+
+          // Progress for multi-assignee tasks
+          if (task.requiresIndividualResponse && task.progressInfo != null) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Individual Progress',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    task.completionText,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Each assignee marks done individually',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== QUICK ADD TASK ====================
+  Future<List<Thread>> _loadThreadsForWorkspace(String workspaceId) async {
+    // Check cache first
+    if (_threadCache.containsKey(workspaceId)) {
+      return _threadCache[workspaceId]!;
+    }
+
+    try {
+      final response = await _httpClient.get('/api/workspaces/$workspaceId/threads');
+      final threadsData = response.data['threads'] as List;
+      final threads = threadsData.map((data) => Thread.fromJson(data)).toList();
+      _threadCache[workspaceId] = threads;
+      return threads;
+    } catch (e) {
+      print('Error loading threads: $e');
+      return [];
+    }
+  }
+
+  Future<void> _showQuickAddTask() async {
+    // Determine which workspace/thread to use
+    String? workspaceId = _lastUsedWorkspaceId;
+    String? threadId = _lastUsedThreadId;
+
+    // If no last used, try to get from first task
+    if ((workspaceId == null || threadId == null) && _myTasks.isNotEmpty) {
+      workspaceId = _myTasks.first.workspaceId;
+      threadId = _myTasks.first.threadId;
+    }
+
+    // If still no workspace, try first workspace
+    if (workspaceId == null && _workspaces.isNotEmpty) {
+      workspaceId = _workspaces.first.id;
+    }
+
+    if (workspaceId == null) {
+      _showErrorSnackBar('Please create a workspace first');
+      return;
+    }
+
+    // Find the workspace
+    final workspace = _workspaces.firstWhere(
+      (w) => w.id == workspaceId,
+      orElse: () => _workspaces.first,
+    );
+
+    // Load threads for this workspace
+    final threads = await _loadThreadsForWorkspace(workspace.id);
+    if (threads.isEmpty) {
+      _showErrorSnackBar('Please create a channel first');
+      return;
+    }
+
+    // Find the target thread (last used or first available)
+    Thread thread;
+    if (threadId != null) {
+      thread = threads.firstWhere(
+        (t) => t.id == threadId,
+        orElse: () => threads.first,
+      );
+    } else {
+      thread = threads.first;
+    }
+
+    // Update last used for next time
+    _lastUsedWorkspaceId = workspace.id;
+    _lastUsedThreadId = thread.id;
+
+    // Show the dialog
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => QuickTaskDialog(
+        thread: thread,
+        workspace: workspace,
+        onTaskCreated: () {
+          _loadMyTasks(); // Refresh tasks after creation
+        },
       ),
     );
   }

@@ -7,7 +7,7 @@ import AppShell from './components/layout/AppShell';
 import ChatInterface from './components/ChatInterface';
 import InviteAcceptance from './components/InviteAcceptance';
 import HomePage from './components/HomePage';
-import WorkspaceScreen from './components/WorkspaceScreen';
+import MainScreen from './components/MainScreen';
 
 // Modern Loading Component
 const ModernLoading = () => (
@@ -64,7 +64,7 @@ const AppRouter = () => {
                 onBackToWorkspaces={handleBackToWorkspaces}
               />
             ) : (
-              <WorkspaceScreen 
+              <MainScreen 
                 user={user} 
                 onSignOut={handleSignOut} 
                 onSelectWorkspace={setSelectedWorkspace}

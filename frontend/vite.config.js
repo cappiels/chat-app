@@ -8,11 +8,11 @@ export default defineConfig({
     port: 5173,
     strictPort: true, // Exit if port 5173 is already in use
     proxy: {
-      // This tells Vite to forward any request that starts with /api
-      // to your backend server running on port 8080.
+      // Proxy to DigitalOcean production backend for local dev
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.VITE_API_URL || 'https://coral-app-rgki8.ondigitalocean.app',
         changeOrigin: true,
+        secure: true,
         // Don't rewrite the path - keep /api prefix for backend routing
         // rewrite: (path) => path.replace(/^\/api/, '') 
       }
