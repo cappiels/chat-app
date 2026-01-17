@@ -135,33 +135,30 @@ if [ $? -eq 0 ]; then
     echo "✅ Flutter IPA built successfully!"
     echo "📦 IPA location: mobile/build/ios/ipa/Crew Chat.ipa"
     
-    # Auto-upload to TestFlight if API credentials are configured
-    if [ ! -z "$ASC_KEY_ID" ] && [ ! -z "$ASC_ISSUER_ID" ]; then
+    # Auto-upload to TestFlight
+    # Use environment variables if set, otherwise use hardcoded values from CLAUDE.md
+    UPLOAD_KEY_ID="${ASC_KEY_ID:-X4J63BNVLN}"
+    UPLOAD_ISSUER_ID="${ASC_ISSUER_ID:-69a6de7c-f98d-47e3-e053-5b8c7c11a4d1}"
+
+    echo ""
+    echo "🚀 Uploading to TestFlight..."
+    cd ..
+    xcrun altool --upload-app \
+      --type ios \
+      -f "mobile/build/ios/ipa/Crew Chat.ipa" \
+      --apiKey "$UPLOAD_KEY_ID" \
+      --apiIssuer "$UPLOAD_ISSUER_ID"
+
+    if [ $? -eq 0 ]; then
         echo ""
-        echo "🚀 Uploading to TestFlight..."
-        cd ..
-        xcrun altool --upload-app \
-          --type ios \
-          --file "mobile/build/ios/ipa/Crew Chat.ipa" \
-          --apiKey $ASC_KEY_ID \
-          --apiIssuer $ASC_ISSUER_ID
-        
-        if [ $? -eq 0 ]; then
-            echo ""
-            echo "✅ Upload successful!"
-            echo "⏱️  Processing time: 5-10 minutes"
-            echo "📱 Check App Store Connect for build availability"
-        else
-            echo ""
-            echo "❌ Upload failed"
-            echo "📤 Manual upload: Drag mobile/build/ios/ipa/Crew Chat.ipa to Transporter app"
-        fi
+        echo "✅ TestFlight upload successful!"
+        echo "⏱️  Processing time: 5-10 minutes"
+        echo "📱 Check App Store Connect for build availability"
     else
-        cd ..
-        echo "⚠️  TestFlight auto-upload not configured"
-        echo "� Set ASC_KEY_ID and ASC_ISSUER_ID environment variables"
-        echo "📖 See TESTFLIGHT-AUTOMATED-UPLOAD.md for setup instructions"
+        echo ""
+        echo "❌ TestFlight upload failed"
         echo "📤 Manual upload: Drag mobile/build/ios/ipa/Crew Chat.ipa to Transporter app"
+        echo "   Or run: xcrun altool --upload-app --type ios -f \"mobile/build/ios/ipa/Crew Chat.ipa\" --apiKey \"$UPLOAD_KEY_ID\" --apiIssuer \"$UPLOAD_ISSUER_ID\""
     fi
 else
     echo "⚠️  Flutter IPA build failed (non-critical)"
