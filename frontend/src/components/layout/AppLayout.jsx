@@ -408,20 +408,21 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
 
   const handleSendMessage = async (content) => {
     if (!currentChannel || !content.trim()) return;
-    
+
     try {
-      // Get pending attachments from MessageComposer
+      // Get pending attachments and mentions from MessageComposer
       const attachments = window.pendingAttachments || [];
-      
+      const mentions = window.pendingMentions || [];
+
       // Remove attachment prefix from message content before sending
       const cleanContent = content.replace(/^📎 \d+ files? attached\n\n/, '').trim();
-      
+
       // Build message payload
       const messagePayload = {
         content: cleanContent,
         message_type: 'text'
       };
-      
+
       // Add attachments if any exist
       if (attachments.length > 0) {
         messagePayload.attachments = attachments.map(file => ({
@@ -430,6 +431,11 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           mime_type: file.type,
           file_size_bytes: file.size
         }));
+      }
+
+      // Add mentions if any exist
+      if (mentions.length > 0) {
+        messagePayload.mentions = mentions;
       }
       
       // Send message via API

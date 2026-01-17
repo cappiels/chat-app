@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { 
-  Plus, 
-  Send, 
-  Smile, 
-  AtSign, 
+import {
+  Plus,
+  Send,
+  Smile,
+  AtSign,
   Mic,
   Edit3,
   Hash,
@@ -25,6 +25,8 @@ import {
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
 import QuickTaskDialog from '../tasks/QuickTaskDialog';
+import MentionDropdown from './MentionDropdown';
+import { workspaceAPI } from '../../utils/api';
 
 const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, workspaceId, currentUser }) => {
   const [message, setMessage] = useState('');
@@ -42,7 +44,15 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
   const [emojiButtonPosition, setEmojiButtonPosition] = useState({ top: 0, left: 0 });
   const [pendingAttachments, setPendingAttachments] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState([]);
-  
+
+  // Mention state
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionStartIndex, setMentionStartIndex] = useState(null);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [workspaceMembers, setWorkspaceMembers] = useState([]);
+  const [selectedMentions, setSelectedMentions] = useState([]);
+
   const editorRef = useRef(null);
   const emojiButtonRef = useRef(null);
   const buttonClickedRef = useRef(false);
@@ -70,6 +80,23 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       });
     }
   }, [message, isExpanded, shouldFocusAfterExpand]);
+
+  // Load workspace members for mentions
+  useEffect(() => {
+    const loadMembers = async () => {
+      const wsId = workspaceId || workspace?.id;
+      if (wsId) {
+        try {
+          const response = await workspaceAPI.getMembers(wsId);
+          const members = response.data?.members || response.data || [];
+          setWorkspaceMembers(members);
+        } catch (error) {
+          console.error('Failed to load workspace members:', error);
+        }
+      }
+    };
+    loadMembers();
+  }, [workspaceId, workspace?.id]);
 
   // Handle text selection for formatting toolbar - debounced for performance
   useEffect(() => {
@@ -163,13 +190,18 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
         
         // Clean message text (remove any attachment prefix that shouldn't be there)
         const cleanMessage = message.replace(/^📎 \d+ files? attached\n\n/, '').trim();
-        
+
+        // Store mentions for parent to access
+        window.pendingMentions = [...selectedMentions];
+
         await onSendMessage(cleanMessage);
-        
-        // Clear pending attachments after successful send
+
+        // Clear pending attachments and mentions after successful send
         setPendingAttachments([]);
         window.pendingAttachments = [];
-        
+        setSelectedMentions([]);
+        window.pendingMentions = [];
+
         // Reset message content but keep composer expanded and focused
         setMessage('');
         
@@ -198,24 +230,117 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
   };
 
   const handleKeyDown = useCallback((e) => {
+    // Handle mention dropdown navigation
+    if (showMentionDropdown && filteredMembers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev =>
+          prev < filteredMembers.length - 1 ? prev + 1 : 0
+        );
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev =>
+          prev > 0 ? prev - 1 : filteredMembers.length - 1
+        );
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleMentionSelect(filteredMembers[selectedMentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentionDropdown(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     } else if (e.key !== 'Enter') {
       startTyping();
     }
-  }, [handleSubmit, startTyping]);
+  }, [handleSubmit, startTyping, showMentionDropdown, filteredMembers, selectedMentionIndex, handleMentionSelect]);
 
   const handleInputChange = useCallback((e) => {
     const newValue = e.target.value;
+    const cursorPos = e.target.selectionStart;
     setMessage(newValue);
-    
+
+    // Detect @ mention
+    const textBeforeCursor = newValue.slice(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      // Check if we're in a mention (no spaces after @)
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        setShowMentionDropdown(true);
+        setMentionQuery(textAfterAt.toLowerCase());
+        setMentionStartIndex(lastAtIndex);
+        setSelectedMentionIndex(0);
+      } else {
+        setShowMentionDropdown(false);
+        setMentionQuery('');
+        setMentionStartIndex(null);
+      }
+    } else {
+      setShowMentionDropdown(false);
+      setMentionQuery('');
+      setMentionStartIndex(null);
+    }
+
     if (newValue.trim() && !isTypingRef.current) {
       startTyping();
     } else if (!newValue.trim() && isTypingRef.current) {
       stopTyping();
     }
   }, [startTyping, stopTyping]);
+
+  // Filter members based on mention query
+  const filteredMembers = workspaceMembers.filter(m => {
+    const name = (m.display_name || '').toLowerCase();
+    const email = (m.email || '').toLowerCase();
+    return name.includes(mentionQuery) || email.includes(mentionQuery);
+  }).slice(0, 8); // Limit to 8 results
+
+  // Handle mention selection
+  const handleMentionSelect = useCallback((member) => {
+    if (mentionStartIndex === null) return;
+
+    const cursorPos = editorRef.current?.selectionStart || message.length;
+    const beforeMention = message.slice(0, mentionStartIndex);
+    const afterCursor = message.slice(cursorPos);
+    const mentionText = `@${member.display_name} `;
+    const newMessage = `${beforeMention}${mentionText}${afterCursor}`;
+
+    setMessage(newMessage);
+    setSelectedMentions(prev => [
+      ...prev,
+      {
+        user_id: member.id,
+        display_name: member.display_name,
+        type: 'user'
+      }
+    ]);
+    setShowMentionDropdown(false);
+    setMentionQuery('');
+    setMentionStartIndex(null);
+    setSelectedMentionIndex(0);
+
+    // Focus and set cursor position after the mention
+    setTimeout(() => {
+      if (editorRef.current) {
+        const newCursorPos = beforeMention.length + mentionText.length;
+        editorRef.current.focus();
+        editorRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  }, [message, mentionStartIndex]);
 
   const handleInputFocus = useCallback(() => {
     // Cancel any pending blur timeout to prevent conflicts
@@ -1086,6 +1211,16 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               
               {/* Message input area */}
               <div className="relative">
+                {/* Mention Dropdown */}
+                {showMentionDropdown && filteredMembers.length > 0 && (
+                  <MentionDropdown
+                    members={filteredMembers}
+                    onSelect={handleMentionSelect}
+                    onClose={() => setShowMentionDropdown(false)}
+                    selectedIndex={selectedMentionIndex}
+                  />
+                )}
+
                 <textarea
                   ref={editorRef}
                   value={message}

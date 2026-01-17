@@ -5,6 +5,49 @@ import '../../../data/services/file_picker_service.dart';
 import '../../../data/services/file_upload_service.dart';
 import '../../../data/models/attachment.dart';
 
+/// Represents a member that can be mentioned
+class MentionMember {
+  final String id;
+  final String displayName;
+  final String email;
+  final String? profilePictureUrl;
+
+  MentionMember({
+    required this.id,
+    required this.displayName,
+    required this.email,
+    this.profilePictureUrl,
+  });
+
+  factory MentionMember.fromJson(Map<String, dynamic> json) {
+    return MentionMember(
+      id: json['id'] ?? '',
+      displayName: json['display_name'] ?? json['name'] ?? 'User',
+      email: json['email'] ?? '',
+      profilePictureUrl: json['profile_picture_url'],
+    );
+  }
+}
+
+/// Represents a selected mention
+class SelectedMention {
+  final String userId;
+  final String displayName;
+  final String type;
+
+  SelectedMention({
+    required this.userId,
+    required this.displayName,
+    this.type = 'user',
+  });
+
+  Map<String, dynamic> toJson() => {
+    'user_id': userId,
+    'display_name': displayName,
+    'type': type,
+  };
+}
+
 class MessageComposer extends StatefulWidget {
   final TextEditingController controller;
   final Function(String) onSend;
@@ -12,7 +55,9 @@ class MessageComposer extends StatefulWidget {
   final String? workspaceId;
   final String? threadId;
   final Function(List<Attachment>)? onAttachmentsChanged;
-  
+  final List<MentionMember>? workspaceMembers;
+  final Function(List<SelectedMention>)? onMentionsChanged;
+
   const MessageComposer({
     super.key,
     required this.controller,
@@ -21,6 +66,8 @@ class MessageComposer extends StatefulWidget {
     this.workspaceId,
     this.threadId,
     this.onAttachmentsChanged,
+    this.workspaceMembers,
+    this.onMentionsChanged,
   });
 
   @override
@@ -35,7 +82,16 @@ class _MessageComposerState extends State<MessageComposer> {
   final List<File> _selectedFiles = [];
   final List<Attachment> _uploadedAttachments = [];
   bool _isUploading = false;
-  
+
+  // Mention state
+  bool _showMentionDropdown = false;
+  String _mentionQuery = '';
+  int? _mentionStartIndex;
+  int _selectedMentionIndex = 0;
+  final List<SelectedMention> _selectedMentions = [];
+  OverlayEntry? _mentionOverlay;
+  final LayerLink _layerLink = LayerLink();
+
   @override
   void initState() {
     super.initState();
@@ -49,24 +105,61 @@ class _MessageComposerState extends State<MessageComposer> {
     widget.controller.removeListener(_onTextChanged);
     _selectedFiles.clear();
     _uploadedAttachments.clear();
+    _removeMentionOverlay();
     super.dispose();
   }
 
+  List<MentionMember> get _filteredMembers {
+    final members = widget.workspaceMembers ?? [];
+    if (_mentionQuery.isEmpty) return members.take(8).toList();
+    return members
+        .where((m) =>
+            m.displayName.toLowerCase().contains(_mentionQuery.toLowerCase()) ||
+            m.email.toLowerCase().contains(_mentionQuery.toLowerCase()))
+        .take(8)
+        .toList();
+  }
+
   void _onTextChanged() {
-    final hasText = widget.controller.text.trim().isNotEmpty;
-    
+    final text = widget.controller.text;
+    final hasText = text.trim().isNotEmpty;
+
     // Update send button state
     if (_hasText != hasText) {
       setState(() => _hasText = hasText);
     }
-    
+
+    // Detect @ mention
+    final cursorPos = widget.controller.selection.baseOffset;
+    if (cursorPos >= 0 && cursorPos <= text.length) {
+      final textBeforeCursor = text.substring(0, cursorPos);
+      final lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+      if (lastAtIndex != -1) {
+        final textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+        // Check if we're in a mention (no spaces after @)
+        if (!textAfterAt.contains(' ') && !textAfterAt.contains('\n')) {
+          setState(() {
+            _showMentionDropdown = true;
+            _mentionQuery = textAfterAt.toLowerCase();
+            _mentionStartIndex = lastAtIndex;
+            _selectedMentionIndex = 0;
+          });
+          _showMentionOverlay();
+        } else {
+          _closeMentionDropdown();
+        }
+      } else {
+        _closeMentionDropdown();
+      }
+    }
+
     // Handle typing indicator
     if (hasText && !_isTyping) {
-      // Started typing
       setState(() => _isTyping = true);
       widget.onTypingChanged?.call(true);
     }
-    
+
     // Reset the typing timeout
     _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(seconds: 2), () {
@@ -75,6 +168,142 @@ class _MessageComposerState extends State<MessageComposer> {
         widget.onTypingChanged?.call(false);
       }
     });
+  }
+
+  void _closeMentionDropdown() {
+    setState(() {
+      _showMentionDropdown = false;
+      _mentionQuery = '';
+      _mentionStartIndex = null;
+    });
+    _removeMentionOverlay();
+  }
+
+  void _showMentionOverlay() {
+    if (_mentionOverlay != null || _filteredMembers.isEmpty) return;
+
+    _mentionOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        width: 280,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, -220),
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.people, size: 16, color: Colors.grey.shade600),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Mention someone',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _filteredMembers.length,
+                      itemBuilder: (context, index) {
+                        final member = _filteredMembers[index];
+                        final isSelected = index == _selectedMentionIndex;
+                        return ListTile(
+                          dense: true,
+                          selected: isSelected,
+                          selectedTileColor: Colors.blue.shade50,
+                          leading: CircleAvatar(
+                            radius: 16,
+                            backgroundImage: member.profilePictureUrl != null
+                                ? NetworkImage(member.profilePictureUrl!)
+                                : null,
+                            backgroundColor: Colors.blue.shade100,
+                            child: member.profilePictureUrl == null
+                                ? Text(
+                                    member.displayName.isNotEmpty
+                                        ? member.displayName[0].toUpperCase()
+                                        : 'U',
+                                    style: TextStyle(
+                                      color: Colors.blue.shade700,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          title: Text(
+                            member.displayName,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          subtitle: Text(
+                            member.email,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          onTap: () => _selectMention(member),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_mentionOverlay!);
+  }
+
+  void _removeMentionOverlay() {
+    _mentionOverlay?.remove();
+    _mentionOverlay = null;
+  }
+
+  void _selectMention(MentionMember member) {
+    if (_mentionStartIndex == null) return;
+
+    final text = widget.controller.text;
+    final cursorPos = widget.controller.selection.baseOffset;
+    final beforeMention = text.substring(0, _mentionStartIndex!);
+    final afterCursor = cursorPos >= 0 && cursorPos <= text.length
+        ? text.substring(cursorPos)
+        : '';
+    final mentionText = '@${member.displayName} ';
+    final newText = '$beforeMention$mentionText$afterCursor';
+
+    widget.controller.text = newText;
+    final newCursorPos = beforeMention.length + mentionText.length;
+    widget.controller.selection = TextSelection.collapsed(offset: newCursorPos);
+
+    _selectedMentions.add(SelectedMention(
+      userId: member.id,
+      displayName: member.displayName,
+    ));
+    widget.onMentionsChanged?.call(_selectedMentions);
+
+    _closeMentionDropdown();
   }
 
   Future<void> _handleAttachmentPicker() async {
@@ -219,22 +448,27 @@ class _MessageComposerState extends State<MessageComposer> {
   void _handleSend() {
     final text = widget.controller.text.trim();
     if (text.isEmpty && _uploadedAttachments.isEmpty) return;
-    
+
     widget.onSend(text);
-    
-    // Clear attachments after sending
+
+    // Clear attachments and mentions after sending
     setState(() {
       _selectedFiles.clear();
       _uploadedAttachments.clear();
+      _selectedMentions.clear();
     });
     widget.onAttachmentsChanged?.call([]);
-    
+    widget.onMentionsChanged?.call([]);
+
     // Stop typing indicator
     _typingTimer?.cancel();
     if (_isTyping) {
       setState(() => _isTyping = false);
       widget.onTypingChanged?.call(false);
     }
+
+    // Close mention dropdown if open
+    _closeMentionDropdown();
   }
 
   @override
@@ -351,30 +585,33 @@ class _MessageComposerState extends State<MessageComposer> {
                     tooltip: 'Attach file',
                   ),
               
-              // Text input field
+              // Text input field with mention overlay target
               Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    maxLines: 5,
-                    minLines: 1,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
+                child: CompositedTransformTarget(
+                  link: _layerLink,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                    style: const TextStyle(fontSize: 15),
-                    onSubmitted: (_) => _handleSend(),
+                    child: TextField(
+                      controller: widget.controller,
+                      focusNode: _focusNode,
+                      maxLines: 5,
+                      minLines: 1,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        hintText: 'Type a message...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
+                      style: const TextStyle(fontSize: 15),
+                      onSubmitted: (_) => _handleSend(),
+                    ),
                   ),
                 ),
               ),

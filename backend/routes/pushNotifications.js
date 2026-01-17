@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const { Pool } = require('pg');
 const { authenticateUser } = require('../middleware/auth');
 const pushNotificationService = require('../services/pushNotificationService');
+
+// Database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 // All routes require authentication
 router.use(authenticateUser);
@@ -444,6 +451,87 @@ router.post('/test', async (req, res) => {
   } catch (error) {
     console.error('Error sending test notification:', error);
     res.status(500).json({ error: 'Failed to send test notification' });
+  }
+});
+
+// =====================================================
+// Broadcast Notifications (Admin Only)
+// =====================================================
+
+/**
+ * POST /api/push/broadcast
+ * Send a notification to all users with active device tokens (admin only)
+ */
+router.post('/broadcast', async (req, res) => {
+  try {
+    const senderId = req.user.id;
+    const { title, body, data } = req.body;
+
+    if (!title || !body) {
+      return res.status(400).json({ error: 'Title and body are required' });
+    }
+
+    // Check if user is site admin (cappiels@gmail.com)
+    const adminCheck = await pool.query(
+      'SELECT email FROM users WHERE id = $1',
+      [senderId]
+    );
+
+    const userEmail = adminCheck.rows[0]?.email;
+    const isAdmin = userEmail === 'cappiels@gmail.com';
+
+    if (!isAdmin) {
+      console.log(`Broadcast attempt denied for user: ${userEmail}`);
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Get all users with active device tokens
+    const usersResult = await pool.query(`
+      SELECT DISTINCT user_id
+      FROM user_device_tokens
+      WHERE is_active = true
+    `);
+
+    if (usersResult.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No users with active device tokens',
+        recipientCount: 0
+      });
+    }
+
+    let queued = 0;
+    const errors = [];
+
+    for (const user of usersResult.rows) {
+      try {
+        await pushNotificationService.queueNotification({
+          userId: user.user_id,
+          notificationType: 'broadcast',
+          title,
+          body,
+          data: data || {},
+          priority: 'high'
+        });
+        queued++;
+      } catch (err) {
+        console.error(`Failed to queue notification for user ${user.user_id}:`, err);
+        errors.push(user.user_id);
+      }
+    }
+
+    console.log(`📢 Broadcast notification queued for ${queued} users by ${userEmail}`);
+
+    res.json({
+      success: true,
+      message: `Broadcast queued for ${queued} user(s)`,
+      recipientCount: queued,
+      failedCount: errors.length
+    });
+
+  } catch (error) {
+    console.error('Broadcast error:', error);
+    res.status(500).json({ error: 'Failed to send broadcast notification' });
   }
 });
 

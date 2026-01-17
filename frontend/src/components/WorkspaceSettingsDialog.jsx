@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { 
-  Settings, 
-  Trash2, 
-  Archive, 
-  Users, 
-  UserMinus, 
+import {
+  Settings,
+  Trash2,
+  Archive,
+  Users,
+  UserMinus,
   Crown,
   AlertTriangle,
   X,
   UsersRound,
   Plus,
   UserPlus,
-  Search
+  Search,
+  Radio
 } from 'lucide-react';
 import { workspaceAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import AddMemberDialog from './admin/AddMemberDialog';
+import BroadcastNotification from './settings/BroadcastNotification';
 
 const SITE_ADMIN_EMAIL = 'cappiels@gmail.com';
 
@@ -332,12 +334,25 @@ const WorkspaceSettingsDialog = ({
                     </button>
                   </>
                 )}
+                {user?.email === SITE_ADMIN_EMAIL && (
+                  <button
+                    onClick={() => setActiveTab('broadcast')}
+                    className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
+                      activeTab === 'broadcast'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <Radio className="w-4 h-4" />
+                    Broadcast
+                  </button>
+                )}
                 {isOwner && (
                   <button
                     onClick={() => setActiveTab('danger')}
                     className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                      activeTab === 'danger' 
-                        ? 'bg-red-100 text-red-700' 
+                      activeTab === 'danger'
+                        ? 'bg-red-100 text-red-700'
                         : 'hover:bg-gray-100'
                     }`}
                   >
@@ -602,6 +617,12 @@ const WorkspaceSettingsDialog = ({
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {activeTab === 'broadcast' && user?.email === SITE_ADMIN_EMAIL && (
+                <div className="space-y-6">
+                  <BroadcastNotification currentUser={user} />
                 </div>
               )}
 
