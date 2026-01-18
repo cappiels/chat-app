@@ -11,6 +11,12 @@ import { threadAPI, messageAPI } from '../../utils/api';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
 
+// Lazy load calendar/timeline components at module level (not inside component)
+// This prevents TDZ errors from React.lazy being called inside useMemo
+const ChannelCalendar = React.lazy(() => import('../calendar/ChannelCalendar'));
+const WeeklyCalendar = React.lazy(() => import('../calendar/WeeklyCalendar'));
+const ChannelTimeline = React.lazy(() => import('../timeline/ChannelTimeline'));
+
 const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWorkspaces }) => {
   const [channels, setChannels] = useState([]);
   const [currentChannel, setCurrentChannel] = useState(null);
@@ -546,11 +552,6 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   const handleChannelInfo = () => {
     setShowWorkspaceSettings(true);
   };
-
-  // Lazy load calendar components outside render to prevent recreation
-  const ChannelCalendar = React.useMemo(() => React.lazy(() => import('../calendar/ChannelCalendar')), []);
-  const WeeklyCalendar = React.useMemo(() => React.lazy(() => import('../calendar/WeeklyCalendar')), []);
-  const ChannelTimeline = React.useMemo(() => React.lazy(() => import('../timeline/ChannelTimeline')), []);
 
   // Helper function to render full-screen views
   const renderFullScreenView = () => {

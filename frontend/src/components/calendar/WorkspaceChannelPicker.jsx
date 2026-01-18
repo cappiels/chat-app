@@ -42,6 +42,7 @@ const WorkspaceChannelPicker = ({
   }, [selectedWorkspaceIds]);
 
   // Notify parent of selection changes
+  // Note: onSelectionChange is excluded from deps since it's a stable setState function
   useEffect(() => {
     const selectedWorkspaces = workspaces.filter(ws => selectedWorkspaceIds.includes(ws.id));
 
@@ -55,7 +56,8 @@ const WorkspaceChannelPicker = ({
       workspace: selectedWorkspaces.length === 1 ? selectedWorkspaces[0] : null,
       channel: selectedChannels.length === 1 ? selectedChannels[0].channel : null,
     });
-  }, [selectedWorkspaceIds, selectedChannels, workspaces, onSelectionChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWorkspaceIds, selectedChannels, workspaces]);
 
   const loadWorkspaces = async () => {
     try {

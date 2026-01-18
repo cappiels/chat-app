@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -125,9 +125,26 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
     }
   };
 
+  // Memoize selection state to prevent unnecessary re-fetches
+  // This creates a stable string key from the picker selection object
+  const selectionKey = useMemo(() => {
+    if (!pickerSelection) return 'initial';
+    const wsIds = pickerSelection.workspaceIds?.join(',') || '';
+    const chIds = pickerSelection.channelIds?.join(',') || '';
+    const wsId = pickerSelection.workspace?.id || '';
+    const chId = pickerSelection.channel?.id || '';
+    return `${pickerSelection.showAllWorkspaces || false}-${wsIds}-${chIds}-${wsId}-${chId}`;
+  }, [
+    pickerSelection?.showAllWorkspaces,
+    pickerSelection?.workspaceIds,
+    pickerSelection?.channelIds,
+    pickerSelection?.workspace?.id,
+    pickerSelection?.channel?.id
+  ]);
+
   useEffect(() => {
     fetchTasks();
-  }, [pickerSelection, channel?.id, workspaceId]);
+  }, [selectionKey, channel?.id, workspaceId]);
 
   // Fetch team members and teams for the current workspace/channel context
   const fetchTeamData = async (wsId, chId) => {
