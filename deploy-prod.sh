@@ -138,21 +138,17 @@ if [ $? -eq 0 ]; then
     # Auto-upload to TestFlight (optional - don't fail deploy if this fails)
     cd ..
 
-    # App Store Connect API credentials
-    # Use env vars if set, otherwise use hardcoded values from CLAUDE.md
-    UPLOAD_KEY_ID="${ASC_KEY_ID:-X4J63BNVLN}"
-    UPLOAD_ISSUER_ID="${ASC_ISSUER_ID:-69a6de7c-f98d-47e3-e053-5b8c7c11a4d1}"
-
     echo ""
     echo "🚀 Uploading to TestFlight..."
 
     # Disable exit-on-error for TestFlight upload (it's optional)
     set +e
+    # Hardcoded credentials from CLAUDE.md (bash variable expansion was failing)
     xcrun altool --upload-app \
       --type ios \
       -f "mobile/build/ios/ipa/Crew Chat.ipa" \
-      --apiKey "$UPLOAD_KEY_ID" \
-      --apiIssuer "$UPLOAD_ISSUER_ID"
+      --apiKey "X4J63BNVLN" \
+      --apiIssuer "69a6de7c-f98d-47e3-e053-5b8c7c11a4d1"
     UPLOAD_RESULT=$?
     set -e
 
