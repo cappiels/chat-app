@@ -12,8 +12,10 @@ final versionCheckServiceProvider = Provider<VersionCheckService>((ref) {
 
 class VersionCheckService {
   final HttpClient _httpClient;
-  static const String _testFlightUrl = 'itms-beta://beta.itunes.apple.com/v1/app/6743532280';
-  static const String _appStoreUrl = 'https://beta.itunes.apple.com/v1/app/6743532280';
+  // Just open TestFlight app directly - user will see Crew Chat in their list
+  static const String _testFlightUrl = 'itms-beta://';
+  // Fallback: TestFlight web link (if we had a public link, use that instead)
+  static const String _appStoreUrl = 'https://testflight.apple.com/';
 
   VersionCheckService(this._httpClient);
 
