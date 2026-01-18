@@ -67,6 +67,52 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
     super.dispose();
   }
 
+  void _showWorkspacePicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const Text(
+              'Filter Timeline',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            WorkspaceChannelPicker(
+              currentWorkspace: widget.workspace,
+              onSelectionChange: (selection) {
+                Navigator.pop(context);
+                setState(() => _selection = selection);
+                _loadTasks();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadTasks() async {
     setState(() {
       _isLoading = true;
@@ -75,7 +121,7 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
 
     try {
       List<ChannelTask> tasks;
-      
+
       if (_selection?.showAllWorkspaces == true) {
         // Fetch ALL workspaces
         final taskData = await _workspaceService.getAllWorkspacesTasks();
@@ -682,14 +728,11 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
           style: const TextStyle(fontSize: 16),
         ),
         actions: [
-          WorkspaceChannelPicker(
-            currentWorkspace: widget.workspace,
-            onSelectionChange: (selection) {
-              setState(() => _selection = selection);
-              _loadTasks();
-            },
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () => _showWorkspacePicker(context),
+            tooltip: 'Filter workspaces',
           ),
-          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadTasks,
