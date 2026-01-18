@@ -192,16 +192,51 @@ class _WorkspaceChannelPickerState extends State<WorkspaceChannelPicker> {
   }
 
   void _showWorkspaceSelector() {
+    // Create a local copy for the bottom sheet
+    Set<String> localSelectedIds = Set.from(_selectedWorkspaceIds);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _WorkspaceSelectorSheet(
-        workspaces: _workspaces,
-        selectedIds: _selectedWorkspaceIds,
-        isLoading: _isLoading,
-        onToggle: _toggleWorkspace,
-        onSelectAll: _selectAllWorkspaces,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => _WorkspaceSelectorSheet(
+          workspaces: _workspaces,
+          selectedIds: localSelectedIds,
+          isLoading: _isLoading,
+          onToggle: (workspace) {
+            setSheetState(() {
+              if (localSelectedIds.contains(workspace.id)) {
+                localSelectedIds.remove(workspace.id);
+              } else {
+                localSelectedIds.add(workspace.id);
+              }
+            });
+          },
+          onSelectAll: () {
+            // Clear selections and close
+            setState(() {
+              _selectedWorkspaceIds.clear();
+              _selectedChannels.clear();
+            });
+            _notifySelection();
+            Navigator.pop(context);
+          },
+          onDone: () {
+            // Apply changes to parent state
+            setState(() {
+              _selectedWorkspaceIds = localSelectedIds;
+              // Remove channels from unselected workspaces
+              _selectedChannels.removeWhere((c) => !localSelectedIds.contains(c.workspaceId));
+            });
+            // Load channels for newly selected workspaces
+            for (final wsId in localSelectedIds) {
+              _loadChannels(wsId);
+            }
+            _notifySelection();
+            Navigator.pop(context);
+          },
+        ),
       ),
     );
   }
@@ -209,18 +244,50 @@ class _WorkspaceChannelPickerState extends State<WorkspaceChannelPicker> {
   void _showChannelSelector() {
     if (_selectedWorkspaceIds.isEmpty) return;
 
+    // Create a local copy for the bottom sheet
+    List<ChannelData> localSelectedChannels = List.from(_selectedChannels);
+    final selectedWorkspaces = _workspaces.where((ws) => _selectedWorkspaceIds.contains(ws.id)).toList();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _ChannelSelectorSheet(
-        workspaces: _workspaces.where((ws) => _selectedWorkspaceIds.contains(ws.id)).toList(),
-        channelsByWorkspace: _channelsByWorkspace,
-        selectedChannels: _selectedChannels,
-        loadingFor: _loadingChannelsFor,
-        onToggle: _toggleChannel,
-        onClear: _clearChannelSelection,
-        onLoadChannels: _loadChannels,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => _ChannelSelectorSheet(
+          workspaces: selectedWorkspaces,
+          channelsByWorkspace: _channelsByWorkspace,
+          selectedChannels: localSelectedChannels,
+          loadingFor: _loadingChannelsFor,
+          onToggle: (workspaceId, channel) {
+            setSheetState(() {
+              final channelId = channel['id'].toString();
+              final existingIndex = localSelectedChannels.indexWhere((c) => c.channelId == channelId);
+
+              if (existingIndex >= 0) {
+                localSelectedChannels.removeAt(existingIndex);
+              } else {
+                localSelectedChannels.add(ChannelData(
+                  workspaceId: workspaceId,
+                  channelId: channelId,
+                  channel: channel,
+                ));
+              }
+            });
+          },
+          onClear: () {
+            setState(() => _selectedChannels.clear());
+            _notifySelection();
+            Navigator.pop(context);
+          },
+          onLoadChannels: _loadChannels,
+          onDone: () {
+            setState(() {
+              _selectedChannels = localSelectedChannels;
+            });
+            _notifySelection();
+            Navigator.pop(context);
+          },
+        ),
       ),
     );
   }
@@ -350,6 +417,7 @@ class _WorkspaceSelectorSheet extends StatelessWidget {
   final bool isLoading;
   final Function(Workspace) onToggle;
   final VoidCallback onSelectAll;
+  final VoidCallback onDone;
 
   const _WorkspaceSelectorSheet({
     required this.workspaces,
@@ -357,6 +425,7 @@ class _WorkspaceSelectorSheet extends StatelessWidget {
     required this.isLoading,
     required this.onToggle,
     required this.onSelectAll,
+    required this.onDone,
   });
 
   @override
@@ -394,8 +463,10 @@ class _WorkspaceSelectorSheet extends StatelessWidget {
                 ),
                 const Spacer(),
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Done'),
+                  onPressed: onDone,
+                  child: Text(
+                    selectedIds.isNotEmpty ? 'Done (${selectedIds.length})' : 'Done',
+                  ),
                 ),
               ],
             ),
@@ -414,10 +485,7 @@ class _WorkspaceSelectorSheet extends StatelessWidget {
             trailing: selectedIds.isEmpty
                 ? Icon(Icons.check, color: Colors.purple.shade600)
                 : null,
-            onTap: () {
-              onSelectAll();
-              Navigator.pop(context);
-            },
+            onTap: onSelectAll,
           ),
 
           const Divider(height: 1),
@@ -470,6 +538,7 @@ class _ChannelSelectorSheet extends StatefulWidget {
   final Function(String, Map<String, dynamic>) onToggle;
   final VoidCallback onClear;
   final Function(String) onLoadChannels;
+  final VoidCallback onDone;
 
   const _ChannelSelectorSheet({
     required this.workspaces,
@@ -479,6 +548,7 @@ class _ChannelSelectorSheet extends StatefulWidget {
     required this.onToggle,
     required this.onClear,
     required this.onLoadChannels,
+    required this.onDone,
   });
 
   @override
@@ -532,7 +602,7 @@ class _ChannelSelectorSheetState extends State<_ChannelSelectorSheet> {
                 ),
                 const Spacer(),
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: widget.onDone,
                   child: Text(
                     widget.selectedChannels.isNotEmpty
                         ? 'Done (${widget.selectedChannels.length})'
@@ -556,10 +626,7 @@ class _ChannelSelectorSheetState extends State<_ChannelSelectorSheet> {
             trailing: widget.selectedChannels.isEmpty
                 ? Icon(Icons.check, color: Colors.green.shade600)
                 : null,
-            onTap: () {
-              widget.onClear();
-              Navigator.pop(context);
-            },
+            onTap: widget.onClear,
           ),
 
           const Divider(height: 1),
