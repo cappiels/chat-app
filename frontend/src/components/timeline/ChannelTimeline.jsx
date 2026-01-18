@@ -578,28 +578,26 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
       )}
 
       {/* Task Details Modal */}
-      {selectedTask && !isEditMode && (
-        <TaskDetailsModal
-          task={selectedTask}
-          isOpen={!!selectedTask && !isEditMode}
-          onClose={() => setSelectedTask(null)}
-          workspace={pickerSelection?.workspace || workspace}
-          workspaceId={selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId}
-          threadId={selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id}
-          onTaskUpdated={handleTaskUpdated}
-          onTaskDeleted={handleTaskDeleted}
-          onEdit={handleEditTask}
-          teamMembers={teamMembers}
-          userTeams={userTeams}
-        />
-      )}
+      <TaskDetailsModal
+        task={selectedTask}
+        isOpen={!!selectedTask && !isEditMode}
+        onClose={() => setSelectedTask(null)}
+        workspace={pickerSelection?.workspace || workspace}
+        workspaceId={selectedTask?.workspace_id || pickerSelection?.workspace?.id || workspaceId}
+        threadId={selectedTask?.thread_id || pickerSelection?.channel?.id || channel?.id}
+        onTaskUpdated={handleTaskUpdated}
+        onTaskDeleted={handleTaskDeleted}
+        onEdit={handleEditTask}
+        teamMembers={teamMembers}
+        userTeams={userTeams}
+      />
 
-      {/* Edit Task Modal */}
+      {/* Edit Task Modal - only render when we have valid task data */}
       {isEditMode && selectedTask && (
         <WeeklyEventModal
           task={selectedTask}
           isNew={false}
-          isOpen={isEditMode}
+          isOpen={true}
           onClose={handleEditModalClose}
           onSubmit={handleEditModalSubmit}
           onDelete={async () => {
@@ -608,8 +606,8 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
             await api.delete(`/workspaces/${taskWorkspaceId}/threads/${taskThreadId}/tasks/${selectedTask.id}`);
             handleTaskDeleted();
           }}
-          workspaceId={selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId}
-          threadId={selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id}
+          workspaceId={selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId || ''}
+          threadId={selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id || ''}
           teamMembers={teamMembers}
           userTeams={userTeams}
         />
