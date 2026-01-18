@@ -695,26 +695,13 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
 
   @override
   Widget build(BuildContext context) {
-    String titleText = _selection?.showAllWorkspaces == true
-        ? 'All Workspaces Weekly'
-        : _selection?.workspace != null
-            ? '${_selection!.workspace!.name} Weekly'
-            : widget.thread != null
-                ? '# ${widget.thread!.name} Weekly'
-                : 'Weekly Calendar';
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          titleText,
-          style: const TextStyle(fontSize: 16),
+        title: const Text(
+          'Weekly Calendar',
+          style: TextStyle(fontSize: 16),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showWorkspacePicker(context),
-            tooltip: 'Filter workspaces',
-          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadTasks,
@@ -722,54 +709,87 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: Colors.red[300],
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Failed to load calendar',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _loadTasks,
-                          child: const Text('Try Again'),
-                        ),
-                      ],
+      body: Column(
+        children: [
+          // Workspace/Channel Picker Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: WorkspaceChannelPicker(
+                      currentWorkspace: widget.workspace,
+                      onSelectionChange: (selection) {
+                        setState(() => _selection = selection);
+                        _loadTasks();
+                      },
                     ),
                   ),
-                )
-              : Column(
-                  children: [
-                    _buildHeader(),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        controller: _scrollController,
-                        child: _buildWeekView(),
-                      ),
-                    ),
-                  ],
                 ),
+              ],
+            ),
+          ),
+          // Calendar content
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 64,
+                                color: Colors.red[300],
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Failed to load calendar',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: _loadTasks,
+                                child: const Text('Try Again'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Column(
+                        children: [
+                          _buildHeader(),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              controller: _scrollController,
+                              child: _buildWeekView(),
+                            ),
+                          ),
+                        ],
+                      ),
+          ),
+        ],
+      ),
       floatingActionButton: _buildFloatingActionButton(),
     );
   }

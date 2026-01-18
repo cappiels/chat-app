@@ -498,27 +498,14 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
   Widget build(BuildContext context) {
     final organizedTasks = _organizeTaskHierarchy();
     final timelineWeeks = _generateTimelineWeeks();
-    
-    String titleText = _selection?.showAllWorkspaces == true
-        ? 'All Workspaces Timeline'
-        : _selection?.workspace != null
-            ? '${_selection!.workspace!.name} Timeline'
-            : widget.thread != null
-                ? '# ${widget.thread!.name} Timeline'
-                : 'Timeline';
-    
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          titleText,
-          style: const TextStyle(fontSize: 16),
+        title: const Text(
+          'Timeline',
+          style: TextStyle(fontSize: 16),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showWorkspacePicker(context),
-            tooltip: 'Filter workspaces',
-          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadTasks,
@@ -526,74 +513,104 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: Colors.red[300],
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Failed to load timeline',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _loadTasks,
-                          child: const Text('Try Again'),
-                        ),
-                      ],
+      body: Column(
+        children: [
+          // Workspace/Channel Picker Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: WorkspaceChannelPicker(
+                      currentWorkspace: widget.workspace,
+                      onSelectionChange: (selection) {
+                        setState(() => _selection = selection);
+                        _loadTasks();
+                      },
                     ),
                   ),
-                )
-              : _tasks.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.timeline,
-                              size: 64,
-                              color: Colors.purple[200],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              widget.thread != null
-                                  ? 'No tasks in # ${widget.thread!.name}'
-                                  : 'No tasks found',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                ),
+              ],
+            ),
+          ),
+          // Timeline content
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 64,
+                                color: Colors.red[300],
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Failed to load timeline',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: _loadTasks,
+                                child: const Text('Try Again'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _tasks.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.timeline,
+                                    size: 64,
+                                    color: Colors.purple[200],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    widget.thread != null
+                                        ? 'No tasks in # ${widget.thread!.name}'
+                                        : 'No tasks found',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Create tasks to see them in timeline view',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Create tasks to see them in timeline view',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ),
                     )
                   : Column(
                       children: [
@@ -682,6 +699,9 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
                         ),
                       ],
                     ),
+          ),
+        ],
+      ),
       floatingActionButton: _buildFloatingActionButton(),
     );
   }

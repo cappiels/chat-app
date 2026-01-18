@@ -320,26 +320,13 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String titleText = _selection?.showAllWorkspaces == true
-        ? 'All Workspaces Calendar'
-        : _selection?.workspace != null
-            ? '${_selection!.workspace!.name} Calendar'
-            : widget.thread != null
-                ? '# ${widget.thread!.name} Calendar'
-                : 'Calendar';
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          titleText,
-          style: const TextStyle(fontSize: 16),
+        title: const Text(
+          'Calendar',
+          style: TextStyle(fontSize: 16),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showWorkspacePicker(context),
-            tooltip: 'Filter workspaces',
-          ),
           IconButton(
             icon: const Icon(Icons.today),
             onPressed: () {
@@ -357,7 +344,37 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: Column(
+        children: [
+          // Workspace/Channel Picker Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: WorkspaceChannelPicker(
+                      currentWorkspace: widget.workspace,
+                      onSelectionChange: (selection) {
+                        setState(() => _selection = selection);
+                        _loadTasks();
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Calendar content
+          Expanded(
+            child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(
@@ -523,6 +540,9 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
                     ),
                   ),
                 ),
+          ),
+        ],
+      ),
       floatingActionButton: _buildFloatingActionButton(),
     );
   }
