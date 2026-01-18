@@ -33,6 +33,41 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
   const [typingUsers, setTypingUsers] = useState([]);
   const [currentView, setCurrentView] = useState('chat'); // chat, calendar, timeline
 
+  // Helper function - defined before useEffects that use it
+  const loadWorkspaceChannels = async (ws) => {
+    try {
+      setChannelsLoading(true);
+      setError(null);
+
+      const response = await threadAPI.getThreads(ws.id);
+      console.log('Threads API response:', response.data);
+
+      const threadsData = response.data;
+      const allThreads = threadsData.threads || [];
+
+      // Filter only channels and map to expected format
+      const channels = allThreads
+        .filter(thread => thread.type === 'channel')
+        .map(thread => ({
+          id: thread.id,
+          name: thread.name,
+          type: thread.type,
+          unread: thread.unread_count || 0,
+          is_member: thread.is_member,
+          member_count: thread.member_count || 0
+        }));
+
+      return channels;
+
+    } catch (error) {
+      console.error('Failed to load channels:', error);
+      setError(`Failed to load channels: ${error.response?.data?.message || error.message}`);
+      return [];
+    } finally {
+      setChannelsLoading(false);
+    }
+  };
+
   // Handle responsive behavior
   useEffect(() => {
     const handleResize = () => {
@@ -241,40 +276,6 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
 
     return () => clearInterval(interval);
   }, []);
-
-  const loadWorkspaceChannels = async (workspace) => {
-    try {
-      setChannelsLoading(true);
-      setError(null);
-      
-      const response = await threadAPI.getThreads(workspace.id);
-      console.log('Threads API response:', response.data);
-      
-      const threadsData = response.data;
-      const allThreads = threadsData.threads || [];
-      
-      // Filter only channels and map to expected format
-      const channels = allThreads
-        .filter(thread => thread.type === 'channel')
-        .map(thread => ({
-          id: thread.id,
-          name: thread.name,
-          type: thread.type,
-          unread: thread.unread_count || 0,
-          is_member: thread.is_member,
-          member_count: thread.member_count || 0
-        }));
-      
-      return channels;
-      
-    } catch (error) {
-      console.error('Failed to load channels:', error);
-      setError(`Failed to load channels: ${error.response?.data?.message || error.message}`);
-      return [];
-    } finally {
-      setChannelsLoading(false);
-    }
-  };
 
   // Load messages when channel changes
   useEffect(() => {
