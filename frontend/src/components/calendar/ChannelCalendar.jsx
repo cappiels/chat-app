@@ -11,6 +11,7 @@ import { Building2 } from 'lucide-react';
 import { auth } from '../../firebase';
 import api from '../../utils/api';
 import WorkspaceChannelPicker from './WorkspaceChannelPicker';
+import ChannelPickerModal from './ChannelPickerModal';
 import TaskDetailsModal from '../tasks/TaskDetailsModal';
 import WeeklyEventModal from './WeeklyEventModal';
 
@@ -57,6 +58,8 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
   const [userTeams, setUserTeams] = useState([]);
+  const [showChannelPicker, setShowChannelPicker] = useState(false);
+  const [taskCreationChannel, setTaskCreationChannel] = useState(null);
 
   // Fetch tasks from API - supports both single channel and multi-workspace views
   const fetchTasks = async () => {
@@ -150,6 +153,42 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
   const handleEditModalClose = () => {
     setIsEditMode(false);
     setSelectedTask(null);
+  };
+
+  // Handle "New Task" button click
+  const handleNewTaskClick = () => {
+    // Check if multiple channels are selected
+    if (pickerSelection?.channels?.length > 1) {
+      // Show channel picker modal to select one
+      setShowChannelPicker(true);
+    } else if (pickerSelection?.channels?.length === 1) {
+      // Single channel selected - use it directly
+      setTaskCreationChannel(pickerSelection.channels[0]);
+      setShowTaskModal(true);
+    } else if (pickerSelection?.channel) {
+      // Single channel selected (backwards compat)
+      setTaskCreationChannel({
+        workspaceId: pickerSelection.workspace?.id,
+        channelId: pickerSelection.channel.id,
+        channel: pickerSelection.channel
+      });
+      setShowTaskModal(true);
+    } else if (channel && workspaceId) {
+      // Fall back to props
+      setTaskCreationChannel({
+        workspaceId: workspaceId,
+        channelId: channel.id,
+        channel: channel
+      });
+      setShowTaskModal(true);
+    }
+  };
+
+  // Handle channel selected from picker modal
+  const handleChannelPickedForTask = (channelData) => {
+    setTaskCreationChannel(channelData);
+    setShowChannelPicker(false);
+    setShowTaskModal(true);
   };
 
   // Handle edit modal submit
@@ -372,13 +411,30 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
             </button>
           </div>
 
-          <button
-            onClick={() => setShowTaskModal(true)}
-            className="btn btn-primary"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Task
-          </button>
+          {/* New Task button - requires a channel to be selected (or multiple for picker) */}
+          {(pickerSelection?.channels?.length > 0 || pickerSelection?.channel || channel) ? (
+            <button
+              onClick={handleNewTaskClick}
+              className="btn btn-primary"
+            >
+              <PlusIcon className="w-4 h-4" />
+              New Task
+            </button>
+          ) : (
+            <div className="relative group">
+              <button
+                disabled
+                className="btn btn-primary opacity-50 cursor-not-allowed"
+                title="Select a workspace and channel to create tasks"
+              >
+                <PlusIcon className="w-4 h-4" />
+                New Task
+              </button>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                Select a workspace and channel first
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -537,6 +593,17 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
           userTeams={userTeams}
         />
       )}
+
+      {/* Channel Picker Modal for multi-select task creation */}
+      <ChannelPickerModal
+        isOpen={showChannelPicker}
+        onClose={() => setShowChannelPicker(false)}
+        selectedChannels={pickerSelection?.channels || []}
+        workspaces={pickerSelection?.workspaces || []}
+        onChannelSelected={handleChannelPickedForTask}
+        title="Select a Channel"
+        description="You have multiple channels selected. Please choose which channel to create the task in:"
+      />
     </div>
   );
 };

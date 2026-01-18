@@ -9,6 +9,7 @@ import '../../../data/services/workspace_service.dart';
 import '../../widgets/tasks/quick_task_dialog.dart';
 import '../../widgets/tasks/task_details_sheet.dart';
 import '../../widgets/calendar/workspace_channel_picker.dart';
+import '../../widgets/calendar/channel_picker_dialog.dart';
 
 class ChannelCalendarScreen extends StatefulWidget {
   final Thread? thread;
@@ -522,25 +523,131 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
                     ),
                   ),
                 ),
-      floatingActionButton: widget.thread != null && widget.workspace != null
-          ? FloatingActionButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => QuickTaskDialog(
-                    thread: widget.thread!,
-                    workspace: widget.workspace!,
-                    onTaskCreated: () {
-                      // Refresh tasks after creation
-                      _loadTasks();
-                    },
-                  ),
-                );
+      floatingActionButton: _buildFloatingActionButton(),
+    );
+  }
+
+  Widget? _buildFloatingActionButton() {
+    // Determine the workspace and channel for task creation
+    final effectiveWorkspace = _selection?.workspace ?? widget.workspace;
+    final effectiveChannel = _selection?.channel;
+    final effectiveThread = widget.thread;
+    final selectedChannels = _selection?.channels ?? [];
+    final selectedWorkspaces = _selection?.workspaces ?? [];
+
+    // Check if we have a valid channel to create tasks in
+    // Either from the picker selection, multiple channels selected, or from the original widget props
+    final bool hasMultipleChannels = selectedChannels.length > 1;
+    final bool hasSingleChannel = (effectiveWorkspace != null && effectiveChannel != null) ||
+                                  selectedChannels.length == 1;
+    final bool canCreateTask = hasSingleChannel || hasMultipleChannels ||
+                               (widget.workspace != null && widget.thread != null);
+
+    if (!canCreateTask) {
+      // Show disabled FAB with tooltip
+      return FloatingActionButton(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Select a workspace and channel to create tasks'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+        backgroundColor: Colors.grey.shade400,
+        child: const Icon(Icons.add, color: Colors.white70),
+        tooltip: 'Select a channel first',
+      );
+    }
+
+    return FloatingActionButton(
+      onPressed: () async {
+        // Check if multiple channels are selected - need to pick one
+        if (hasMultipleChannels) {
+          final pickedChannel = await ChannelPickerDialog.show(
+            context: context,
+            selectedChannels: selectedChannels,
+            workspaces: selectedWorkspaces,
+          );
+
+          if (pickedChannel == null) return; // User cancelled
+
+          // Find the workspace for this channel
+          final workspace = selectedWorkspaces.firstWhere(
+            (ws) => ws.id == pickedChannel.workspaceId,
+            orElse: () => selectedWorkspaces.first,
+          );
+
+          final threadForTask = Thread(
+            id: pickedChannel.channelId,
+            name: pickedChannel.channel['name'] ?? 'Channel',
+            workspaceId: pickedChannel.workspaceId,
+            type: 'channel',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            builder: (context) => QuickTaskDialog(
+              thread: threadForTask,
+              workspace: workspace,
+              onTaskCreated: () {
+                _loadTasks();
               },
-              child: const Icon(Icons.add),
-              tooltip: 'Create task',
-            )
-          : null,
+            ),
+          );
+          return;
+        }
+
+        // Single channel selected - use it directly
+        Thread threadForTask;
+        Workspace workspaceForTask;
+
+        if (selectedChannels.length == 1) {
+          final channelData = selectedChannels.first;
+          final workspace = selectedWorkspaces.firstWhere(
+            (ws) => ws.id == channelData.workspaceId,
+            orElse: () => selectedWorkspaces.first,
+          );
+          threadForTask = Thread(
+            id: channelData.channelId,
+            name: channelData.channel['name'] ?? 'Channel',
+            workspaceId: channelData.workspaceId,
+            type: 'channel',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          workspaceForTask = workspace;
+        } else if (effectiveChannel != null) {
+          threadForTask = Thread(
+            id: effectiveChannel['id'].toString(),
+            name: effectiveChannel['name'] ?? 'Channel',
+            workspaceId: effectiveWorkspace!.id,
+            type: 'channel',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          workspaceForTask = effectiveWorkspace;
+        } else {
+          threadForTask = effectiveThread!;
+          workspaceForTask = widget.workspace!;
+        }
+
+        showDialog(
+          context: context,
+          builder: (context) => QuickTaskDialog(
+            thread: threadForTask,
+            workspace: workspaceForTask,
+            onTaskCreated: () {
+              _loadTasks();
+            },
+          ),
+        );
+      },
+      child: const Icon(Icons.add),
+      tooltip: 'Create task',
     );
   }
 }

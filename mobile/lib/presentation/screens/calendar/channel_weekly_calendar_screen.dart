@@ -8,6 +8,7 @@ import '../../../data/services/workspace_service.dart';
 import '../../widgets/tasks/weekly_event_dialog.dart';
 import '../../widgets/tasks/task_details_sheet.dart';
 import '../../widgets/calendar/workspace_channel_picker.dart';
+import '../../widgets/calendar/channel_picker_dialog.dart';
 
 class ChannelWeeklyCalendarScreen extends StatefulWidget {
   final Thread? thread;
@@ -242,7 +243,7 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
     _scrollToCurrentTime();
   }
 
-  void _showEventDialog(ChannelTask? task, {DateTime? startTime, DateTime? endTime}) {
+  void _showEventDialog(ChannelTask? task, {DateTime? startTime, DateTime? endTime}) async {
     if (task != null) {
       // Show details sheet for existing tasks
       final workspaceId = _selection?.workspace?.id ?? widget.workspace?.id ?? task.workspaceId;
@@ -260,18 +261,108 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
     }
 
     // Creating new task - need specific thread/workspace
-    if (widget.thread == null || widget.workspace == null) {
+    // Check picker selection first, then widget props
+    final effectiveWorkspace = _selection?.workspace ?? widget.workspace;
+    final effectiveChannel = _selection?.channel;
+    final selectedChannels = _selection?.channels ?? [];
+    final selectedWorkspaces = _selection?.workspaces ?? [];
+
+    // Check if multiple channels are selected - need to pick one
+    final bool hasMultipleChannels = selectedChannels.length > 1;
+
+    // Can create if we have picker selection, multiple channels, OR widget props
+    final bool canCreate = hasMultipleChannels ||
+                           (effectiveWorkspace != null && effectiveChannel != null) ||
+                           selectedChannels.length == 1 ||
+                           (widget.workspace != null && widget.thread != null);
+
+    if (!canCreate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a specific channel to create tasks')),
+        const SnackBar(content: Text('Select a workspace and channel to create tasks')),
       );
       return;
     }
+
+    // Handle multiple channels - show picker dialog
+    if (hasMultipleChannels) {
+      final pickedChannel = await ChannelPickerDialog.show(
+        context: context,
+        selectedChannels: selectedChannels,
+        workspaces: selectedWorkspaces,
+      );
+
+      if (pickedChannel == null || !mounted) return;
+
+      final workspace = selectedWorkspaces.firstWhere(
+        (ws) => ws.id == pickedChannel.workspaceId,
+        orElse: () => selectedWorkspaces.first,
+      );
+
+      final threadForTask = Thread(
+        id: pickedChannel.channelId,
+        name: pickedChannel.channel['name'] ?? 'Channel',
+        workspaceId: pickedChannel.workspaceId,
+        type: 'channel',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      showDialog(
+        context: context,
+        builder: (context) => WeeklyEventDialog(
+          task: task,
+          thread: threadForTask,
+          workspace: workspace,
+          initialStartTime: startTime,
+          initialEndTime: endTime,
+          onTaskCreated: _loadTasks,
+          onTaskUpdated: _loadTasks,
+          onTaskDeleted: _loadTasks,
+        ),
+      );
+      return;
+    }
+
+    // Determine which thread/workspace to use
+    Thread threadForTask;
+    Workspace workspaceForTask;
+
+    if (selectedChannels.length == 1) {
+      final channelData = selectedChannels.first;
+      final workspace = selectedWorkspaces.firstWhere(
+        (ws) => ws.id == channelData.workspaceId,
+        orElse: () => selectedWorkspaces.first,
+      );
+      threadForTask = Thread(
+        id: channelData.channelId,
+        name: channelData.channel['name'] ?? 'Channel',
+        workspaceId: channelData.workspaceId,
+        type: 'channel',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      workspaceForTask = workspace;
+    } else if (effectiveChannel != null && effectiveWorkspace != null) {
+      threadForTask = Thread(
+        id: effectiveChannel['id'].toString(),
+        name: effectiveChannel['name'] ?? 'Channel',
+        workspaceId: effectiveWorkspace.id,
+        type: 'channel',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      workspaceForTask = effectiveWorkspace;
+    } else {
+      threadForTask = widget.thread!;
+      workspaceForTask = widget.workspace!;
+    }
+
     showDialog(
       context: context,
       builder: (context) => WeeklyEventDialog(
         task: task,
-        thread: widget.thread!,
-        workspace: widget.workspace!,
+        thread: threadForTask,
+        workspace: workspaceForTask,
         initialStartTime: startTime,
         initialEndTime: endTime,
         onTaskCreated: _loadTasks,
@@ -679,13 +770,42 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
                     ),
                   ],
                 ),
-      floatingActionButton: widget.thread != null && widget.workspace != null
-          ? FloatingActionButton(
-              onPressed: () => _showEventDialog(null),
-              child: const Icon(Icons.add),
-              tooltip: 'Create event',
-            )
-          : null,
+      floatingActionButton: _buildFloatingActionButton(),
+    );
+  }
+
+  Widget? _buildFloatingActionButton() {
+    // Determine if we can create tasks
+    final effectiveWorkspace = _selection?.workspace ?? widget.workspace;
+    final effectiveChannel = _selection?.channel;
+    final selectedChannels = _selection?.channels ?? [];
+
+    // Can create if we have picker selection, multiple channels, OR widget props
+    final bool canCreate = selectedChannels.isNotEmpty ||
+                           (effectiveWorkspace != null && effectiveChannel != null) ||
+                           (widget.workspace != null && widget.thread != null);
+
+    if (!canCreate) {
+      // Show disabled FAB
+      return FloatingActionButton(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Select a workspace and channel to create events'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+        backgroundColor: Colors.grey.shade400,
+        child: const Icon(Icons.add, color: Colors.white70),
+        tooltip: 'Select a channel first',
+      );
+    }
+
+    return FloatingActionButton(
+      onPressed: () => _showEventDialog(null),
+      child: const Icon(Icons.add),
+      tooltip: 'Create event',
     );
   }
 }
