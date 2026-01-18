@@ -148,7 +148,7 @@ if [ $? -eq 0 ]; then
       -f "mobile/build/ios/ipa/Crew Chat.ipa" \
       --apiKey "$UPLOAD_KEY_ID" \
       --apiIssuer "$UPLOAD_ISSUER_ID" \
-      --apiKeyPath ~/private_keys
+      --apiKeyPath "$HOME/private_keys"
 
     if [ $? -eq 0 ]; then
         echo ""
