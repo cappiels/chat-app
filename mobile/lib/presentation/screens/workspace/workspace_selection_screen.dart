@@ -10,6 +10,9 @@ import '../../../data/models/workspace.dart';
 import '../../../data/models/task.dart';
 import '../../../data/models/thread.dart';
 import '../../widgets/tasks/quick_task_dialog.dart';
+import '../calendar/channel_calendar_screen.dart';
+import '../calendar/channel_weekly_calendar_screen.dart';
+import '../timeline/channel_timeline_screen.dart';
 
 class WorkspaceSelectionScreen extends ConsumerStatefulWidget {
   final VoidCallback? onSignOut;
@@ -496,8 +499,24 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   }
 
   void _navigateToCalendarView(String viewType) {
-    // TODO: Navigate to actual calendar screens
-    _showSuccessSnackBar('Opening $viewType view...');
+    Widget screen;
+    switch (viewType) {
+      case 'monthly':
+        screen = const ChannelCalendarScreen();
+        break;
+      case 'weekly':
+        screen = const ChannelWeeklyCalendarScreen();
+        break;
+      case 'timeline':
+        screen = const ChannelTimelineScreen();
+        break;
+      default:
+        screen = const ChannelCalendarScreen();
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => screen),
+    );
   }
 
   @override

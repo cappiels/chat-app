@@ -9,13 +9,13 @@ import '../../widgets/tasks/weekly_event_dialog.dart';
 import '../../widgets/calendar/workspace_channel_picker.dart';
 
 class ChannelWeeklyCalendarScreen extends StatefulWidget {
-  final Thread thread;
-  final Workspace workspace;
+  final Thread? thread;
+  final Workspace? workspace;
 
   const ChannelWeeklyCalendarScreen({
     Key? key,
-    required this.thread,
-    required this.workspace,
+    this.thread,
+    this.workspace,
   }) : super(key: key);
 
   @override
@@ -53,8 +53,12 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
   void initState() {
     super.initState();
     _currentWeekStart = _getWeekStart(DateTime.now());
+    // Start in "all workspaces" mode if no specific thread/workspace provided
+    if (widget.thread == null || widget.workspace == null) {
+      _selection = WorkspaceChannelSelection(showAllWorkspaces: true);
+    }
     _loadTasks();
-    
+
     // Auto-scroll to current time
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToCurrentTime();
@@ -127,16 +131,27 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
           _tasks = tasks.where((task) => task.startDate != null).toList();
           _isLoading = false;
         });
-      } else {
-        // Fallback to current channel
+      } else if (widget.workspace != null && widget.thread != null) {
+        // Fallback to current channel (only if both are provided)
         final tasks = await _taskService.getChannelTasks(
-          workspaceId: widget.workspace.id,
-          threadId: widget.thread.id,
+          workspaceId: widget.workspace!.id,
+          threadId: widget.thread!.id,
           limit: 200,
         );
         setState(() {
           _taskData = [];
           _tasks = tasks.where((task) => task.startDate != null).toList();
+          _isLoading = false;
+        });
+      } else {
+        // No workspace/thread provided, fetch all workspaces
+        final taskData = await _workspaceService.getAllWorkspacesTasks();
+        setState(() {
+          _taskData = taskData;
+          _tasks = taskData
+              .map((data) => ChannelTask.fromJson(data))
+              .where((task) => task.startDate != null)
+              .toList();
           _isLoading = false;
         });
       }
@@ -181,12 +196,19 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
   }
 
   void _showEventDialog(ChannelTask? task, {DateTime? startTime, DateTime? endTime}) {
+    if (widget.thread == null || widget.workspace == null) {
+      // Can't create tasks without a specific thread/workspace
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a specific channel to create tasks')),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (context) => WeeklyEventDialog(
         task: task,
-        thread: widget.thread,
-        workspace: widget.workspace,
+        thread: widget.thread!,
+        workspace: widget.workspace!,
         initialStartTime: startTime,
         initialEndTime: endTime,
         onTaskCreated: _loadTasks,
@@ -523,7 +545,9 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
         ? 'All Workspaces Weekly'
         : _selection?.workspace != null
             ? '${_selection!.workspace!.name} Weekly'
-            : '# ${widget.thread.name} Weekly';
+            : widget.thread != null
+                ? '# ${widget.thread!.name} Weekly'
+                : 'Weekly Calendar';
 
     return Scaffold(
       appBar: AppBar(
@@ -595,11 +619,13 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
                     ),
                   ],
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showEventDialog(null),
-        child: const Icon(Icons.add),
-        tooltip: 'Create event',
-      ),
+      floatingActionButton: widget.thread != null && widget.workspace != null
+          ? FloatingActionButton(
+              onPressed: () => _showEventDialog(null),
+              child: const Icon(Icons.add),
+              tooltip: 'Create event',
+            )
+          : null,
     );
   }
 }

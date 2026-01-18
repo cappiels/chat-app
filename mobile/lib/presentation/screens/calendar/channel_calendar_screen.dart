@@ -10,13 +10,13 @@ import '../../widgets/tasks/quick_task_dialog.dart';
 import '../../widgets/calendar/workspace_channel_picker.dart';
 
 class ChannelCalendarScreen extends StatefulWidget {
-  final Thread thread;
-  final Workspace workspace;
+  final Thread? thread;
+  final Workspace? workspace;
 
   const ChannelCalendarScreen({
     Key? key,
-    required this.thread,
-    required this.workspace,
+    this.thread,
+    this.workspace,
   }) : super(key: key);
 
   @override
@@ -62,6 +62,10 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
   @override
   void initState() {
     super.initState();
+    // Start in "all workspaces" mode if no specific thread/workspace provided
+    if (widget.thread == null || widget.workspace == null) {
+      _selection = WorkspaceChannelSelection(showAllWorkspaces: true);
+    }
     _loadTasks();
   }
 
@@ -102,16 +106,24 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
           _tasks = tasks;
           _isLoading = false;
         });
-      } else {
-        // Fallback to current channel
+      } else if (widget.workspace != null && widget.thread != null) {
+        // Fallback to current channel (only if both are provided)
         final tasks = await _taskService.getChannelTasks(
-          workspaceId: widget.workspace.id,
-          threadId: widget.thread.id,
+          workspaceId: widget.workspace!.id,
+          threadId: widget.thread!.id,
           limit: 200,
         );
         setState(() {
           _taskData = [];
           _tasks = tasks;
+          _isLoading = false;
+        });
+      } else {
+        // No workspace/thread provided, fetch all workspaces
+        final taskData = await _workspaceService.getAllWorkspacesTasks();
+        setState(() {
+          _taskData = taskData;
+          _tasks = taskData.map((data) => ChannelTask.fromJson(data)).toList();
           _isLoading = false;
         });
       }
@@ -484,7 +496,9 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
         ? 'All Workspaces Calendar'
         : _selection?.workspace != null
             ? '${_selection!.workspace!.name} Calendar'
-            : '# ${widget.thread.name} Calendar';
+            : widget.thread != null
+                ? '# ${widget.thread!.name} Calendar'
+                : 'Calendar';
 
     return Scaffold(
       appBar: AppBar(
@@ -684,23 +698,25 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
                     ),
                   ),
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => QuickTaskDialog(
-              thread: widget.thread,
-              workspace: widget.workspace,
-              onTaskCreated: () {
-                // Refresh tasks after creation
-                _loadTasks();
+      floatingActionButton: widget.thread != null && widget.workspace != null
+          ? FloatingActionButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => QuickTaskDialog(
+                    thread: widget.thread!,
+                    workspace: widget.workspace!,
+                    onTaskCreated: () {
+                      // Refresh tasks after creation
+                      _loadTasks();
+                    },
+                  ),
+                );
               },
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
-        tooltip: 'Create task',
-      ),
+              child: const Icon(Icons.add),
+              tooltip: 'Create task',
+            )
+          : null,
     );
   }
 }

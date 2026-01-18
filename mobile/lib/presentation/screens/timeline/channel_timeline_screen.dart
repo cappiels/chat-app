@@ -9,13 +9,13 @@ import '../../widgets/tasks/quick_task_dialog.dart';
 import '../../widgets/calendar/workspace_channel_picker.dart';
 
 class ChannelTimelineScreen extends StatefulWidget {
-  final Thread thread;
-  final Workspace workspace;
+  final Thread? thread;
+  final Workspace? workspace;
 
   const ChannelTimelineScreen({
     Key? key,
-    required this.thread,
-    required this.workspace,
+    this.thread,
+    this.workspace,
   }) : super(key: key);
 
   @override
@@ -54,6 +54,10 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
   @override
   void initState() {
     super.initState();
+    // Start in "all workspaces" mode if no specific thread/workspace provided
+    if (widget.thread == null || widget.workspace == null) {
+      _selection = WorkspaceChannelSelection(showAllWorkspaces: true);
+    }
     _loadTasks();
   }
 
@@ -92,14 +96,19 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
           limit: 200,
         );
         _taskData = [];
-      } else {
-        // Fallback to current channel
+      } else if (widget.workspace != null && widget.thread != null) {
+        // Fallback to current channel (only if both are provided)
         tasks = await _taskService.getChannelTasks(
-          workspaceId: widget.workspace.id,
-          threadId: widget.thread.id,
+          workspaceId: widget.workspace!.id,
+          threadId: widget.thread!.id,
           limit: 200,
         );
         _taskData = [];
+      } else {
+        // No workspace/thread provided, fetch all workspaces
+        final taskData = await _workspaceService.getAllWorkspacesTasks();
+        _taskData = taskData;
+        tasks = taskData.map((data) => ChannelTask.fromJson(data)).toList();
       }
       
       // Calculate timeline bounds
@@ -662,7 +671,9 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
         ? 'All Workspaces Timeline'
         : _selection?.workspace != null
             ? '${_selection!.workspace!.name} Timeline'
-            : '# ${widget.thread.name} Timeline';
+            : widget.thread != null
+                ? '# ${widget.thread!.name} Timeline'
+                : 'Timeline';
     
     return Scaffold(
       appBar: AppBar(
@@ -737,7 +748,9 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No tasks in # ${widget.thread.name}',
+                              widget.thread != null
+                                  ? 'No tasks in # ${widget.thread!.name}'
+                                  : 'No tasks found',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -840,23 +853,25 @@ class _ChannelTimelineScreenState extends State<ChannelTimelineScreen> {
                         ),
                       ],
                     ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => QuickTaskDialog(
-              thread: widget.thread,
-              workspace: widget.workspace,
-              onTaskCreated: () {
-                // Refresh tasks after creation
-                _loadTasks();
+      floatingActionButton: widget.thread != null && widget.workspace != null
+          ? FloatingActionButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => QuickTaskDialog(
+                    thread: widget.thread!,
+                    workspace: widget.workspace!,
+                    onTaskCreated: () {
+                      // Refresh tasks after creation
+                      _loadTasks();
+                    },
+                  ),
+                );
               },
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
-        tooltip: 'Create task',
-      ),
+              child: const Icon(Icons.add),
+              tooltip: 'Create task',
+            )
+          : null,
     );
   }
 }

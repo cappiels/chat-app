@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+
+// Lazy load calendar/timeline components
+const ChannelCalendar = lazy(() => import('./calendar/ChannelCalendar'));
+const WeeklyCalendar = lazy(() => import('./calendar/WeeklyCalendar'));
+const ChannelTimeline = lazy(() => import('./timeline/ChannelTimeline'));
 import { motion } from 'framer-motion';
 import { 
   MessageCircle, 
@@ -352,12 +357,34 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
         )}
 
         {activeTab === 'calendar' && calendarView && (
-          <div className="max-w-4xl mx-auto p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-              <button onClick={() => setShowCalendarSelector(true)} className="px-3 py-1.5 text-sm bg-gray-100 rounded-lg">Change View</button>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm"><p className="text-gray-500 text-center py-8">{calendarView.charAt(0).toUpperCase() + calendarView.slice(1)} calendar view - Coming soon!</p></div>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Suspense fallback={
+              <div className="flex-1 flex items-center justify-center">
+                <div className="loading-spinner"></div>
+              </div>
+            }>
+              {calendarView === 'monthly' && (
+                <ChannelCalendar
+                  channel={null}
+                  workspace={null}
+                  workspaceId={null}
+                />
+              )}
+              {calendarView === 'weekly' && (
+                <WeeklyCalendar
+                  channel={null}
+                  workspace={null}
+                  workspaceId={null}
+                />
+              )}
+              {calendarView === 'timeline' && (
+                <ChannelTimeline
+                  channel={null}
+                  workspace={null}
+                  workspaceId={null}
+                />
+              )}
+            </Suspense>
           </div>
         )}
 
