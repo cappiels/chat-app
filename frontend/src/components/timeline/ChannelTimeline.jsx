@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ChevronLeftIcon, 
+import {
+  ChevronLeftIcon,
   ChevronRightIcon,
   PlusIcon,
   ChartBarIcon,
@@ -13,6 +13,8 @@ import { Building2 } from 'lucide-react';
 import { auth } from '../../firebase';
 import api from '../../utils/api';
 import WorkspaceChannelPicker from '../calendar/WorkspaceChannelPicker';
+import TaskDetailsModal from '../tasks/TaskDetailsModal';
+import WeeklyEventModal from '../calendar/WeeklyEventModal';
 
 const STATUS_COLORS = {
   'pending': 'bg-gray-400',
@@ -38,6 +40,9 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [pickerSelection, setPickerSelection] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [userTeams, setUserTeams] = useState([]);
 
   // Fetch tasks from API - supports both single channel and multi-workspace views
   const fetchTasks = async () => {
@@ -120,6 +125,71 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
   useEffect(() => {
     fetchTasks();
   }, [pickerSelection, channel?.id, workspaceId]);
+
+  // Fetch team members and teams for the current workspace/channel context
+  const fetchTeamData = async (wsId, chId) => {
+    if (!wsId || !chId) return;
+    try {
+      const [threadResponse, teamsResponse] = await Promise.all([
+        api.get(`/workspaces/${wsId}/threads/${chId}`),
+        api.get(`/workspaces/${wsId}/teams`)
+      ]);
+      setTeamMembers(threadResponse.data?.members || []);
+      setUserTeams(teamsResponse.data?.teams || []);
+    } catch (err) {
+      console.error('Error fetching team data:', err);
+    }
+  };
+
+  // Handle task click
+  const handleTaskClick = (task) => {
+    setSelectedTask(task);
+    setIsEditMode(false);
+
+    // Fetch team data for the task's workspace/channel
+    const taskWorkspaceId = task.workspace_id || pickerSelection?.workspace?.id || workspaceId;
+    const taskThreadId = task.thread_id || pickerSelection?.channel?.id || channel?.id;
+    if (taskWorkspaceId && taskThreadId) {
+      fetchTeamData(taskWorkspaceId, taskThreadId);
+    }
+  };
+
+  // Handle task updated
+  const handleTaskUpdated = () => {
+    fetchTasks();
+    setSelectedTask(null);
+    setIsEditMode(false);
+  };
+
+  // Handle task deleted
+  const handleTaskDeleted = () => {
+    fetchTasks();
+    setSelectedTask(null);
+    setIsEditMode(false);
+  };
+
+  // Handle edit task
+  const handleEditTask = (task) => {
+    setIsEditMode(true);
+  };
+
+  // Handle edit modal close
+  const handleEditModalClose = () => {
+    setIsEditMode(false);
+    setSelectedTask(null);
+  };
+
+  // Handle edit modal submit
+  const handleEditModalSubmit = async (taskData) => {
+    const taskWorkspaceId = selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId;
+    const taskThreadId = selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id;
+
+    await api.put(
+      `/workspaces/${taskWorkspaceId}/threads/${taskThreadId}/tasks/${selectedTask.id}`,
+      taskData
+    );
+    handleTaskUpdated();
+  };
 
   // Timeline helpers
   const formatDateRange = (start, end) => {
@@ -296,7 +366,7 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
                   width: `${getTaskBarWidth(task)}%`,
                   minWidth: '32px'
                 }}
-                onClick={() => setSelectedTask(task)}
+                onClick={() => handleTaskClick(task)}
                 title={`${task.title} - ${formatDateRange(new Date(task.start_date), new Date(task.end_date))}`}
               >
                 {/* Progress bar */}
@@ -314,10 +384,10 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
               </div>
             ) : (
               /* Milestone marker */
-              <div 
+              <div
                 className={`w-3 h-3 rotate-45 ${STATUS_COLORS[task.status]} border border-white shadow-sm cursor-pointer`}
                 style={{ left: `${getTimelinePosition(task.due_date ? new Date(task.due_date) : new Date())}%` }}
-                onClick={() => setSelectedTask(task)}
+                onClick={() => handleTaskClick(task)}
                 title={`${task.title} - Milestone`}
               />
             )}
@@ -508,72 +578,41 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
       )}
 
       {/* Task Details Modal */}
-      {selectedTask && (
-        <div className="modal-backdrop">
-          <div className="modal w-modal-lg">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">
-                {selectedTask.title}
-              </h3>
-              
-              <div className="space-y-4 mb-6">
-                <div className="flex items-center gap-4">
-                  <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[selectedTask.status]}`} />
-                  <span className="capitalize">{selectedTask.status.replace('_', ' ')}</span>
-                  <span className="text-text-tertiary">•</span>
-                  <span className="capitalize text-text-tertiary">{selectedTask.priority} priority</span>
-                </div>
-                
-                {selectedTask.description && (
-                  <p className="text-text-secondary">{selectedTask.description}</p>
-                )}
-                
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  {selectedTask.assigned_to_name && (
-                    <div>
-                      <span className="font-medium text-text-secondary">Assigned to:</span>
-                      <div className="text-text-primary">{selectedTask.assigned_to_name}</div>
-                    </div>
-                  )}
-                  
-                  {selectedTask.start_date && (
-                    <div>
-                      <span className="font-medium text-text-secondary">Start Date:</span>
-                      <div className="text-text-primary">
-                        {new Date(selectedTask.start_date).toLocaleDateString()}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {selectedTask.end_date && (
-                    <div>
-                      <span className="font-medium text-text-secondary">End Date:</span>
-                      <div className="text-text-primary">
-                        {new Date(selectedTask.end_date).toLocaleDateString()}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {selectedTask.estimated_hours && (
-                    <div>
-                      <span className="font-medium text-text-secondary">Estimated Hours:</span>
-                      <div className="text-text-primary">{selectedTask.estimated_hours}h</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setSelectedTask(null)}
-                  className="btn btn-secondary"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {selectedTask && !isEditMode && (
+        <TaskDetailsModal
+          task={selectedTask}
+          isOpen={!!selectedTask && !isEditMode}
+          onClose={() => setSelectedTask(null)}
+          workspace={pickerSelection?.workspace || workspace}
+          workspaceId={selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId}
+          threadId={selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id}
+          onTaskUpdated={handleTaskUpdated}
+          onTaskDeleted={handleTaskDeleted}
+          onEdit={handleEditTask}
+          teamMembers={teamMembers}
+          userTeams={userTeams}
+        />
+      )}
+
+      {/* Edit Task Modal */}
+      {isEditMode && selectedTask && (
+        <WeeklyEventModal
+          task={selectedTask}
+          isNew={false}
+          isOpen={isEditMode}
+          onClose={handleEditModalClose}
+          onSubmit={handleEditModalSubmit}
+          onDelete={async () => {
+            const taskWorkspaceId = selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId;
+            const taskThreadId = selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id;
+            await api.delete(`/workspaces/${taskWorkspaceId}/threads/${taskThreadId}/tasks/${selectedTask.id}`);
+            handleTaskDeleted();
+          }}
+          workspaceId={selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId}
+          threadId={selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id}
+          teamMembers={teamMembers}
+          userTeams={userTeams}
+        />
       )}
     </div>
   );

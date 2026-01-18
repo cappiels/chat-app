@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ChevronLeftIcon, 
+import {
+  ChevronLeftIcon,
   ChevronRightIcon,
   PlusIcon,
   CalendarIcon,
@@ -11,6 +11,8 @@ import { Building2 } from 'lucide-react';
 import { auth } from '../../firebase';
 import api from '../../utils/api';
 import WorkspaceChannelPicker from './WorkspaceChannelPicker';
+import TaskDetailsModal from '../tasks/TaskDetailsModal';
+import WeeklyEventModal from './WeeklyEventModal';
 
 // Channel color mapping using our design tokens
 const CHANNEL_COLORS = {
@@ -51,6 +53,10 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [pickerSelection, setPickerSelection] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [userTeams, setUserTeams] = useState([]);
 
   // Fetch tasks from API - supports both single channel and multi-workspace views
   const fetchTasks = async () => {
@@ -91,6 +97,72 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
   useEffect(() => {
     fetchTasks();
   }, [pickerSelection, channel?.id, workspaceId]);
+
+  // Fetch team members and teams for the current workspace/channel context
+  const fetchTeamData = async (wsId, chId) => {
+    if (!wsId || !chId) return;
+    try {
+      const [threadResponse, teamsResponse] = await Promise.all([
+        api.get(`/workspaces/${wsId}/threads/${chId}`),
+        api.get(`/workspaces/${wsId}/teams`)
+      ]);
+      setTeamMembers(threadResponse.data?.members || []);
+      setUserTeams(teamsResponse.data?.teams || []);
+    } catch (err) {
+      console.error('Error fetching team data:', err);
+    }
+  };
+
+  // Handle task click
+  const handleTaskClick = (task, e) => {
+    e.stopPropagation();
+    setSelectedTask(task);
+    setIsEditMode(false);
+
+    // Fetch team data for the task's workspace/channel
+    const taskWorkspaceId = task.workspace_id || pickerSelection?.workspace?.id || workspaceId;
+    const taskThreadId = task.thread_id || pickerSelection?.channel?.id || channel?.id;
+    if (taskWorkspaceId && taskThreadId) {
+      fetchTeamData(taskWorkspaceId, taskThreadId);
+    }
+  };
+
+  // Handle task updated
+  const handleTaskUpdated = () => {
+    fetchTasks();
+    setSelectedTask(null);
+    setIsEditMode(false);
+  };
+
+  // Handle task deleted
+  const handleTaskDeleted = () => {
+    fetchTasks();
+    setSelectedTask(null);
+    setIsEditMode(false);
+  };
+
+  // Handle edit task
+  const handleEditTask = (task) => {
+    setIsEditMode(true);
+  };
+
+  // Handle edit modal close
+  const handleEditModalClose = () => {
+    setIsEditMode(false);
+    setSelectedTask(null);
+  };
+
+  // Handle edit modal submit
+  const handleEditModalSubmit = async (taskData) => {
+    const taskWorkspaceId = selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId;
+    const taskThreadId = selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id;
+
+    await api.put(
+      `/workspaces/${taskWorkspaceId}/threads/${taskThreadId}/tasks/${selectedTask.id}`,
+      taskData
+    );
+    handleTaskUpdated();
+  };
 
   // Calendar navigation
   const goToPreviousMonth = () => {
@@ -357,8 +429,9 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
                   {dayData.tasks.slice(0, 3).map((task) => (
                     <div
                       key={task.id}
-                      className={`calendar-task p-1.5 rounded text-xs border ${STATUS_COLORS[task.status]} ${PRIORITY_COLORS[task.priority]} transition-all duration-200`}
+                      className={`calendar-task p-1.5 rounded text-xs border ${STATUS_COLORS[task.status]} ${PRIORITY_COLORS[task.priority]} transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5`}
                       title={`${task.title}${task.workspace_name ? ` - ${task.workspace_name}` : ''}${task.assigned_to_name ? ` - ${task.assigned_to_name}` : ''}`}
+                      onClick={(e) => handleTaskClick(task, e)}
                     >
                       <div className="flex items-center gap-1.5">
                         {task.is_all_day ? (
@@ -427,6 +500,44 @@ const ChannelCalendar = ({ channel, workspace, workspaceId }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Task Details Modal */}
+      {selectedTask && !isEditMode && (
+        <TaskDetailsModal
+          task={selectedTask}
+          isOpen={!!selectedTask && !isEditMode}
+          onClose={() => setSelectedTask(null)}
+          workspace={pickerSelection?.workspace || workspace}
+          workspaceId={selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId}
+          threadId={selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id}
+          onTaskUpdated={handleTaskUpdated}
+          onTaskDeleted={handleTaskDeleted}
+          onEdit={handleEditTask}
+          teamMembers={teamMembers}
+          userTeams={userTeams}
+        />
+      )}
+
+      {/* Edit Task Modal */}
+      {isEditMode && selectedTask && (
+        <WeeklyEventModal
+          task={selectedTask}
+          isNew={false}
+          isOpen={isEditMode}
+          onClose={handleEditModalClose}
+          onSubmit={handleEditModalSubmit}
+          onDelete={async () => {
+            const taskWorkspaceId = selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId;
+            const taskThreadId = selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id;
+            await api.delete(`/workspaces/${taskWorkspaceId}/threads/${taskThreadId}/tasks/${selectedTask.id}`);
+            handleTaskDeleted();
+          }}
+          workspaceId={selectedTask.workspace_id || pickerSelection?.workspace?.id || workspaceId}
+          threadId={selectedTask.thread_id || pickerSelection?.channel?.id || channel?.id}
+          teamMembers={teamMembers}
+          userTeams={userTeams}
+        />
       )}
     </div>
   );

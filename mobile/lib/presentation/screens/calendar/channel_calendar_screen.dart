@@ -7,6 +7,7 @@ import '../../../data/models/workspace.dart';
 import '../../../data/services/task_service.dart';
 import '../../../data/services/workspace_service.dart';
 import '../../widgets/tasks/quick_task_dialog.dart';
+import '../../widgets/tasks/task_details_sheet.dart';
 import '../../widgets/calendar/workspace_channel_picker.dart';
 
 class ChannelCalendarScreen extends StatefulWidget {
@@ -213,237 +214,17 @@ class _ChannelCalendarScreenState extends State<ChannelCalendarScreen> {
   }
 
   void _showTaskDetails(ChannelTask task) {
-    showModalBottomSheet(
+    // Determine workspace ID and role
+    final workspaceId = _selection?.workspace?.id ?? widget.workspace?.id ?? task.workspaceId;
+    final workspaceRole = _selection?.workspace?.role ?? widget.workspace?.role;
+
+    showTaskDetailsSheet(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => _buildTaskDetailsSheet(
-          task,
-          scrollController,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTaskDetailsSheet(ChannelTask task, ScrollController scrollController) {
-    final dateFormat = DateFormat('MMM d, yyyy');
-    final timeFormat = DateFormat('h:mm a');
-    
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: ListView(
-        controller: scrollController,
-        children: [
-          // Handle bar
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          
-          // Title
-          Text(
-            task.title,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Status and Priority
-          Row(
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: _statusColors[task.status] ?? Colors.grey,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                task.status.replaceAll('_', ' ').toUpperCase(),
-                style: TextStyle(
-                  color: _statusTextColors[task.status],
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: 16),
-              if (task.priority != 'medium') ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _priorityColors[task.priority]?.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    task.priority.toUpperCase(),
-                    style: TextStyle(
-                      color: _priorityColors[task.priority],
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          // Description
-          if (task.description != null && task.description!.isNotEmpty) ...[
-            Text(
-              task.description!,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[700],
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-          
-          // Details grid
-          _buildDetailRow(
-            icon: Icons.calendar_today,
-            label: 'Start Date',
-            value: task.startDate != null 
-                ? dateFormat.format(task.startDate!)
-                : 'Not set',
-          ),
-          if (task.endDate != null)
-            _buildDetailRow(
-              icon: Icons.event,
-              label: 'End Date',
-              value: dateFormat.format(task.endDate!),
-            ),
-          if (task.dueDate != null)
-            _buildDetailRow(
-              icon: Icons.flag,
-              label: 'Due Date',
-              value: dateFormat.format(task.dueDate!),
-            ),
-          if (task.estimatedHours != null)
-            _buildDetailRow(
-              icon: Icons.access_time,
-              label: 'Estimated Hours',
-              value: '${task.estimatedHours}h',
-            ),
-          if (task.assigneeDetails != null && task.assigneeDetails!.isNotEmpty)
-            _buildDetailRow(
-              icon: Icons.person,
-              label: 'Assigned To',
-              value: task.assigneeDetails!
-                  .map((a) => a.displayName)
-                  .join(', '),
-            ),
-          if (task.teamDetails != null && task.teamDetails!.isNotEmpty)
-            _buildDetailRow(
-              icon: Icons.group,
-              label: 'Teams',
-              value: task.teamDetails!
-                  .map((t) => t.displayName)
-                  .join(', '),
-            ),
-          
-          // Progress for multi-assignee tasks
-          if (task.requiresIndividualResponse && task.progressInfo != null) ...[
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Individual Progress',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    task.completionText,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue[700],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Each assignee marks done individually',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      task: task,
+      workspaceId: workspaceId,
+      workspaceRole: workspaceRole,
+      onTaskUpdated: _loadTasks,
+      onTaskDeleted: _loadTasks,
     );
   }
 

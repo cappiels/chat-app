@@ -917,4 +917,222 @@ router.get('/:taskId/progress', async (req, res) => {
 });
 
 
+// POST /api/workspaces/:workspaceId/threads/:threadId/tasks/:taskId/complete/:targetUserId
+// Admin/creator marks task as complete for a specific user
+router.post('/:taskId/complete/:targetUserId', async (req, res) => {
+  try {
+    const { workspaceId, threadId, taskId, targetUserId } = req.params;
+    const userId = req.user.id;
+
+    // Get the task and check permissions
+    const taskResult = await pool.query(
+      'SELECT * FROM channel_tasks WHERE id = $1 AND thread_id = $2',
+      [taskId, threadId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const task = taskResult.rows[0];
+
+    // Check if user is workspace admin or task creator
+    const workspaceCheck = await pool.query(
+      'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      [workspaceId, userId]
+    );
+
+    const isAdmin = workspaceCheck.rows.length > 0 && workspaceCheck.rows[0].role === 'admin';
+    const isCreator = task.created_by === userId;
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ error: 'Only workspace admins or task creators can mark completion for others' });
+    }
+
+    // Verify target user is an assignee
+    const assignees = task.assignees || [];
+    if (!assignees.includes(targetUserId) && task.assigned_to !== targetUserId) {
+      return res.status(400).json({ error: 'Target user is not assigned to this task' });
+    }
+
+    const timestamp = new Date().toISOString();
+    const currentCompletions = task.individual_completions || {};
+    const updatedCompletions = { ...currentCompletions, [targetUserId]: timestamp };
+    const completionCount = Object.keys(updatedCompletions).length;
+
+    await pool.query(`
+      UPDATE channel_tasks
+      SET
+        individual_completions = $1,
+        completion_count = $2,
+        completed_at = $3,
+        status = CASE WHEN $4 = 'individual_response' THEN status ELSE 'completed' END,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $5
+    `, [
+      JSON.stringify(updatedCompletions),
+      completionCount,
+      timestamp,
+      task.assignment_mode || 'collaborative',
+      taskId
+    ]);
+
+    // Get target user name for response
+    const targetUserResult = await pool.query(
+      'SELECT display_name FROM users WHERE id = $1',
+      [targetUserId]
+    );
+    const targetUserName = targetUserResult.rows[0]?.display_name || 'Unknown';
+
+    res.json({
+      message: `Task marked as complete for ${targetUserName}`,
+      progress: { completed: completionCount, total: assignees.length || 1 },
+      completed_for: targetUserId,
+      completed_by_admin: userId,
+      timestamp
+    });
+  } catch (error) {
+    console.error('Error marking task complete for user:', error);
+    res.status(500).json({ error: 'Failed to mark task complete' });
+  }
+});
+
+// DELETE /api/workspaces/:workspaceId/threads/:threadId/tasks/:taskId/complete/:targetUserId
+// Admin/creator unmarks task completion for a specific user
+router.delete('/:taskId/complete/:targetUserId', async (req, res) => {
+  try {
+    const { workspaceId, threadId, taskId, targetUserId } = req.params;
+    const userId = req.user.id;
+
+    const taskResult = await pool.query(
+      'SELECT * FROM channel_tasks WHERE id = $1 AND thread_id = $2',
+      [taskId, threadId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const task = taskResult.rows[0];
+
+    // Check if user is workspace admin or task creator
+    const workspaceCheck = await pool.query(
+      'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      [workspaceId, userId]
+    );
+
+    const isAdmin = workspaceCheck.rows.length > 0 && workspaceCheck.rows[0].role === 'admin';
+    const isCreator = task.created_by === userId;
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ error: 'Only workspace admins or task creators can modify completion for others' });
+    }
+
+    const currentCompletions = task.individual_completions || {};
+    delete currentCompletions[targetUserId];
+    const completionCount = Object.keys(currentCompletions).length;
+
+    await pool.query(`
+      UPDATE channel_tasks
+      SET
+        individual_completions = $1,
+        completion_count = $2,
+        completed_at = CASE WHEN $2 = 0 THEN NULL ELSE completed_at END,
+        status = CASE WHEN $2 = 0 THEN 'pending' ELSE status END,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+    `, [
+      JSON.stringify(currentCompletions),
+      completionCount,
+      taskId
+    ]);
+
+    res.json({
+      message: 'Task completion removed for user',
+      progress: { completed: completionCount },
+      uncompleted_for: targetUserId,
+      modified_by: userId
+    });
+  } catch (error) {
+    console.error('Error unmarking task complete for user:', error);
+    res.status(500).json({ error: 'Failed to unmark task complete' });
+  }
+});
+
+// POST /api/workspaces/:workspaceId/threads/:threadId/tasks/:taskId/complete-all
+// Admin/creator marks task as complete for ALL assignees
+router.post('/:taskId/complete-all', async (req, res) => {
+  try {
+    const { workspaceId, threadId, taskId } = req.params;
+    const userId = req.user.id;
+
+    const taskResult = await pool.query(
+      'SELECT * FROM channel_tasks WHERE id = $1 AND thread_id = $2',
+      [taskId, threadId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const task = taskResult.rows[0];
+
+    // Check if user is workspace admin or task creator
+    const workspaceCheck = await pool.query(
+      'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      [workspaceId, userId]
+    );
+
+    const isAdmin = workspaceCheck.rows.length > 0 && workspaceCheck.rows[0].role === 'admin';
+    const isCreator = task.created_by === userId;
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ error: 'Only workspace admins or task creators can mark all as complete' });
+    }
+
+    const timestamp = new Date().toISOString();
+    const assignees = task.assignees || [];
+
+    // If no assignees array, use assigned_to
+    const allAssignees = assignees.length > 0 ? assignees : (task.assigned_to ? [task.assigned_to] : []);
+
+    if (allAssignees.length === 0) {
+      return res.status(400).json({ error: 'No assignees to mark as complete' });
+    }
+
+    // Create completions for all assignees
+    const completions = {};
+    allAssignees.forEach(assigneeId => {
+      completions[assigneeId] = timestamp;
+    });
+
+    await pool.query(`
+      UPDATE channel_tasks
+      SET
+        individual_completions = $1,
+        completion_count = $2,
+        completed_at = $3,
+        status = 'completed',
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
+    `, [
+      JSON.stringify(completions),
+      allAssignees.length,
+      timestamp,
+      taskId
+    ]);
+
+    res.json({
+      message: 'Task marked as complete for all assignees',
+      progress: { completed: allAssignees.length, total: allAssignees.length },
+      completed_for: allAssignees,
+      completed_by_admin: userId,
+      timestamp
+    });
+  } catch (error) {
+    console.error('Error marking task complete for all:', error);
+    res.status(500).json({ error: 'Failed to mark task complete for all' });
+  }
+});
+
 module.exports = router;

@@ -6,6 +6,7 @@ import '../../../data/models/workspace.dart';
 import '../../../data/services/task_service.dart';
 import '../../../data/services/workspace_service.dart';
 import '../../widgets/tasks/weekly_event_dialog.dart';
+import '../../widgets/tasks/task_details_sheet.dart';
 import '../../widgets/calendar/workspace_channel_picker.dart';
 
 class ChannelWeeklyCalendarScreen extends StatefulWidget {
@@ -242,8 +243,24 @@ class _ChannelWeeklyCalendarScreenState extends State<ChannelWeeklyCalendarScree
   }
 
   void _showEventDialog(ChannelTask? task, {DateTime? startTime, DateTime? endTime}) {
+    if (task != null) {
+      // Show details sheet for existing tasks
+      final workspaceId = _selection?.workspace?.id ?? widget.workspace?.id ?? task.workspaceId;
+      final workspaceRole = _selection?.workspace?.role ?? widget.workspace?.role;
+
+      showTaskDetailsSheet(
+        context: context,
+        task: task,
+        workspaceId: workspaceId,
+        workspaceRole: workspaceRole,
+        onTaskUpdated: _loadTasks,
+        onTaskDeleted: _loadTasks,
+      );
+      return;
+    }
+
+    // Creating new task - need specific thread/workspace
     if (widget.thread == null || widget.workspace == null) {
-      // Can't create tasks without a specific thread/workspace
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select a specific channel to create tasks')),
       );

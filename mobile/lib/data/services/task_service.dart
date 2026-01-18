@@ -430,4 +430,96 @@ class TaskService {
       rethrow;
     }
   }
+
+  // Admin/creator marks task as complete for a specific user
+  Future<Map<String, dynamic>> markTaskCompleteForUser({
+    required String workspaceId,
+    required String threadId,
+    required String taskId,
+    required String targetUserId,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final token = await user.getIdToken(true);
+
+      final response = await _httpClient.post(
+        '/api/workspaces/$workspaceId/threads/$threadId/tasks/$taskId/complete/$targetUserId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Error marking task complete for user: $e');
+      rethrow;
+    }
+  }
+
+  // Admin/creator unmarks task completion for a specific user
+  Future<Map<String, dynamic>> markTaskIncompleteForUser({
+    required String workspaceId,
+    required String threadId,
+    required String taskId,
+    required String targetUserId,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final token = await user.getIdToken(true);
+
+      final response = await _httpClient.delete(
+        '/api/workspaces/$workspaceId/threads/$threadId/tasks/$taskId/complete/$targetUserId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Error unmarking task complete for user: $e');
+      rethrow;
+    }
+  }
+
+  // Admin/creator marks task as complete for ALL assignees
+  Future<Map<String, dynamic>> markTaskCompleteForAll({
+    required String workspaceId,
+    required String threadId,
+    required String taskId,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final token = await user.getIdToken(true);
+
+      final response = await _httpClient.post(
+        '/api/workspaces/$workspaceId/threads/$threadId/tasks/$taskId/complete-all',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Error marking task complete for all: $e');
+      rethrow;
+    }
+  }
 }

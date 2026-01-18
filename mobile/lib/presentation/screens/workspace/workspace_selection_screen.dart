@@ -1589,62 +1589,91 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   }
 
   void _showCreateWorkspaceDialog() {
+    // Local state for the dialog
+    String dialogWorkspaceName = '';
+    String dialogWorkspaceDescription = '';
+    bool dialogCreating = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Create New Workspace', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Workspace name',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.all(16),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Create New Workspace', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Workspace name',
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+                onChanged: (value) => setDialogState(() => dialogWorkspaceName = value),
               ),
-              onChanged: (value) => setState(() => _newWorkspaceName = value),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Description (optional)',
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+                onChanged: (value) => setDialogState(() => dialogWorkspaceDescription = value),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _nameController.clear();
+                _descriptionController.clear();
+              },
+              child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600)),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _descriptionController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Description (optional)',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.all(16),
-              ),
-              onChanged: (value) => setState(() => _newWorkspaceDescription = value),
+            ElevatedButton(
+              onPressed: dialogWorkspaceName.trim().isEmpty || dialogCreating ? null : () async {
+                setDialogState(() => dialogCreating = true);
+                try {
+                  final newWorkspace = await _workspaceService.createWorkspace(
+                    name: dialogWorkspaceName.trim(),
+                    description: dialogWorkspaceDescription.trim().isEmpty ? null : dialogWorkspaceDescription.trim(),
+                  );
+                  if (mounted) {
+                    setState(() {
+                      _workspaces.insert(0, newWorkspace);
+                    });
+                    Navigator.of(dialogContext).pop();
+                    _nameController.clear();
+                    _descriptionController.clear();
+                    _showSuccessSnackBar('Workspace created successfully!');
+                  }
+                } catch (e) {
+                  setDialogState(() => dialogCreating = false);
+                  final errorMessage = e.toString();
+                  if (errorMessage.contains('403') || errorMessage.contains('Subscription')) {
+                    Navigator.of(dialogContext).pop();
+                    _showSubscriptionLimitDialog();
+                  } else {
+                    _showErrorSnackBar('Failed to create workspace: $e');
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade600, foregroundColor: Colors.white),
+              child: dialogCreating
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
+                  : const Text('Create'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _nameController.clear();
-              _descriptionController.clear();
-              setState(() { _newWorkspaceName = ''; _newWorkspaceDescription = ''; });
-            },
-            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600)),
-          ),
-          ElevatedButton(
-            onPressed: _newWorkspaceName.trim().isEmpty ? null : () async {
-              await _createWorkspace();
-              if (mounted) Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade600, foregroundColor: Colors.white),
-            child: _creating
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
-                : const Text('Create'),
-          ),
-        ],
       ),
     );
   }
