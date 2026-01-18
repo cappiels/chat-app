@@ -27,6 +27,47 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
   });
   const [channelsWithUnread, setChannelsWithUnread] = useState([]);
 
+  // Helper functions - defined before useEffects that use them
+  const loadWorkspaceDirectMessages = async (ws) => {
+    if (!ws) return [];
+
+    try {
+      setLoading(true);
+      const response = await threadAPI.getThreads(ws.id);
+      const threadsData = response.data;
+
+      const dms = threadsData.direct_messages.map(thread => ({
+        id: thread.id,
+        name: thread.name || 'Direct Message',
+        status: 'online',
+        initials: thread.name ? thread.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'DM',
+        unread: thread.unread_count || 0
+      }));
+
+      return dms;
+    } catch (error) {
+      console.error('Failed to load direct messages:', error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getChannelUnreadCount = (channelId) => {
+    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
+    return channelData?.unread_count || 0;
+  };
+
+  const getChannelMentionCount = (channelId) => {
+    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
+    return channelData?.unread_mentions || 0;
+  };
+
+  const isChannelMuted = (channelId) => {
+    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
+    return channelData?.is_muted || false;
+  };
+
   // Load direct messages and unread data when workspace changes
   useEffect(() => {
     const loadDMs = async () => {
@@ -157,46 +198,6 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
       socketManager.off('new_message', handleNewMessage);
     };
   }, [workspace?.id]);
-
-  const loadWorkspaceDirectMessages = async (workspace) => {
-    if (!workspace) return [];
-    
-    try {
-      setLoading(true);
-      const response = await threadAPI.getThreads(workspace.id);
-      const threadsData = response.data;
-      
-      const dms = threadsData.direct_messages.map(thread => ({
-        id: thread.id,
-        name: thread.name || 'Direct Message',
-        status: 'online',
-        initials: thread.name ? thread.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'DM',
-        unread: thread.unread_count || 0
-      }));
-      
-      return dms;
-    } catch (error) {
-      console.error('Failed to load direct messages:', error);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getChannelUnreadCount = (channelId) => {
-    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
-    return channelData?.unread_count || 0;
-  };
-
-  const getChannelMentionCount = (channelId) => {
-    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
-    return channelData?.unread_mentions || 0;
-  };
-
-  const isChannelMuted = (channelId) => {
-    const channelData = channelsWithUnread.find(ch => ch.id === channelId);
-    return channelData?.is_muted || false;
-  };
 
   // Auto-clear unreads when viewing a channel that has unread messages
   // This fixes the race condition where user clicks a channel before unread data loads
