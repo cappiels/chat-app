@@ -641,20 +641,22 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
         </div>
       )}
 
-      {/* Task Details Modal */}
-      <TaskDetailsModal
-        task={selectedTask}
-        isOpen={!!selectedTask && !isEditMode}
-        onClose={() => setSelectedTask(null)}
-        workspace={pickerSelection?.workspace || workspace}
-        workspaceId={selectedTask?.workspace_id || pickerSelection?.workspace?.id || workspaceId}
-        threadId={selectedTask?.thread_id || pickerSelection?.channel?.id || channel?.id}
-        onTaskUpdated={handleTaskUpdated}
-        onTaskDeleted={handleTaskDeleted}
-        onEdit={handleEditTask}
-        teamMembers={teamMembers}
-        userTeams={userTeams}
-      />
+      {/* Task Details Modal - only render when task is selected */}
+      {selectedTask && !isEditMode && (
+        <TaskDetailsModal
+          task={selectedTask}
+          isOpen={true}
+          onClose={() => setSelectedTask(null)}
+          workspace={pickerSelection?.workspace || workspace}
+          workspaceId={selectedTask?.workspace_id || pickerSelection?.workspace?.id || workspaceId}
+          threadId={selectedTask?.thread_id || pickerSelection?.channel?.id || channel?.id}
+          onTaskUpdated={handleTaskUpdated}
+          onTaskDeleted={handleTaskDeleted}
+          onEdit={handleEditTask}
+          teamMembers={teamMembers}
+          userTeams={userTeams}
+        />
+      )}
 
       {/* Edit Task Modal - only render when we have valid task data */}
       {isEditMode && selectedTask && (
@@ -678,15 +680,17 @@ const ChannelTimeline = ({ channel, workspace, workspaceId }) => {
       )}
 
       {/* Channel Picker Modal for multi-select task creation */}
-      <ChannelPickerModal
-        isOpen={showChannelPicker}
-        onClose={() => setShowChannelPicker(false)}
-        selectedChannels={pickerSelection?.channels || []}
-        workspaces={pickerSelection?.workspaces || []}
-        onChannelSelected={handleChannelPickedForTask}
-        title="Select a Channel"
-        description="You have multiple channels selected. Please choose which channel to create the task in:"
-      />
+      {showChannelPicker && (
+        <ChannelPickerModal
+          isOpen={true}
+          onClose={() => setShowChannelPicker(false)}
+          selectedChannels={pickerSelection?.channels || []}
+          workspaces={pickerSelection?.workspaces || []}
+          onChannelSelected={handleChannelPickedForTask}
+          title="Select a Channel"
+          description="You have multiple channels selected. Please choose which channel to create the task in:"
+        />
+      )}
     </div>
   );
 };
