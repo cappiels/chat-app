@@ -372,6 +372,183 @@ router.post('/workspaces/:workspaceId/add-member', async (req, res) => {
   }
 });
 
+// DELETE /api/admin/messages/:messageId - Admin delete any message
+router.delete('/messages/:messageId', async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    // Get message info for logging
+    const messageQuery = await pool.query(`
+      SELECT m.id, m.content, m.sender_id, t.workspace_id, t.name as channel_name,
+             u.display_name as sender_name, u.email as sender_email
+      FROM messages m
+      JOIN threads t ON m.thread_id = t.id
+      LEFT JOIN users u ON m.sender_id = u.id
+      WHERE m.id = $1
+    `, [messageId]);
+
+    if (messageQuery.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Message Not Found',
+        message: 'Message not found'
+      });
+    }
+
+    const message = messageQuery.rows[0];
+
+    // Soft delete the message
+    await pool.query(`
+      UPDATE messages
+      SET
+        is_deleted = true,
+        deleted_by = $1,
+        deleted_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [req.user.id, messageId]);
+
+    console.log(`🗑️ [ADMIN] Message ${messageId} deleted by admin ${req.user.email} (original sender: ${message.sender_email})`);
+
+    res.json({
+      message: 'Message deleted successfully by admin',
+      deleted_message: {
+        id: messageId,
+        channel_name: message.channel_name,
+        sender_name: message.sender_name,
+        sender_email: message.sender_email
+      }
+    });
+
+  } catch (error) {
+    console.error('Admin delete message error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Unable to delete message'
+    });
+  }
+});
+
+// DELETE /api/admin/tasks/:taskId - Admin delete any task/event
+router.delete('/tasks/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    // Get task info for logging
+    const taskQuery = await pool.query(`
+      SELECT ct.id, ct.title, ct.thread_id, t.workspace_id, t.name as channel_name,
+             u.display_name as created_by_name, u.email as created_by_email
+      FROM channel_tasks ct
+      JOIN threads t ON ct.thread_id = t.id
+      LEFT JOIN users u ON ct.created_by = u.id
+      WHERE ct.id = $1
+    `, [taskId]);
+
+    if (taskQuery.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Task Not Found',
+        message: 'Task/event not found'
+      });
+    }
+
+    const task = taskQuery.rows[0];
+
+    // Hard delete the task (channel_tasks doesn't have soft delete)
+    await pool.query(`DELETE FROM channel_tasks WHERE id = $1`, [taskId]);
+
+    console.log(`🗑️ [ADMIN] Task "${task.title}" (${taskId}) deleted by admin ${req.user.email}`);
+
+    res.json({
+      message: 'Task/event deleted successfully by admin',
+      deleted_task: {
+        id: taskId,
+        title: task.title,
+        channel_name: task.channel_name,
+        created_by_name: task.created_by_name,
+        created_by_email: task.created_by_email
+      }
+    });
+
+  } catch (error) {
+    console.error('Admin delete task error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Unable to delete task/event'
+    });
+  }
+});
+
+// DELETE /api/admin/channels/:channelId - Admin delete any channel
+router.delete('/channels/:channelId', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { channelId } = req.params;
+
+    await client.query('BEGIN');
+
+    // Get channel info for logging and validation
+    const channelQuery = await client.query(`
+      SELECT t.id, t.name, t.type, t.workspace_id,
+             w.name as workspace_name,
+             u.display_name as created_by_name, u.email as created_by_email,
+             (SELECT COUNT(*) FROM thread_members WHERE thread_id = t.id) as member_count,
+             (SELECT COUNT(*) FROM messages WHERE thread_id = t.id) as message_count
+      FROM threads t
+      JOIN workspaces w ON t.workspace_id = w.id
+      LEFT JOIN users u ON t.created_by = u.id
+      WHERE t.id = $1
+    `, [channelId]);
+
+    if (channelQuery.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Channel Not Found',
+        message: 'Channel not found'
+      });
+    }
+
+    const channel = channelQuery.rows[0];
+
+    // Prevent deleting the general channel
+    if (channel.name === 'general') {
+      return res.status(400).json({
+        error: 'Cannot Delete',
+        message: 'Cannot delete the general channel. Archive or rename it instead.'
+      });
+    }
+
+    // Delete the channel (cascades to messages, members, tasks via foreign keys)
+    await client.query(`DELETE FROM threads WHERE id = $1`, [channelId]);
+
+    await client.query('COMMIT');
+
+    console.log(`🗑️ [ADMIN] Channel "#${channel.name}" (${channelId}) deleted by admin ${req.user.email} - had ${channel.member_count} members, ${channel.message_count} messages`);
+
+    res.json({
+      message: 'Channel deleted successfully by admin',
+      deleted_channel: {
+        id: channelId,
+        name: channel.name,
+        type: channel.type,
+        workspace_name: channel.workspace_name,
+        member_count: parseInt(channel.member_count),
+        message_count: parseInt(channel.message_count),
+        created_by_name: channel.created_by_name,
+        created_by_email: channel.created_by_email
+      }
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Admin delete channel error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Unable to delete channel'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // DELETE /api/admin/workspaces/:workspaceId - Admin delete or archive workspace
 router.delete('/workspaces/:workspaceId', async (req, res) => {
   const client = await pool.connect();

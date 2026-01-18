@@ -208,26 +208,32 @@ router.post('/', authenticateUser, async (req, res) => {
     }
 
     if (description && description.length > 1000) {
-      return res.status(400).json({ 
-        error: 'Validation Error', 
-        message: 'Description cannot exceed 1000 characters' 
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Description cannot exceed 1000 characters'
       });
     }
 
-    // Check subscription limits
-    const canCreate = await subscriptionEnforcement.canCreateWorkspace(userId);
-    if (!canCreate.allowed) {
-      return res.status(403).json({
-        error: 'Subscription Limit Reached',
-        message: `You've reached your workspace limit (${canCreate.currentCount}/${canCreate.limit}). Upgrade your plan to create more workspaces.`,
-        details: {
-          currentCount: canCreate.currentCount,
-          limit: canCreate.limit,
-          plan: canCreate.plan,
-          planDisplayName: canCreate.planDisplayName,
-          upgradeUrl: subscriptionEnforcement.getUpgradeUrl(userId)
-        }
-      });
+    // Site admin bypass - skip subscription limits
+    const SITE_ADMIN_EMAIL = 'cappiels@gmail.com';
+    const isSiteAdmin = req.user.email === SITE_ADMIN_EMAIL;
+
+    // Check subscription limits (unless site admin)
+    if (!isSiteAdmin) {
+      const canCreate = await subscriptionEnforcement.canCreateWorkspace(userId);
+      if (!canCreate.allowed) {
+        return res.status(403).json({
+          error: 'Subscription Limit Reached',
+          message: `You've reached your workspace limit (${canCreate.currentCount}/${canCreate.limit}). Upgrade your plan to create more workspaces.`,
+          details: {
+            currentCount: canCreate.currentCount,
+            limit: canCreate.limit,
+            plan: canCreate.plan,
+            planDisplayName: canCreate.planDisplayName,
+            upgradeUrl: subscriptionEnforcement.getUpgradeUrl(userId)
+          }
+        });
+      }
     }
 
     await client.query('BEGIN');
