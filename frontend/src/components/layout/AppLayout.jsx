@@ -553,12 +553,15 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
 
   // Helper function to render full-screen views
   const renderFullScreenView = () => {
-    if (!currentChannel) return null;
-    
+    // Calendar views can work without a channel (unified mode)
+    const supportsUnifiedMode = ['calendar', 'week'].includes(currentView);
+
+    if (!currentChannel && !supportsUnifiedMode) return null;
+
     const commonProps = {
-      channel: currentChannel,
+      channel: currentChannel,  // Can be null for unified mode
       workspace: workspace,
-      workspaceId: workspace.id,
+      workspaceId: workspace?.id,
       currentUser: user
     };
 
@@ -607,7 +610,7 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
       </div>
 
       {/* Full-screen view for calendar/timeline modes - spans entire row */}
-      {isFullScreenView && currentChannel ? (
+      {isFullScreenView && (currentChannel || ['calendar', 'week'].includes(currentView)) ? (
         <div style={{ 
           gridColumn: '1 / -1',
           gridRow: '2',

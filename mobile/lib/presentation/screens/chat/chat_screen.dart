@@ -96,15 +96,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         throw Exception('Failed to connect to Socket.IO');
       }
       
-      // WAIT for connection to be fully established
+      // WAIT for connection to be fully established (10 second timeout)
       int attempts = 0;
-      while (!_socketService.isConnected && attempts < 30) {
+      while (!_socketService.isConnected && attempts < 100) {
         await Future.delayed(Duration(milliseconds: 100));
         attempts++;
       }
-      
+
       if (!_socketService.isConnected) {
-        throw Exception('Socket connection timeout after 3 seconds');
+        throw Exception('Socket connection timeout after 10 seconds');
       }
       
       print('✅ Socket connected successfully');

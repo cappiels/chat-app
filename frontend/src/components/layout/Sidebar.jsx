@@ -158,6 +158,45 @@ const Sidebar = ({ workspace, channels, currentChannel, onChannelSelect, onAddCh
     };
   }, [workspace?.id]);
 
+  // Auto-clear unreads when viewing a channel that has unread messages
+  // This fixes the race condition where user clicks a channel before unread data loads
+  useEffect(() => {
+    const clearUnreadsForCurrentChannel = async () => {
+      if (!workspace?.id || !currentChannel?.id) return;
+
+      const unreadCount = getChannelUnreadCount(currentChannel.id);
+      if (unreadCount > 0) {
+        console.log('📖 Auto-marking current channel as read:', currentChannel.name);
+        try {
+          await notificationAPI.markAsRead(workspace.id, {
+            entity_type: 'thread',
+            entity_id: currentChannel.id
+          });
+
+          setChannelsWithUnread(prev =>
+            prev.map(ch =>
+              ch.id === currentChannel.id
+                ? { ...ch, unread_count: 0, unread_mentions: 0 }
+                : ch
+            )
+          );
+
+          const mentionCount = getChannelMentionCount(currentChannel.id);
+          setUnreadSummary(prev => ({
+            ...prev,
+            total_unread: Math.max(0, prev.total_unread - unreadCount),
+            total_mentions: Math.max(0, prev.total_mentions - mentionCount),
+            unread_conversations: Math.max(0, prev.unread_conversations - 1)
+          }));
+        } catch (error) {
+          console.error('Failed to auto-mark channel as read:', error);
+        }
+      }
+    };
+
+    clearUnreadsForCurrentChannel();
+  }, [currentChannel?.id, channelsWithUnread, workspace?.id]);
+
   const loadWorkspaceDirectMessages = async (workspace) => {
     if (!workspace) return [];
     
