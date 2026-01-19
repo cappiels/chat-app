@@ -70,9 +70,9 @@ class _TaskDetailsSheetState extends State<TaskDetailsSheet> {
   bool get _isCreator => _task.createdBy == _currentUserId;
   bool get _isAssignee => _task.userIsAssignee || _task.assignees.contains(_currentUserId);
 
-  // Permissions
-  bool get _canEdit => _isAdmin || _isCreator;
-  bool get _canDelete => _isAdmin || _isCreator;
+  // Permissions - use API's userCanEdit field as primary check, fall back to role-based
+  bool get _canEdit => _task.userCanEdit || _isAdmin || _isCreator;
+  bool get _canDelete => _task.userCanEdit || _isAdmin || _isCreator;
   bool get _canMarkDone => _isAdmin || _isCreator || _isAssignee;
   bool get _canMarkDoneForOthers => _isAdmin || _isCreator;
 

@@ -1355,9 +1355,12 @@ router.post('/:taskId/replies', async (req, res) => {
           `Task: ${taskTitle}`,
           JSON.stringify({ task_id: taskId })
         ]);
+        if (!taskMessageResult.rows[0]?.id) {
+          throw new Error('Failed to create task message - no ID returned');
+        }
         messageId = taskMessageResult.rows[0].id;
       } catch (msgError) {
-        console.error('Error creating task message:', msgError);
+        console.error('Error creating task message:', msgError.message, msgError.stack);
         // Fall back to inserting without metadata if column doesn't exist
         const taskMessageResult = await pool.query(`
           INSERT INTO messages (thread_id, sender_id, content, message_type)
@@ -1368,6 +1371,9 @@ router.post('/:taskId/replies', async (req, res) => {
           taskCreatorId,
           `Task: ${taskTitle}`
         ]);
+        if (!taskMessageResult.rows[0]?.id) {
+          throw new Error('Failed to create task message in fallback - no ID returned');
+        }
         messageId = taskMessageResult.rows[0].id;
       }
 
@@ -1420,8 +1426,8 @@ router.post('/:taskId/replies', async (req, res) => {
       reply
     });
   } catch (error) {
-    console.error('Error posting task reply:', error);
-    res.status(500).json({ error: 'Failed to post task reply' });
+    console.error('Error posting task reply:', error.message, error.stack);
+    res.status(500).json({ error: 'Failed to post task reply', details: error.message });
   }
 });
 
