@@ -375,6 +375,9 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
 
     const message = messageResult.rows[0];
 
+    // Collect mention data for push notifications (will be sent after COMMIT)
+    const mentionsForPushNotification = [];
+
     // Process mentions
     if (mentions && mentions.length > 0) {
       // Get thread info for notifications
@@ -447,22 +450,16 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
             // Don't fail the request if email notification fails
           }
 
-          // Queue push notification for mention
-          try {
-            await pushNotificationService.notifyMention(
-              mention.user_id,
-              workspaceId,
-              threadId,
-              message.id,
-              req.user.display_name,
-              threadName,
-              content.substring(0, 100)
-            );
-            console.log(`📱 Push notification queued for mention to user ${mention.user_id}`);
-          } catch (pushError) {
-            console.error('Failed to queue push notification for mention:', pushError);
-            // Don't fail the request if push notification fails
-          }
+          // Collect data for push notification (will be sent after COMMIT)
+          mentionsForPushNotification.push({
+            userId: mention.user_id,
+            workspaceId,
+            threadId,
+            messageId: message.id,
+            senderName: req.user.display_name,
+            threadName,
+            messagePreview: content.substring(0, 100)
+          });
         }
       }
     }
@@ -499,6 +496,25 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
     `, [threadId]);
 
     await client.query('COMMIT');
+
+    // Now send push notifications for mentions (after COMMIT so message is visible)
+    for (const mentionData of mentionsForPushNotification) {
+      try {
+        await pushNotificationService.notifyMention(
+          mentionData.userId,
+          mentionData.workspaceId,
+          mentionData.threadId,
+          mentionData.messageId,
+          mentionData.senderName,
+          mentionData.threadName,
+          mentionData.messagePreview
+        );
+        console.log(`📱 Push notification queued for mention to user ${mentionData.userId}`);
+      } catch (pushError) {
+        console.error('Failed to queue push notification for mention:', pushError);
+        // Don't fail the request if push notification fails
+      }
+    }
 
     // Get complete message with all relations
     const completeMessageQuery = `
