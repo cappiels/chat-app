@@ -37,35 +37,49 @@ class PushNotificationService {
   // =====================================================
 
   Future<void> initialize() async {
-    if (_isInitialized) return;
+    if (_isInitialized) {
+      debugPrint('📱 Push service already initialized, skipping');
+      return;
+    }
+
+    debugPrint('🚀 PUSH SERVICE: Starting initialization...');
 
     try {
       // Request permission
+      debugPrint('📱 PUSH SERVICE: Step 1 - Requesting permission...');
       final permissionGranted = await requestPermission();
       if (!permissionGranted) {
-        debugPrint('⚠️ Push notification permission denied');
+        debugPrint('⚠️ PUSH SERVICE: Permission denied - aborting');
         return;
       }
+      debugPrint('✅ PUSH SERVICE: Permission granted');
 
       // Initialize local notifications for foreground display
+      debugPrint('📱 PUSH SERVICE: Step 2 - Initializing local notifications...');
       await _initializeLocalNotifications();
+      debugPrint('✅ PUSH SERVICE: Local notifications initialized');
 
       // Set up message handlers
+      debugPrint('📱 PUSH SERVICE: Step 3 - Setting up handlers...');
       _setupForegroundHandler();
       _setupBackgroundHandler();
       _setupNotificationTapHandler();
+      debugPrint('✅ PUSH SERVICE: Handlers set up');
 
       // Get and register token
+      debugPrint('📱 PUSH SERVICE: Step 4 - Getting and registering token...');
       await _getAndRegisterToken();
 
       // Listen for token refresh
+      debugPrint('📱 PUSH SERVICE: Step 5 - Setting up token refresh listener...');
       _messaging.onTokenRefresh.listen(_handleTokenRefresh);
 
       _isInitialized = true;
-      debugPrint('✅ Push notification service initialized');
+      debugPrint('✅✅✅ PUSH SERVICE: Fully initialized successfully! ✅✅✅');
 
-    } catch (e) {
-      debugPrint('❌ Failed to initialize push notifications: $e');
+    } catch (e, stackTrace) {
+      debugPrint('❌ PUSH SERVICE: Failed to initialize: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
     }
   }
 
@@ -188,15 +202,30 @@ class PushNotificationService {
       debugPrint('📤 Registering token with backend...');
       await registerTokenWithBackend(token);
     } else {
-      debugPrint('⚠️ No token to register - push notifications disabled');
+      debugPrint('⚠️ No token on first attempt - scheduling retry in 10 seconds...');
+      // Schedule a retry after 10 seconds
+      Future.delayed(const Duration(seconds: 10), () async {
+        debugPrint('🔄 RETRY: Attempting to get token again...');
+        final retryToken = await getToken();
+        if (retryToken != null) {
+          debugPrint('✅ RETRY: Got token on retry!');
+          await registerTokenWithBackend(retryToken);
+        } else {
+          debugPrint('❌ RETRY: Still no token after retry - push notifications disabled');
+        }
+      });
     }
   }
 
   Future<void> registerTokenWithBackend(String token) async {
+    debugPrint('📤 PUSH SERVICE: Attempting to register token with backend...');
+    debugPrint('📤 Token (first 30 chars): ${token.substring(0, token.length > 30 ? 30 : token.length)}...');
+
     try {
       final platform = Platform.isIOS ? 'ios' : (Platform.isAndroid ? 'android' : 'unknown');
+      debugPrint('📤 Platform: $platform');
 
-      await _httpClient.post(
+      final response = await _httpClient.post(
         '/push/register',
         data: {
           'token': token,
@@ -208,10 +237,13 @@ class PushNotificationService {
         },
       );
 
-      debugPrint('✅ Device token registered with backend');
+      debugPrint('✅✅ PUSH SERVICE: Device token registered successfully!');
+      debugPrint('✅✅ Response: ${response.data}');
 
     } catch (e) {
-      debugPrint('❌ Failed to register token with backend: $e');
+      debugPrint('❌❌ PUSH SERVICE: Failed to register token with backend!');
+      debugPrint('❌❌ Error: $e');
+      debugPrint('❌❌ Error type: ${e.runtimeType}');
     }
   }
 
