@@ -223,7 +223,7 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
 
   const getFilteredTasks = () => myTasks.filter(task => {
     if (roleFilter === 'assigned' && !task.user_is_assignee) return false;
-    if (roleFilter === 'created' && task.created_by !== user?.id) return false;
+    if (roleFilter === 'created' && task.created_by !== user?.uid) return false;
     // Show completed tasks only when "completed" filter is active
     if (roleFilter === 'completed') return task.status === 'completed' || task.user_completed;
     // Show overdue tasks only when "overdue" filter is active
