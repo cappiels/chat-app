@@ -361,6 +361,8 @@ body {
 .message-text {
   color: #1e293b;
   line-height: 1.5;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .message-actions {
@@ -415,6 +417,29 @@ body {
 
 /* Mobile message input responsive fixes */
 @media (max-width: 767px) {
+  /* Fix message overflow on mobile */
+  .message {
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  .message-content {
+    max-width: calc(100% - 48px);
+    overflow-x: hidden;
+  }
+
+  .message-text {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Constrain task cards and attachments on mobile */
+  .message-content .max-w-md {
+    max-width: 100%;
+  }
+
   .message-input-container {
     padding: 12px;
     margin: 0;
@@ -422,7 +447,7 @@ body {
     max-width: 100%;
     box-sizing: border-box;
   }
-  
+
   .message-input-wrapper {
     width: 100%;
     max-width: 100%;
@@ -885,8 +910,20 @@ body {
   /* Message list mobile fixes */
   .message {
     padding: 8px 12px;
+    max-width: 100%;
+    overflow-x: hidden;
   }
-  
+
+  .message-content {
+    max-width: calc(100% - 40px);
+    overflow-x: hidden;
+  }
+
+  /* Extra constraint on task cards for small screens */
+  .message-content .max-w-md {
+    max-width: 100%;
+  }
+
   .message-avatar {
     width: 24px;
     height: 24px;
