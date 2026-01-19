@@ -1339,21 +1339,37 @@ router.post('/:taskId/replies', async (req, res) => {
 
     let messageId = taskResult.rows[0].message_id;
     const taskTitle = taskResult.rows[0].title;
-    const taskCreatorId = taskResult.rows[0].created_by;
+    // Use task creator, or fall back to current user if creator is null
+    const taskCreatorId = taskResult.rows[0].created_by || userId;
 
     // If no message exists for this task, create one first
     if (!messageId) {
-      const taskMessageResult = await pool.query(`
-        INSERT INTO messages (thread_id, sender_id, content, message_type, metadata)
-        VALUES ($1, $2, $3, 'task', $4)
-        RETURNING id
-      `, [
-        threadId,
-        taskCreatorId,
-        `Task: ${taskTitle}`,
-        JSON.stringify({ task_id: taskId })
-      ]);
-      messageId = taskMessageResult.rows[0].id;
+      try {
+        const taskMessageResult = await pool.query(`
+          INSERT INTO messages (thread_id, sender_id, content, message_type, metadata)
+          VALUES ($1, $2, $3, 'task', $4)
+          RETURNING id
+        `, [
+          threadId,
+          taskCreatorId,
+          `Task: ${taskTitle}`,
+          JSON.stringify({ task_id: taskId })
+        ]);
+        messageId = taskMessageResult.rows[0].id;
+      } catch (msgError) {
+        console.error('Error creating task message:', msgError);
+        // Fall back to inserting without metadata if column doesn't exist
+        const taskMessageResult = await pool.query(`
+          INSERT INTO messages (thread_id, sender_id, content, message_type)
+          VALUES ($1, $2, $3, 'task')
+          RETURNING id
+        `, [
+          threadId,
+          taskCreatorId,
+          `Task: ${taskTitle}`
+        ]);
+        messageId = taskMessageResult.rows[0].id;
+      }
 
       // Update the task with the message reference
       await pool.query(
