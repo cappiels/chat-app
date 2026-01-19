@@ -226,6 +226,13 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
     if (roleFilter === 'created' && task.created_by !== user?.id) return false;
     // Show completed tasks only when "completed" filter is active
     if (roleFilter === 'completed') return task.status === 'completed' || task.user_completed;
+    // Show overdue tasks only when "overdue" filter is active
+    if (roleFilter === 'overdue') {
+      const dueDate = task.due_date || task.end_date;
+      if (!dueDate) return false;
+      const isOverdue = new Date(dueDate) < new Date();
+      return isOverdue && task.status !== 'completed' && !task.user_completed;
+    }
     // For other filters, exclude completed tasks
     return task.status !== 'completed' && !task.user_completed;
   });
@@ -374,9 +381,21 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                 <p className="text-sm text-gray-500">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {new Date().toLocaleDateString('en-US', { weekday: 'long' })}</p>
               </div>
               <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                {[{ key: 'all', label: 'All Tasks' }, { key: 'assigned', label: 'Assigned to Me' }, { key: 'created', label: 'Created by Me' }, { key: 'completed', label: 'Completed' }].map(({ key, label }) => (
-                  <button key={key} onClick={() => setRoleFilter(key)} className={`px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap transition-colors ${roleFilter === key ? (key === 'completed' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{label}</button>
-                ))}
+                {[{ key: 'all', label: 'All Tasks' }, { key: 'assigned', label: 'Assigned to Me' }, { key: 'created', label: 'Created by Me' }, { key: 'overdue', label: 'Overdue' }, { key: 'completed', label: 'Completed' }].map(({ key, label }) => {
+                  // Calculate overdue count for badge
+                  const overdueCount = key === 'overdue' ? myTasks.filter(t => {
+                    const dueDate = t.due_date || t.end_date;
+                    return dueDate && new Date(dueDate) < new Date() && t.status !== 'completed' && !t.user_completed;
+                  }).length : 0;
+                  return (
+                    <button key={key} onClick={() => setRoleFilter(key)} className={`px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap transition-colors flex items-center gap-1.5 ${roleFilter === key ? (key === 'completed' ? 'bg-green-600 text-white' : key === 'overdue' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                      {label}
+                      {key === 'overdue' && overdueCount > 0 && (
+                        <span className={`px-1.5 py-0.5 text-xs rounded-full ${roleFilter === 'overdue' ? 'bg-red-500 text-white' : 'bg-red-100 text-red-600'}`}>{overdueCount}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               <div className="h-px bg-gray-200 mb-4" />
               {tasksLoading ? (
