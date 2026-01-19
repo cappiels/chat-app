@@ -5,6 +5,7 @@ const router = express.Router({ mergeParams: true }); // Important: merge params
 const { authenticateUser } = require('../middleware/auth');
 const { createPool } = require('../config/database');
 const emailService = require('../services/emailService');
+const pushNotificationService = require('../services/pushNotificationService');
 
 // Database connection
 const pool = createPool();
@@ -491,6 +492,67 @@ router.post('/', async (req, res) => {
       } catch (emailError) {
         // Don't fail the request if email sending fails - just log it
         console.error('Error sending task assignment emails:', emailError);
+      }
+    }
+
+    // Send push notifications to all assignees (don't notify the creator)
+    if (finalAssignees.length > 0 || assigned_teams.length > 0) {
+      try {
+        // Get assigner name for push notification
+        const assignerQuery = await pool.query(
+          'SELECT display_name FROM users WHERE id = $1',
+          [userId]
+        );
+        const assignerName = assignerQuery.rows[0]?.display_name || 'Someone';
+
+        // Send push to individual assignees
+        for (const assigneeId of finalAssignees) {
+          if (assigneeId !== userId) {
+            try {
+              await pushNotificationService.notifyTaskAssigned(
+                assigneeId,
+                req.params.workspaceId,
+                taskId,
+                assignerName,
+                title.trim()
+              );
+              console.log(`📱 Push notification queued for task assignment to user ${assigneeId}`);
+            } catch (pushError) {
+              console.error(`Failed to queue push notification for task assignment to user ${assigneeId}:`, pushError);
+            }
+          }
+        }
+
+        // Also send push to team members if teams are assigned
+        if (assigned_teams.length > 0) {
+          const teamMembersQuery = await pool.query(`
+            SELECT DISTINCT u.id
+            FROM workspace_team_members wtm
+            JOIN users u ON u.id = wtm.user_id
+            WHERE wtm.team_id = ANY($1) AND wtm.is_active = true AND u.id != $2
+          `, [assigned_teams.map(id => parseInt(id)), userId]);
+
+          for (const member of teamMembersQuery.rows) {
+            // Skip if already in individual assignees
+            if (!finalAssignees.includes(member.id)) {
+              try {
+                await pushNotificationService.notifyTaskAssigned(
+                  member.id,
+                  req.params.workspaceId,
+                  taskId,
+                  assignerName,
+                  title.trim()
+                );
+                console.log(`📱 Push notification queued for team task assignment to user ${member.id}`);
+              } catch (pushError) {
+                console.error(`Failed to queue push notification for team member ${member.id}:`, pushError);
+              }
+            }
+          }
+        }
+      } catch (pushError) {
+        // Don't fail the request if push notification fails - just log it
+        console.error('Error sending task assignment push notifications:', pushError);
       }
     }
 
