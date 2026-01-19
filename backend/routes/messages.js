@@ -451,8 +451,8 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
           try {
             await pushNotificationService.notifyMention(
               mention.user_id,
-              parseInt(workspaceId),
-              parseInt(threadId),
+              workspaceId,
+              threadId,
               message.id,
               req.user.display_name,
               threadName,
