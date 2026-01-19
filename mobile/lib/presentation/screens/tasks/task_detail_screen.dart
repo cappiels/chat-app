@@ -60,7 +60,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 
   bool get _canEdit {
-    // User can edit if they are the creator or workspace admin
+    // Use the API's user_can_edit field if available
+    if (_task['user_can_edit'] == true) return true;
+
+    // Fallback checks
     final isCreator = _task['user_is_creator'] == true;
     final isAdmin = widget.workspace['role'] == 'admin' ||
                     widget.workspace['user_role'] == 'admin';
