@@ -10,6 +10,7 @@ import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
 import { threadAPI, messageAPI } from '../../utils/api';
 import socketManager from '../../utils/socket';
 import notificationManager from '../../utils/notifications';
+import chatContextManager from '../../utils/chatContext';
 
 // Lazy load calendar/timeline components at module level (not inside component)
 // This prevents TDZ errors from React.lazy being called inside useMemo
@@ -116,7 +117,22 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
         // Load channels
         const realChannels = await loadWorkspaceChannels(workspace);
         setChannels(realChannels);
-        setCurrentChannel(realChannels[0] || null);
+
+        // Auto-select initial channel from saved context or first available
+        let channelToSelect = realChannels[0] || null;
+        if (workspace.initialChannelId && realChannels.length > 0) {
+          const targetChannel = realChannels.find(c => c.id === workspace.initialChannelId);
+          if (targetChannel) {
+            channelToSelect = targetChannel;
+          }
+        }
+        setCurrentChannel(channelToSelect);
+
+        // Save context for future navigation
+        if (channelToSelect) {
+          chatContextManager.save(workspace, channelToSelect);
+        }
+
         setMessages([]);
         setThreads([]);
       }
@@ -372,6 +388,12 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
 
   const handleChannelSelect = async (channel) => {
     setCurrentChannel(channel);
+
+    // Save context for future Chat tab navigation
+    if (workspace && channel) {
+      chatContextManager.save(workspace, channel);
+    }
+
     if (isMobile) {
       setSidebarOpen(false);
     }
@@ -606,6 +628,8 @@ const AppLayout = ({ user, workspace, onSignOut, onWorkspaceSwitch, onBackToWork
           onWorkspaceSwitch={onWorkspaceSwitch}
           onBackToWorkspaces={onBackToWorkspaces}
           currentChannel={currentChannel}
+          channels={channels}
+          onChannelSelect={handleChannelSelect}
           currentView={currentView}
           onViewChange={setCurrentView}
         />

@@ -8,6 +8,8 @@ import ChatInterface from './components/ChatInterface';
 import InviteAcceptance from './components/InviteAcceptance';
 import HomePage from './components/HomePage';
 import MainScreen from './components/MainScreen';
+import TaskDetailScreen from './components/tasks/TaskDetailScreen';
+import chatContextManager from './utils/chatContext';
 
 // Modern Loading Component
 const ModernLoading = () => (
@@ -74,13 +76,13 @@ const AppRouter = () => {
         />
 
         {/* Workspace route */}
-        <Route 
-          path="/workspace/:workspaceId" 
+        <Route
+          path="/workspace/:workspaceId"
           element={
             user ? (
-              <ChatInterface 
-                user={user} 
-                workspace={selectedWorkspace} 
+              <ChatInterface
+                user={user}
+                workspace={selectedWorkspace}
                 onSignOut={handleSignOut}
                 onWorkspaceSwitch={handleWorkspaceSwitch}
                 onBackToWorkspaces={handleBackToWorkspaces}
@@ -88,7 +90,21 @@ const AppRouter = () => {
             ) : (
               <Navigate to="/" replace />
             )
-          } 
+          }
+        />
+
+        {/* Task detail route */}
+        <Route
+          path="/task/:taskId"
+          element={
+            user ? (
+              <TaskDetailScreen
+                onSelectWorkspace={setSelectedWorkspace}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
         />
 
         {/* Logout route */}

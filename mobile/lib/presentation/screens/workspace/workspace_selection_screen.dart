@@ -6,6 +6,7 @@ import '../../../data/services/subscription_service.dart';
 import '../../../data/services/workspace_service.dart';
 import '../../../data/services/task_service.dart';
 import '../../../data/services/http_client.dart';
+import '../../../data/services/chat_context_service.dart';
 import '../../../data/models/workspace.dart';
 import '../../../data/models/task.dart';
 import '../../../data/models/thread.dart';
@@ -13,6 +14,7 @@ import '../../widgets/tasks/quick_task_dialog.dart';
 import '../calendar/channel_calendar_screen.dart';
 import '../calendar/channel_weekly_calendar_screen.dart';
 import '../timeline/channel_timeline_screen.dart';
+import '../threads/thread_list_screen.dart';
 
 class WorkspaceSelectionScreen extends ConsumerStatefulWidget {
   final VoidCallback? onSignOut;
@@ -64,6 +66,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
   late final SubscriptionService _subscriptionService;
   late final WorkspaceService _workspaceService;
   late final TaskService _taskService;
+  final ChatContextService _chatContextService = ChatContextService();
   
   List<Workspace> _workspaces = [];
   List<ChannelTask> _myTasks = [];
@@ -516,6 +519,124 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => screen),
+    );
+  }
+
+  /// Handle Chat tab click - navigate to last used workspace/channel
+  Future<void> _handleChatTabTap() async {
+    // Load saved context
+    final context = await _chatContextService.loadContext();
+
+    if (context != null) {
+      // Find the workspace in our list
+      final workspace = _workspaces.firstWhere(
+        (w) => w.id == context.workspaceId,
+        orElse: () => _workspaces.isNotEmpty ? _workspaces.first : Workspace(
+          id: '',
+          name: '',
+          createdAt: DateTime.now(),
+          memberCount: 0,
+        ),
+      );
+
+      if (workspace.id.isNotEmpty) {
+        // Navigate to ThreadListScreen with saved context
+        widget.onSelectWorkspace?.call({
+          ...workspace.toJson(),
+          'initialChannelId': context.channelId,
+        });
+        return;
+      }
+    }
+
+    // No saved context - show workspace selection
+    if (_workspaces.isEmpty) {
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        const SnackBar(content: Text('Create a workspace first')),
+      );
+      setState(() => _selectedBottomNavIndex = 2); // Go to workspaces-like view
+    } else {
+      // Show workspace picker modal
+      _showWorkspacePickerForChat();
+    }
+  }
+
+  /// Show workspace picker when no saved chat context
+  void _showWorkspacePickerForChat() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    'Select a Workspace',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Choose a workspace to start chatting',
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _workspaces.length,
+                itemBuilder: (context, index) {
+                  final workspace = _workspaces[index];
+                  return ListTile(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade600,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.workspaces,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(workspace.name),
+                    subtitle: Text('${workspace.memberCount} member${workspace.memberCount != 1 ? 's' : ''}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      widget.onSelectWorkspace?.call(workspace.toJson());
+                    },
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1755,6 +1876,9 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
         if (index == 1) {
           // Calendar - show popup selector instead of navigating
           _showCalendarViewSelector();
+        } else if (index == 2) {
+          // Chat - navigate to last used workspace/channel
+          _handleChatTabTap();
         } else {
           setState(() => _selectedBottomNavIndex = index);
         }
@@ -1767,7 +1891,7 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.today_outlined), activeIcon: Icon(Icons.today), label: 'Today'),
         BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), activeIcon: Icon(Icons.calendar_month), label: 'Calendar'),
-        BottomNavigationBarItem(icon: Icon(Icons.workspaces_outlined), activeIcon: Icon(Icons.workspaces), label: 'Workspaces'),
+        BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), activeIcon: Icon(Icons.chat_bubble), label: 'Chat'),
         BottomNavigationBarItem(icon: Icon(Icons.library_books_outlined), activeIcon: Icon(Icons.library_books), label: 'Knowledge'),
       ],
     );

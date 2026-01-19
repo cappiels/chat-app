@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/workspace_service.dart';
 import '../../../data/services/http_client.dart';
+import '../../../data/services/chat_context_service.dart';
 import '../../../data/models/thread.dart';
 import '../../../data/models/workspace.dart';
 import '../chat/chat_screen.dart';
 import '../calendar/channel_calendar_screen.dart';
 import '../timeline/channel_timeline_screen.dart';
 import '../calendar/channel_weekly_calendar_screen.dart';
+import '../tasks/task_detail_screen.dart';
+import '../../widgets/workspace/workspace_channel_switcher.dart';
 
 class ThreadListScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> workspace;
@@ -26,7 +29,8 @@ class ThreadListScreen extends ConsumerStatefulWidget {
 class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   final HttpClient _httpClient = HttpClient();
   late final WorkspaceService _workspaceService;
-  
+  final ChatContextService _chatContextService = ChatContextService();
+
   List<Thread> _threads = [];
   bool _loading = true;
   int _selectedBottomNavIndex = 0;
@@ -70,10 +74,22 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
             return b.updatedAt.compareTo(a.updatedAt);
           });
           _loading = false;
-          
-          // Auto-select first thread if none selected (for Calendar/Timeline/Knowledge/Weekly views)
+
+          // Auto-select thread based on initialChannelId or first available
           if (_selectedThread == null && _threads.isNotEmpty) {
-            _selectedThread = _threads.first;
+            final initialChannelId = widget.workspace['initialChannelId'];
+            if (initialChannelId != null) {
+              // Find the channel from saved context
+              _selectedThread = _threads.firstWhere(
+                (t) => t.id == initialChannelId,
+                orElse: () => _threads.first,
+              );
+            } else {
+              _selectedThread = _threads.first;
+            }
+
+            // Save context for future navigation
+            _saveContext(_selectedThread!);
           }
         });
         
@@ -106,6 +122,16 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// Save current workspace/channel context for future navigation
+  void _saveContext(Thread channel) {
+    _chatContextService.saveContext(
+      workspaceId: widget.workspace['id'],
+      workspaceName: widget.workspace['name'] ?? '',
+      channelId: channel.id,
+      channelName: channel.name,
+    );
   }
 
   Future<void> _loadMyTasks() async {
@@ -305,18 +331,17 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onBack,
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.workspace['name'] ?? 'Workspace',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '${_threads.length} channels',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
-            ),
-          ],
+        title: WorkspaceChannelSwitcher(
+          currentWorkspace: widget.workspace,
+          currentChannel: _selectedThread,
+          channels: _threads,
+          onChannelSelect: (channel) {
+            setState(() {
+              _selectedThread = channel;
+            });
+            _saveContext(channel);
+          },
+          onWorkspaceSwitch: widget.onBack,
         ),
         backgroundColor: Colors.blue.shade600,
         foregroundColor: Colors.white,
@@ -503,98 +528,115 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
         priorityColor = Colors.grey.shade400;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Checkbox
-          Container(
-            width: 20,
-            height: 20,
-            margin: const EdgeInsets.only(top: 2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isCompleted ? Colors.green.shade500 : priorityColor,
-                width: 2,
-              ),
-              color: isCompleted ? Colors.green.shade500 : Colors.transparent,
-            ),
-            child: isCompleted
-                ? const Icon(Icons.check, size: 14, color: Colors.white)
-                : null,
-          ),
-          const SizedBox(width: 12),
-
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: isCompleted ? Colors.grey.shade400 : Colors.grey.shade900,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.chat_bubble_outline, size: 12, color: Colors.grey.shade500),
-                    const SizedBox(width: 4),
-                    Text(
-                      workspaceName,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '#$channelName',
-                      style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
-                    ),
-                  ],
-                ),
-              ],
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TaskDetailScreen(
+              task: task,
+              workspace: widget.workspace,
             ),
           ),
-
-          // Due date
-          if (dueDate != null && !isCompleted)
+        );
+        // Reload tasks if the task was modified
+        if (result == true) {
+          _loadMyTasks();
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Checkbox
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              width: 20,
+              height: 20,
+              margin: const EdgeInsets.only(top: 2),
               decoration: BoxDecoration(
-                color: _isOverdue(dueDate) ? Colors.red.shade50 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(4),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isCompleted ? Colors.green.shade500 : priorityColor,
+                  width: 2,
+                ),
+                color: isCompleted ? Colors.green.shade500 : Colors.transparent,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: isCompleted
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.calendar_today,
-                    size: 12,
-                    color: _isOverdue(dueDate) ? Colors.red.shade700 : Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
                   Text(
-                    _formatTaskDate(dueDate),
+                    title,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: _isOverdue(dueDate) ? Colors.red.shade700 : Colors.grey.shade600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isCompleted ? Colors.grey.shade400 : Colors.grey.shade900,
+                      decoration: isCompleted ? TextDecoration.lineThrough : null,
                     ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.chat_bubble_outline, size: 12, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Text(
+                        workspaceName,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '#$channelName',
+                        style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-        ],
+
+            // Due date
+            if (dueDate != null && !isCompleted)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isOverdue(dueDate) ? Colors.red.shade50 : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 12,
+                      color: _isOverdue(dueDate) ? Colors.red.shade700 : Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatTaskDate(dueDate),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _isOverdue(dueDate) ? Colors.red.shade700 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1077,6 +1119,8 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
                       setState(() {
                         _selectedThread = thread;
                       });
+                      // Save context for future navigation
+                      _saveContext(thread);
                       Navigator.pop(context);
                     },
                   );

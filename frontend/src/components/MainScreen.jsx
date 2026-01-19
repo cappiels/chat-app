@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // Lazy load calendar/timeline components
 const ChannelCalendar = lazy(() => import('./calendar/ChannelCalendar'));
@@ -31,6 +32,7 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 import SubscriptionGate from './subscription/SubscriptionGate';
 import { auth } from '../firebase';
 import QuickTaskDialog from './tasks/QuickTaskDialog';
+import chatContextManager from '../utils/chatContext';
 
 // Hook for responsive detection
 const useIsMobile = () => {
@@ -44,10 +46,10 @@ const useIsMobile = () => {
 };
 
 // Task Item Component
-const TaskItem = ({ task, workspaces, onSelectWorkspace, onToggleComplete, formatTaskDate, isOverdue }) => {
+const TaskItem = ({ task, workspaces, onSelectWorkspace, onToggleComplete, onViewTaskDetails, formatTaskDate, isOverdue }) => {
   const isCompleted = task.status === 'completed' || task.user_completed;
   const workspace = workspaces.find(w => w.id === task.workspace_id);
-  
+
   const getPriorityRing = (priority) => {
     switch (priority) {
       case 'high': return 'border-red-500 hover:bg-red-50';
@@ -70,9 +72,14 @@ const TaskItem = ({ task, workspaces, onSelectWorkspace, onToggleComplete, forma
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className={`text-sm font-medium leading-tight ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-              {task.title}
-            </h4>
+            <button
+              onClick={() => onViewTaskDetails(task)}
+              className="text-left w-full"
+            >
+              <h4 className={`text-sm font-medium leading-tight hover:text-blue-600 transition-colors ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                {task.title}
+              </h4>
+            </button>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               <button onClick={() => workspace && onSelectWorkspace(workspace)} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded text-xs font-medium text-gray-600 transition-colors">
                 <MessageCircle className="w-3 h-3" />{task.workspace_name}
@@ -134,6 +141,7 @@ const NavTab = ({ active, icon: Icon, label, onClick, isMobile }) => (
 
 // Main Screen Component
 const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { canCreateWorkspace, isSiteAdmin, fetchSubscriptionStatus } = useSubscription();
   const [activeTab, setActiveTab] = useState('today');
@@ -155,8 +163,36 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const [tasksLoading, setTasksLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState('all');
   const [showQuickTaskDialog, setShowQuickTaskDialog] = useState(false);
+  const [showWorkspaceSelectionModal, setShowWorkspaceSelectionModal] = useState(false);
 
   useEffect(() => { loadWorkspaces(); loadMyTasks(); }, []);
+
+  // Handle Chat tab click - navigate to last used workspace/channel or show selection modal
+  const handleChatTabClick = () => {
+    const savedContext = chatContextManager.load();
+
+    if (savedContext && savedContext.workspaceId) {
+      // Find the workspace in our list
+      const workspace = workspaces.find(w => w.id === savedContext.workspaceId);
+
+      if (workspace) {
+        // Navigate to the workspace with the saved channel context
+        onSelectWorkspace({
+          ...workspace,
+          initialChannelId: savedContext.channelId
+        });
+        return;
+      }
+    }
+
+    // No saved context or workspace not found - show selection modal
+    if (workspaces.length === 0) {
+      toast.error('Create a workspace first');
+      setActiveTab('workspaces');
+    } else {
+      setShowWorkspaceSelectionModal(true);
+    }
+  };
 
   const loadWorkspaces = async () => {
     try {
@@ -242,6 +278,10 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
     return new Date(dueDate) < new Date();
   };
 
+  const handleViewTaskDetails = (task) => {
+    navigate(`/task/${task.id}`, { state: { task } });
+  };
+
   const filteredWorkspaces = workspaces.filter(w => w.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const handleCreateWorkspace = async () => {
@@ -273,7 +313,7 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
           {icon}<span className={`text-sm font-semibold ${iconColor}`}>{title}</span>
           <span className="text-xs bg-white/50 px-2 py-0.5 rounded-full ml-auto">{tasks.length}</span>
         </div>
-        {tasks.map(task => (<TaskItem key={task.id} task={task} workspaces={workspaces} onSelectWorkspace={onSelectWorkspace} onToggleComplete={handleToggleComplete} formatTaskDate={formatTaskDate} isOverdue={isOverdue} />))}
+        {tasks.map(task => (<TaskItem key={task.id} task={task} workspaces={workspaces} onSelectWorkspace={onSelectWorkspace} onToggleComplete={handleToggleComplete} onViewTaskDetails={handleViewTaskDetails} formatTaskDate={formatTaskDate} isOverdue={isOverdue} />))}
       </div>
     );
   };
@@ -281,7 +321,7 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const navTabs = [
     { key: 'today', icon: CalendarDays, label: 'Today' },
     { key: 'calendar', icon: Calendar, label: 'Calendar', onClick: () => setShowCalendarSelector(true) },
-    { key: 'workspaces', icon: LayoutGrid, label: 'Workspaces' },
+    { key: 'chat', icon: MessageCircle, label: 'Chat', onClick: handleChatTabClick },
     { key: 'knowledge', icon: BookOpen, label: 'Knowledge' },
   ];
 
@@ -393,29 +433,7 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
           </div>
         )}
 
-        {activeTab === 'workspaces' && (
-          <div className="max-w-4xl mx-auto p-4">
-            <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-bold text-gray-900">Workspaces</h1></div>
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input type="text" placeholder="Search workspaces..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white" />
-            </div>
-            <div className="space-y-3">
-              {filteredWorkspaces.map(workspace => (
-                <div key={workspace.id} onClick={() => onSelectWorkspace(workspace)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 ${workspace.color} rounded-xl flex items-center justify-center`}><MessageCircle className="w-6 h-6 text-white" /></div>
-                    <div className="flex-1 min-w-0"><h3 className="font-semibold text-gray-900 truncate">{workspace.name}</h3><p className="text-sm text-gray-500">{workspace.member_count} member{workspace.member_count !== 1 ? 's' : ''}</p></div>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
-                  </div>
-                </div>
-              ))}
-              <div onClick={() => canCreateWorkspace(workspaces.length) ? setShowCreateForm(true) : setShowSubscriptionGate(true)} className="border-2 border-dashed border-gray-300 p-4 rounded-xl cursor-pointer hover:border-blue-400 transition-colors">
-                <div className="flex items-center justify-center gap-3 py-4"><Plus className="w-6 h-6 text-gray-400" /><span className="text-gray-600 font-medium">Create New Workspace</span></div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Workspaces tab removed - use Chat tab instead */}
 
         {activeTab === 'knowledge' && (
           <div className="flex flex-col items-center justify-center h-full py-20 px-4">
@@ -479,6 +497,65 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
           toast.success('Task created!');
         }}
       />
+
+      {/* Workspace Selection Modal - shown when clicking Chat with no saved context */}
+      {showWorkspaceSelectionModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowWorkspaceSelectionModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900">Select a Workspace</h2>
+              <p className="text-sm text-gray-500 mt-1">Choose a workspace to start chatting</p>
+            </div>
+            <div className="p-4 max-h-80 overflow-y-auto">
+              {workspaces.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No workspaces yet</p>
+                  <button
+                    onClick={() => {
+                      setShowWorkspaceSelectionModal(false);
+                      setShowCreateForm(true);
+                    }}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Create Your First Workspace
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {workspaces.map(workspace => (
+                    <button
+                      key={workspace.id}
+                      onClick={() => {
+                        setShowWorkspaceSelectionModal(false);
+                        onSelectWorkspace(workspace);
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className={`w-10 h-10 ${workspace.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                        <MessageCircle className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-gray-900 truncate">{workspace.name}</h3>
+                        <p className="text-xs text-gray-500">{workspace.member_count} member{workspace.member_count !== 1 ? 's' : ''}</p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowWorkspaceSelectionModal(false)}
+                className="w-full py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

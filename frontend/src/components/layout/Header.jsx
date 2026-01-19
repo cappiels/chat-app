@@ -19,8 +19,9 @@ import SoundSettingsDialog from '../SoundSettingsDialog';
 import ConnectionStatus from '../ui/ConnectionStatus';
 import ViewSwitcher from '../ui/ViewSwitcher';
 import { getVersionString } from '../../utils/version';
+import WorkspaceChannelSwitcher from '../WorkspaceChannelSwitcher';
 
-const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces, currentChannel, currentView, onViewChange }) => {
+const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspaceSwitch, onBackToWorkspaces, currentChannel, channels, onChannelSelect, currentView, onViewChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -133,106 +134,45 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
 
   return (
     <div className="flex items-center justify-between h-full w-full px-3 md:px-4">
-      {/* Left Section - Workspace Switcher (far left on mobile) */}
-      <div className="flex items-center">
-        <div className="relative">
+      {/* Left Section - Workspace/Channel Switcher */}
+      <div className="flex items-center gap-2">
+        {/* Mobile menu button */}
+        <button
+          onClick={onMenuClick}
+          className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
+        >
+          <Menu className="w-5 h-5 text-gray-600" />
+        </button>
+
+        {/* Workspace-Channel Switcher */}
+        <WorkspaceChannelSwitcher
+          currentWorkspace={workspace}
+          currentChannel={currentChannel}
+          workspaces={workspaces}
+          onWorkspaceChange={(ws) => {
+            if (ws.id !== workspace?.id && onWorkspaceSwitch) {
+              onWorkspaceSwitch(ws);
+            }
+          }}
+          onChannelChange={onChannelSelect}
+        />
+
+        {/* Quick actions */}
+        <div className="hidden md:flex items-center gap-1 ml-2">
           <button
-            onClick={handleWorkspaceSwitcherToggle}
-            className="flex items-center gap-1 md:gap-2 px-1.5 md:px-3 py-1.5 md:py-2 text-text-primary hover:bg-gray-100 rounded-lg transition-all duration-200"
-            title="Switch workspace"
+            onClick={handleOpenSettings}
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700"
+            title="Workspace Settings"
           >
-            <Briefcase className="w-4 h-4" />
-            <span className="font-medium truncate text-xs md:text-base max-w-[80px] md:max-w-none">
-              {workspace?.name || 'crew'}
-            </span>
-            <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 transition-transform duration-200 ${showWorkspaceSwitcher ? 'rotate-180' : ''}`} />
+            <Settings className="w-4 h-4" />
           </button>
-          
-          {/* Workspace Dropdown */}
-          {showWorkspaceSwitcher && (
-            <>
-              {/* Overlay */}
-              <div 
-                className="fixed inset-0 z-dropdown-backdrop" 
-                onClick={() => setShowWorkspaceSwitcher(false)}
-              />
-              
-              {/* Dropdown Content */}
-              <div className="dropdown absolute top-full left-0 mt-2 w-80">
-                <div className="p-4 border-b border-border-primary bg-surface-tertiary">
-                  <h3 className="font-semibold text-text-primary">Switch Workspace</h3>
-                  <p className="text-xs text-text-tertiary mt-1">Choose a workspace to switch to</p>
-                </div>
-                
-                <div className="max-h-64 overflow-y-auto">
-                  {loadingWorkspaces ? (
-                    <div className="p-4 text-center text-text-tertiary">
-                      <div className="loading-spinner w-4 h-4 mx-auto mb-2"></div>
-                      Loading workspaces...
-                    </div>
-                  ) : workspaces.length === 0 ? (
-                    <div className="p-4 text-center text-text-tertiary">
-                      No other workspaces found
-                    </div>
-                  ) : (
-                    workspaces.map((ws) => (
-                      <button
-                        key={ws.id}
-                        onClick={() => handleWorkspaceSelect(ws)}
-                        className={`dropdown-item w-full ${
-                          ws.id === workspace?.id ? 'bg-surface-selected text-accent-600' : ''
-                        }`}
-                      >
-                        <Briefcase className="w-4 h-4" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{ws.name}</div>
-                          <div className="text-xs text-text-tertiary truncate">
-                            {ws.member_count} members
-                          </div>
-                        </div>
-                        {ws.id === workspace?.id && (
-                          <div className="w-2 h-2 bg-accent-500 rounded-full"></div>
-                        )}
-                      </button>
-                    ))
-                  )}
-                </div>
-                
-                <div className="border-t border-border-primary p-2 bg-surface-secondary">
-                  <button
-                    onClick={handleOpenSettings}
-                    className="dropdown-item w-full"
-                  >
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Settings className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium">Workspace Settings</div>
-                      <div className="text-xs text-text-tertiary">Manage settings & members</div>
-                    </div>
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      setShowWorkspaceSwitcher(false);
-                      if (onBackToWorkspaces) {
-                        onBackToWorkspaces();
-                      }
-                    }}
-                    className="dropdown-item w-full"
-                  >
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <CalendarDays className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium">Today</div>
-                      <div className="text-xs text-text-tertiary">Tasks & workspaces</div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+          <button
+            onClick={() => onBackToWorkspaces?.()}
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700"
+            title="Back to Today"
+          >
+            <CalendarDays className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -408,6 +348,8 @@ Header.propTypes = {
   onWorkspaceSwitch: PropTypes.func,
   onBackToWorkspaces: PropTypes.func,
   currentChannel: PropTypes.object,
+  channels: PropTypes.array,
+  onChannelSelect: PropTypes.func,
   currentView: PropTypes.string,
   onViewChange: PropTypes.func,
 };
