@@ -154,24 +154,103 @@ class _MainAppState extends ConsumerState<MainApp> {
     );
   }
 
-  /// 📥 PROCESS DEEP LINK: Extract invite token and show dialog
+  /// 📥 PROCESS DEEP LINK: Extract invite token or workspace/thread IDs
   void _handleDeepLink(Uri uri) {
     print('🔗 Deep link received: $uri');
-    
-    // Check if it's an invite link: /invite/TOKEN
+    print('🔗 Path: ${uri.path}');
+    print('🔗 Fragment: ${uri.fragment}');
+
+    // Check for hash-based routing (e.g., /#/workspace/UUID or /#/workspace/UUID/thread/UUID)
+    if (uri.fragment.isNotEmpty) {
+      final fragmentPath = uri.fragment;
+      print('🔗 Processing fragment path: $fragmentPath');
+
+      // Parse workspace from fragment: /workspace/UUID or /workspace/UUID/thread/UUID
+      final workspaceMatch = RegExp(r'/workspace/([a-f0-9-]+)').firstMatch(fragmentPath);
+      if (workspaceMatch != null) {
+        final workspaceId = workspaceMatch.group(1);
+        print('✅ Extracted workspace ID from fragment: $workspaceId');
+
+        // Check for thread ID
+        final threadMatch = RegExp(r'/thread/([a-f0-9-]+)').firstMatch(fragmentPath);
+        final threadId = threadMatch?.group(1);
+        if (threadId != null) {
+          print('✅ Extracted thread ID from fragment: $threadId');
+        }
+
+        // Navigate to workspace (and optionally thread)
+        _navigateToWorkspace(workspaceId!, threadId);
+        return;
+      }
+
+      // Check for invite in fragment: /invite/TOKEN
+      if (fragmentPath.startsWith('/invite/')) {
+        final token = fragmentPath.split('/').last;
+        setState(() {
+          _pendingInviteToken = token;
+        });
+        print('✅ Extracted invite token from fragment: $token');
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && _pendingInviteToken != null) {
+            _showInviteDialog(_pendingInviteToken!);
+          }
+        });
+        return;
+      }
+    }
+
+    // Check if it's an invite link in path: /invite/TOKEN
     if (uri.path.startsWith('/invite/')) {
       final token = uri.path.split('/').last;
       setState(() {
         _pendingInviteToken = token;
       });
       print('✅ Extracted invite token: $token');
-      
+
       // Show invite dialog after a short delay to ensure UI is ready
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted && _pendingInviteToken != null) {
           _showInviteDialog(_pendingInviteToken!);
         }
       });
+      return;
+    }
+
+    // Check for workspace in path: /workspace/UUID
+    final pathWorkspaceMatch = RegExp(r'/workspace/([a-f0-9-]+)').firstMatch(uri.path);
+    if (pathWorkspaceMatch != null) {
+      final workspaceId = pathWorkspaceMatch.group(1);
+      final threadMatch = RegExp(r'/thread/([a-f0-9-]+)').firstMatch(uri.path);
+      final threadId = threadMatch?.group(1);
+      print('✅ Extracted workspace ID from path: $workspaceId');
+      _navigateToWorkspace(workspaceId!, threadId);
+    }
+  }
+
+  /// 🚀 Navigate to a specific workspace (and optionally thread)
+  void _navigateToWorkspace(String workspaceId, String? threadId) {
+    print('🚀 Navigating to workspace: $workspaceId, thread: $threadId');
+
+    // Set the workspace - this will trigger navigation in build()
+    setState(() {
+      _selectedWorkspace = {
+        'id': workspaceId,
+        'name': 'Loading...', // Will be populated when workspace loads
+        'deepLinkThreadId': threadId, // Pass thread ID for further navigation
+      };
+    });
+
+    // Show feedback to user
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(threadId != null
+              ? 'Opening conversation...'
+              : 'Opening workspace...'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.blue.shade600,
+        ),
+      );
     }
   }
 

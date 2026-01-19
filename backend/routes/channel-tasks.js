@@ -351,7 +351,7 @@ router.post('/', async (req, res) => {
             [finalAssignees]
           );
 
-          const baseUrl = process.env.FRONTEND_URL || 'https://crew.do';
+          const baseUrl = process.env.FRONTEND_URL || 'https://crewchat.elbarriobk.com';
           const taskUrl = `${baseUrl}/#/workspace/${req.params.workspaceId}`;
 
           // Send email to each assignee (except the creator)
@@ -830,7 +830,7 @@ router.post('/:taskId/complete', async (req, res) => {
 
         // Only notify if completer is not the creator
         if (created_by !== userId && creator_email) {
-          const baseUrl = process.env.FRONTEND_URL || 'https://crew.do';
+          const baseUrl = process.env.FRONTEND_URL || 'https://crewchat.elbarriobk.com';
           const taskUrl = `${baseUrl}/#/workspace/${workspaceId}`;
 
           console.log(`📧 Sending task completion email to creator ${creator_email} for task "${title}"`);

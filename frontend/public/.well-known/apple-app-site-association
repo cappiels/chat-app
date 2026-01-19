@@ -3,9 +3,12 @@
     "apps": [],
     "details": [
       {
-        "appID": "TEAM_ID.com.toastconversion.app",
-        "paths": ["/invite/*"]
+        "appID": "6F3PF6MQQ3.com.chatapp.mobile2",
+        "paths": ["*", "/#/*", "/invite/*", "/workspace/*"]
       }
     ]
+  },
+  "webcredentials": {
+    "apps": ["6F3PF6MQQ3.com.chatapp.mobile2"]
   }
 }

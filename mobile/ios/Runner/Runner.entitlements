@@ -4,5 +4,10 @@
 <dict>
 	<key>aps-environment</key>
 	<string>production</string>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:crewchat.elbarriobk.com</string>
+		<string>applinks:coral-app-rgki8.ondigitalocean.app</string>
+	</array>
 </dict>
 </plist>
