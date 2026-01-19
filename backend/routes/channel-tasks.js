@@ -56,7 +56,7 @@ router.get('/', async (req, res) => {
     const userId = req.user.id; // Fixed: use req.user.id
 
     let query = `
-      SELECT 
+      SELECT
         ct.*,
         u2.display_name as created_by_name,
         t.name as channel_name,
@@ -65,6 +65,12 @@ router.get('/', async (req, res) => {
         ct.total_assignees,
         ct.individual_assignee_count,
         ct.team_count,
+        -- Get reply count for task discussion
+        (
+          SELECT COUNT(*)::integer
+          FROM messages m
+          WHERE m.parent_message_id = ct.message_id
+        ) as reply_count,
         -- Get assignee details
         (
           SELECT json_agg(
@@ -74,7 +80,7 @@ router.get('/', async (req, res) => {
               'email', u.email
             )
           )
-          FROM users u 
+          FROM users u
           WHERE u.id IN (
             SELECT jsonb_array_elements_text(ct.assignees)
           )
@@ -88,8 +94,8 @@ router.get('/', async (req, res) => {
               'display_name', wt.display_name,
               'color', wt.color,
               'member_count', (
-                SELECT count(*) 
-                FROM workspace_team_members wtm 
+                SELECT count(*)
+                FROM workspace_team_members wtm
                 WHERE wtm.team_id = wt.id AND wtm.is_active = true
               )
             )
@@ -104,7 +110,7 @@ router.get('/', async (req, res) => {
         -- Check if current user is assignee
         is_task_assignee(ct.assignees, ct.assigned_teams, $2) as user_is_assignee,
         -- Check if current user has completed this task
-        CASE 
+        CASE
           WHEN ct.individual_completions ? $2 THEN true
           ELSE false
         END as user_completed
@@ -165,19 +171,42 @@ router.get('/', async (req, res) => {
 router.get('/:taskId', async (req, res) => {
   try {
     const { threadId, taskId } = req.params;
+    const userId = req.user.id;
 
     const result = await pool.query(`
-      SELECT 
+      SELECT
         ct.*,
         u1.display_name as assigned_to_name,
         u2.display_name as created_by_name,
-        t.name as channel_name
+        t.name as channel_name,
+        -- Get reply count for task discussion
+        (
+          SELECT COUNT(*)::integer
+          FROM messages m
+          WHERE m.parent_message_id = ct.message_id
+        ) as reply_count,
+        -- Get assignee details
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id', u.id,
+              'display_name', u.display_name,
+              'email', u.email
+            )
+          )
+          FROM users u
+          WHERE u.id IN (
+            SELECT jsonb_array_elements_text(ct.assignees)
+          )
+        ) as assignee_details,
+        -- Check permissions
+        CASE WHEN ct.created_by = $3 THEN true ELSE false END as user_is_creator
       FROM channel_tasks ct
       LEFT JOIN users u1 ON ct.assigned_to = u1.id
       LEFT JOIN users u2 ON ct.created_by = u2.id
       JOIN threads t ON ct.thread_id = t.id
       WHERE ct.id = $1 AND ct.thread_id = $2
-    `, [taskId, threadId]);
+    `, [taskId, threadId, userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Task not found' });
@@ -316,7 +345,7 @@ router.post('/', async (req, res) => {
       INSERT INTO channel_tasks (
         thread_id, workspace_id, title, description, start_date, end_date, due_date,
         assigned_to, assignees, assigned_teams, assignment_mode, requires_individual_response,
-        status, priority, tags, estimated_hours, 
+        status, priority, tags, estimated_hours,
         is_all_day, start_time, end_time, parent_task_id, dependencies, created_by
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING id, created_at, updated_at
@@ -328,6 +357,33 @@ router.post('/', async (req, res) => {
     ]);
 
     const taskId = result.rows[0].id;
+
+    // Create a task message in the channel for discussion
+    let taskMessageId = null;
+    try {
+      const taskMessageResult = await pool.query(`
+        INSERT INTO messages (thread_id, sender_id, content, message_type, metadata)
+        VALUES ($1, $2, $3, 'task', $4)
+        RETURNING id
+      `, [
+        threadId,
+        userId,
+        `Task: ${title.trim()}`,
+        JSON.stringify({ task_id: taskId })
+      ]);
+      taskMessageId = taskMessageResult.rows[0].id;
+
+      // Update the task with the message reference
+      await pool.query(
+        'UPDATE channel_tasks SET message_id = $1 WHERE id = $2',
+        [taskMessageId, taskId]
+      );
+
+      console.log(`📝 Created task message ${taskMessageId} for task ${taskId}`);
+    } catch (msgError) {
+      // Non-critical - continue even if message creation fails
+      console.error('Warning: Could not create task message:', msgError.message);
+    }
 
     // Send email notifications to all assignees (don't notify the creator)
     if (finalAssignees.length > 0) {
@@ -1194,6 +1250,162 @@ router.post('/:taskId/complete-all', async (req, res) => {
   } catch (error) {
     console.error('Error marking task complete for all:', error);
     res.status(500).json({ error: 'Failed to mark task complete for all' });
+  }
+});
+
+// === TASK DISCUSSION ENDPOINTS ===
+
+// GET /api/workspaces/:workspaceId/threads/:threadId/tasks/:taskId/replies
+// Get all replies (discussion) for a task
+router.get('/:taskId/replies', async (req, res) => {
+  try {
+    const { threadId, taskId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    // First get the task's message_id
+    const taskResult = await pool.query(
+      'SELECT message_id FROM channel_tasks WHERE id = $1 AND thread_id = $2',
+      [taskId, threadId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const messageId = taskResult.rows[0].message_id;
+
+    if (!messageId) {
+      // No message associated with task yet - return empty replies
+      return res.json({ replies: [], total: 0 });
+    }
+
+    // Get replies to the task message
+    const repliesResult = await pool.query(`
+      SELECT
+        m.id,
+        m.content,
+        m.sender_id,
+        m.created_at,
+        m.updated_at,
+        m.is_edited,
+        u.display_name as sender_name,
+        u.photo_url as sender_avatar
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.parent_message_id = $1 AND m.is_deleted = false
+      ORDER BY m.created_at ASC
+      LIMIT $2 OFFSET $3
+    `, [messageId, limit, offset]);
+
+    // Get total count
+    const countResult = await pool.query(
+      'SELECT COUNT(*)::integer as total FROM messages WHERE parent_message_id = $1 AND is_deleted = false',
+      [messageId]
+    );
+
+    res.json({
+      replies: repliesResult.rows,
+      total: countResult.rows[0].total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Error fetching task replies:', error);
+    res.status(500).json({ error: 'Failed to fetch task replies' });
+  }
+});
+
+// POST /api/workspaces/:workspaceId/threads/:threadId/tasks/:taskId/replies
+// Post a reply to a task discussion
+router.post('/:taskId/replies', async (req, res) => {
+  try {
+    const { workspaceId, threadId, taskId } = req.params;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({ error: 'Reply content is required' });
+    }
+
+    // Get the task's message_id
+    const taskResult = await pool.query(
+      'SELECT message_id, title, created_by FROM channel_tasks WHERE id = $1 AND thread_id = $2',
+      [taskId, threadId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    let messageId = taskResult.rows[0].message_id;
+    const taskTitle = taskResult.rows[0].title;
+    const taskCreatorId = taskResult.rows[0].created_by;
+
+    // If no message exists for this task, create one first
+    if (!messageId) {
+      const taskMessageResult = await pool.query(`
+        INSERT INTO messages (thread_id, sender_id, content, message_type, metadata)
+        VALUES ($1, $2, $3, 'task', $4)
+        RETURNING id
+      `, [
+        threadId,
+        taskCreatorId,
+        `Task: ${taskTitle}`,
+        JSON.stringify({ task_id: taskId })
+      ]);
+      messageId = taskMessageResult.rows[0].id;
+
+      // Update the task with the message reference
+      await pool.query(
+        'UPDATE channel_tasks SET message_id = $1 WHERE id = $2',
+        [messageId, taskId]
+      );
+    }
+
+    // Insert the reply
+    const replyResult = await pool.query(`
+      INSERT INTO messages (thread_id, sender_id, content, message_type, parent_message_id)
+      VALUES ($1, $2, $3, 'text', $4)
+      RETURNING id, content, sender_id, created_at
+    `, [threadId, userId, content.trim(), messageId]);
+
+    // Get sender details
+    const userResult = await pool.query(
+      'SELECT display_name, photo_url FROM users WHERE id = $1',
+      [userId]
+    );
+
+    const reply = {
+      ...replyResult.rows[0],
+      sender_name: userResult.rows[0]?.display_name || 'Unknown',
+      sender_avatar: userResult.rows[0]?.photo_url
+    };
+
+    // Send push notification to task creator if different from replier
+    if (taskCreatorId !== userId) {
+      try {
+        await pushNotificationService.sendNotification(taskCreatorId, {
+          title: 'New reply on your task',
+          body: `${reply.sender_name}: ${content.trim().substring(0, 50)}${content.length > 50 ? '...' : ''}`,
+          data: {
+            type: 'task_reply',
+            workspace_id: workspaceId,
+            thread_id: threadId,
+            task_id: taskId
+          }
+        });
+      } catch (pushError) {
+        console.error('Failed to send push notification for task reply:', pushError);
+      }
+    }
+
+    res.status(201).json({
+      message: 'Reply posted successfully',
+      reply
+    });
+  } catch (error) {
+    console.error('Error posting task reply:', error);
+    res.status(500).json({ error: 'Failed to post task reply' });
   }
 });
 

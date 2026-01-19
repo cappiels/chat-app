@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'image_viewer.dart';
 import 'delete_message_dialog.dart';
+import '../../screens/tasks/task_detail_screen.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
@@ -31,6 +32,10 @@ class MessageBubble extends StatelessWidget {
   bool get _canDelete {
     // Can delete if it's your own message OR if you're an admin
     return isOwnMessage || (workspace?.isAdmin ?? false);
+  }
+
+  bool get _isTaskMessage {
+    return message.messageType == 'task' && message.metadata?['task_id'] != null;
   }
 
   Future<void> _handleDelete(BuildContext context) async {
@@ -216,110 +221,143 @@ class MessageBubble extends StatelessWidget {
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  // Sender name (only for others' messages)
+                  // Sender name (only for others' messages) with task badge if applicable
                   if (!isOwnMessage) ...[
                     Padding(
                       padding: const EdgeInsets.only(left: 12, bottom: 4),
-                      child: Text(
-                        message.senderName,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            message.senderName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          // Task indicator badge
+                          if (_isTaskMessage) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_circle, size: 12, color: Colors.blue.shade700),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Task',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ],
                   
-                  // Message bubble
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isOwnMessage
-                          ? Colors.blue.shade600
-                          : Colors.grey.shade200,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(isOwnMessage ? 18 : 4),
-                        topRight: Radius.circular(isOwnMessage ? 4 : 18),
-                        bottomLeft: const Radius.circular(18),
-                        bottomRight: const Radius.circular(18),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Reply preview (if replying to another message)
-                        if (message.parentMessage != null)
-                          _buildReplyPreview(message.parentMessage!),
-                        
-                        // Message content
-                        Text(
-                          message.isDeleted
-                              ? '[Message deleted]'
-                              : message.content,
-                          style: TextStyle(
-                            fontSize: 15,
+                  // Message bubble - Task card or regular message
+                  _isTaskMessage
+                      ? _buildTaskCard(context)
+                      : Container(
+                          decoration: BoxDecoration(
                             color: isOwnMessage
-                                ? Colors.white
-                                : Colors.grey.shade900,
-                            fontStyle: message.isDeleted
-                                ? FontStyle.italic
-                                : FontStyle.normal,
-                          ),
-                        ),
-                        
-                        // Attachments
-                        if (message.hasAttachments) ...[
-                          const SizedBox(height: 8),
-                          _buildAttachments(),
-                        ],
-                        
-                        // Timestamp and status
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _formatTime(message.createdAt),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isOwnMessage
-                                    ? Colors.white.withOpacity(0.7)
-                                    : Colors.grey.shade600,
-                              ),
+                                ? Colors.blue.shade600
+                                : Colors.grey.shade200,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(isOwnMessage ? 18 : 4),
+                              topRight: Radius.circular(isOwnMessage ? 4 : 18),
+                              bottomLeft: const Radius.circular(18),
+                              bottomRight: const Radius.circular(18),
                             ),
-                            if (message.isEdited) ...[
-                              const SizedBox(width: 4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Reply preview (if replying to another message)
+                              if (message.parentMessage != null)
+                                _buildReplyPreview(message.parentMessage!),
+
+                              // Message content
                               Text(
-                                '(edited)',
+                                message.isDeleted
+                                    ? '[Message deleted]'
+                                    : message.content,
                                 style: TextStyle(
-                                  fontSize: 10,
-                                  fontStyle: FontStyle.italic,
+                                  fontSize: 15,
                                   color: isOwnMessage
-                                      ? Colors.white.withOpacity(0.6)
-                                      : Colors.grey.shade500,
+                                      ? Colors.white
+                                      : Colors.grey.shade900,
+                                  fontStyle: message.isDeleted
+                                      ? FontStyle.italic
+                                      : FontStyle.normal,
                                 ),
                               ),
+
+                              // Attachments
+                              if (message.hasAttachments) ...[
+                                const SizedBox(height: 8),
+                                _buildAttachments(),
+                              ],
+
+                              // Timestamp and status
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _formatTime(message.createdAt),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isOwnMessage
+                                          ? Colors.white.withOpacity(0.7)
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  if (message.isEdited) ...[
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '(edited)',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontStyle: FontStyle.italic,
+                                        color: isOwnMessage
+                                            ? Colors.white.withOpacity(0.6)
+                                            : Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
+                                  if (isOwnMessage) ...[
+                                    const SizedBox(width: 4),
+                                    _buildStatusIcon(),
+                                  ],
+                                ],
+                              ),
                             ],
-                            if (isOwnMessage) ...[
-                              const SizedBox(width: 4),
-                              _buildStatusIcon(),
-                            ],
-                          ],
+                          ),
                         ),
-                      ],
-                    ),
-                  ),
                   
                   // Reactions
                   if (message.hasReactions) ...[
@@ -335,6 +373,275 @@ class MessageBubble extends StatelessWidget {
               const SizedBox(width: 8),
               _buildAvatar(),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskCard(BuildContext context) {
+    final metadata = message.metadata ?? {};
+    final taskTitle = metadata['title'] ?? message.content.replaceFirst('Task: ', '') ?? 'Untitled Task';
+    final status = metadata['status'] ?? 'pending';
+    final priority = metadata['priority'] ?? 'medium';
+    final dueDate = metadata['due_date'] ?? metadata['end_date'];
+    final assigneeNames = metadata['assignee_names'] ?? metadata['assigned_to_name'];
+    final isCompleted = status == 'completed';
+
+    Color getPriorityColor(String? p) {
+      switch (p) {
+        case 'urgent': return Colors.red.shade600;
+        case 'high': return Colors.orange.shade600;
+        case 'medium': return Colors.yellow.shade700;
+        case 'low': return Colors.green.shade600;
+        default: return Colors.grey.shade600;
+      }
+    }
+
+    Color getStatusColor(String? s) {
+      switch (s) {
+        case 'completed': return Colors.green.shade600;
+        case 'in_progress': return Colors.blue.shade600;
+        case 'blocked': return Colors.red.shade600;
+        default: return Colors.grey.shade600;
+      }
+    }
+
+    String formatTaskDate(String? dateStr) {
+      if (dateStr == null) return '';
+      try {
+        final date = DateTime.parse(dateStr);
+        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return '${months[date.month - 1]} ${date.day}';
+      } catch (e) {
+        return '';
+      }
+    }
+
+    return GestureDetector(
+      onTap: () {
+        // Navigate to task detail
+        final taskId = metadata['task_id'];
+        if (taskId != null && workspace != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => TaskDetailScreen(
+                task: {
+                  'id': taskId,
+                  'title': taskTitle,
+                  'status': status,
+                  'priority': priority,
+                  'due_date': dueDate,
+                  'assignee_names': assigneeNames,
+                  'workspace_id': workspaceId,
+                  'thread_id': threadId,
+                  ...metadata,
+                },
+                workspace: {'id': workspaceId, 'name': workspace?.name},
+              ),
+            ),
+          );
+        }
+      },
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 280),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade50, Colors.purple.shade50],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.blue.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Task Type Indicator
+            Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade600,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(Icons.check, size: 14, color: Colors.white),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'TASK',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.blue.shade600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Task Header
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isCompleted ? Colors.green.shade500 : Colors.transparent,
+                    border: Border.all(
+                      color: isCompleted ? Colors.green.shade500 : Colors.blue.shade400,
+                      width: 2,
+                    ),
+                  ),
+                  child: isCompleted
+                      ? Icon(Icons.check, size: 16, color: Colors.white)
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    taskTitle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isCompleted ? Colors.grey.shade400 : Colors.grey.shade900,
+                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Metadata badges
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                // Status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: getStatusColor(status).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    status.replaceAll('_', ' '),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: getStatusColor(status),
+                    ),
+                  ),
+                ),
+                // Priority badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: getPriorityColor(priority).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.flag, size: 12, color: getPriorityColor(priority)),
+                      const SizedBox(width: 4),
+                      Text(
+                        priority,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: getPriorityColor(priority),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Due date badge
+                if (dueDate != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade700),
+                        const SizedBox(width: 4),
+                        Text(
+                          formatTaskDate(dueDate),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+
+            // Assignees
+            if (assigneeNames != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.people_outline, size: 14, color: Colors.grey.shade600),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      assigneeNames,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            // View task link
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.blue.shade200),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.open_in_new, size: 16, color: Colors.blue.shade600),
+                  const SizedBox(width: 6),
+                  Text(
+                    'View full task',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blue.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

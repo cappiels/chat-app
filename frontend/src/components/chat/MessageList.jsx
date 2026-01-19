@@ -111,17 +111,42 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
     return () => clearInterval(interval);
   }, [externalTypingUsers]);
 
+  // Helper to get timestamp as number for reliable sorting
+  const getTimestampMs = (timestamp) => {
+    if (!timestamp) return 0;
+    if (timestamp instanceof Date) return timestamp.getTime();
+    const date = new Date(timestamp);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  };
+
   // Group messages by date - ensure messages are sorted chronologically first
   const groupMessagesByDate = (messages) => {
     // First, sort all messages chronologically (oldest to newest)
-    const sortedMessages = [...messages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    
+    // Use message ID as secondary sort key for messages with identical timestamps
+    const sortedMessages = [...messages].sort((a, b) => {
+      const timeA = getTimestampMs(a.timestamp);
+      const timeB = getTimestampMs(b.timestamp);
+
+      // Primary sort by timestamp (oldest first)
+      if (timeA !== timeB) {
+        return timeA - timeB;
+      }
+
+      // Secondary sort by message ID for consistent ordering when timestamps match
+      // This handles rapid message creation where timestamps may be identical
+      if (a.id && b.id) {
+        return a.id.localeCompare(b.id);
+      }
+
+      return 0;
+    });
+
     const groups = [];
     let currentDate = null;
 
     sortedMessages.forEach((message) => {
       const messageDate = new Date(message.timestamp).toDateString();
-      
+
       if (messageDate !== currentDate) {
         currentDate = messageDate;
         groups.push({
@@ -222,8 +247,16 @@ const MessageList = ({ channel, messages, onThreadClick, currentUser, lastReadMe
                     {/* Messages for this date - sorted by timestamp with oldest at top, newest at bottom */}
                     {(() => {
                       // Sort messages first, then operate on the sorted array
+                      // Use same robust sorting as groupMessagesByDate
                       const sortedMessages = [...group.messages]
-                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                        .sort((a, b) => {
+                          const timeA = getTimestampMs(a.timestamp);
+                          const timeB = getTimestampMs(b.timestamp);
+                          if (timeA !== timeB) return timeA - timeB;
+                          // Secondary sort by ID for identical timestamps
+                          if (a.id && b.id) return a.id.localeCompare(b.id);
+                          return 0;
+                        });
                         
                       return sortedMessages.map((message, index) => {
                       // Now prevMessage refers to the previous message in the sorted array

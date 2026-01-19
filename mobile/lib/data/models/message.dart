@@ -64,6 +64,9 @@ class Message {
   @FlexibleIntConverter()
   final int editCount;
 
+  // Metadata for special message types (e.g., task messages)
+  final Map<String, dynamic>? metadata;
+
   // Local state for UI
   @JsonKey(includeFromJson: false, includeToJson: false)
   final MessageStatus status;
@@ -91,6 +94,7 @@ class Message {
     this.parentMessage,
     this.replyCount = 0,
     this.editCount = 0,
+    this.metadata,
     this.status = MessageStatus.sent,
     this.tempId,
   });
@@ -149,6 +153,7 @@ class Message {
     ParentMessage? parentMessage,
     int? replyCount,
     int? editCount,
+    Map<String, dynamic>? metadata,
     MessageStatus? status,
     String? tempId,
   }) {
@@ -173,6 +178,7 @@ class Message {
       parentMessage: parentMessage ?? this.parentMessage,
       replyCount: replyCount ?? this.replyCount,
       editCount: editCount ?? this.editCount,
+      metadata: metadata ?? this.metadata,
       status: status ?? this.status,
       tempId: tempId ?? this.tempId,
     );
@@ -231,6 +237,7 @@ enum MessageType {
   system,
   code,
   richText,
+  task,
 }
 
 extension MessageTypeExtension on MessageType {
@@ -246,6 +253,8 @@ extension MessageTypeExtension on MessageType {
         return 'code';
       case MessageType.richText:
         return 'rich_text';
+      case MessageType.task:
+        return 'task';
     }
   }
 
@@ -261,6 +270,8 @@ extension MessageTypeExtension on MessageType {
         return MessageType.code;
       case 'rich_text':
         return MessageType.richText;
+      case 'task':
+        return MessageType.task;
       default:
         return MessageType.text;
     }

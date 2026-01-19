@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
-import { Reply, MoreHorizontal, Smile, Bookmark, Edit, MessageSquare, Download, FileText, Image, Film, Music, File, Play, Pause, Trash2 } from 'lucide-react';
+import { Reply, MoreHorizontal, Smile, Bookmark, Edit, MessageSquare, Download, FileText, Image, Film, Music, File, Play, Pause, Trash2, CheckCircle, Circle, Calendar, Users, Flag, ExternalLink } from 'lucide-react';
 import { messageAPI, threadAPI } from '../../utils/api';
 import ImageModal from '../ui/ImageModal';
 import BookmarkDialog from './BookmarkDialog';
@@ -154,6 +154,119 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
     setImageError(prev => ({ ...prev, [attachmentId]: true }));
   };
 
+  // Check if this is a task message
+  const isTaskMessage = message.message_type === 'task' && message.metadata?.task_id;
+  const taskData = message.task_data || message.metadata || {};
+
+  // Render task message card
+  const renderTaskCard = () => {
+    const taskTitle = taskData.title || message.content?.replace('Task: ', '') || 'Untitled Task';
+    const status = taskData.status || 'pending';
+    const priority = taskData.priority || 'medium';
+    const dueDate = taskData.due_date || taskData.end_date;
+    const assigneeNames = taskData.assignee_names || taskData.assigned_to_name;
+    const isCompleted = status === 'completed';
+
+    const getPriorityColor = (p) => {
+      switch (p) {
+        case 'urgent': return 'text-red-600 bg-red-50 border-red-200';
+        case 'high': return 'text-orange-600 bg-orange-50 border-orange-200';
+        case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+        case 'low': return 'text-green-600 bg-green-50 border-green-200';
+        default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      }
+    };
+
+    const getStatusColor = (s) => {
+      switch (s) {
+        case 'completed': return 'text-green-600 bg-green-50 border-green-200';
+        case 'in_progress': return 'text-blue-600 bg-blue-50 border-blue-200';
+        case 'blocked': return 'text-red-600 bg-red-50 border-red-200';
+        default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      }
+    };
+
+    const formatTaskDate = (dateStr) => {
+      if (!dateStr) return null;
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    return (
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-4 max-w-md shadow-sm hover:shadow-md transition-shadow">
+        {/* Task Type Indicator */}
+        <div className="flex items-center gap-1.5 mb-3">
+          <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center">
+            <CheckCircle className="w-3 h-3 text-white" />
+          </div>
+          <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Task</span>
+        </div>
+
+        {/* Task Header */}
+        <div className="flex items-start gap-3">
+          <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+            isCompleted ? 'bg-green-500 border-green-500' : 'border-blue-400'
+          }`}>
+            {isCompleted && <CheckCircle className="w-4 h-4 text-white" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className={`font-semibold text-gray-900 ${isCompleted ? 'line-through text-gray-400' : ''}`}>
+              {taskTitle}
+            </h4>
+          </div>
+        </div>
+
+        {/* Task Metadata */}
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {/* Status Badge */}
+          <span className={`px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${getStatusColor(status)}`}>
+            {status.replace('_', ' ')}
+          </span>
+
+          {/* Priority Badge */}
+          <span className={`px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${getPriorityColor(priority)}`}>
+            <Flag className="w-3 h-3 inline mr-1" />
+            {priority}
+          </span>
+
+          {/* Due Date */}
+          {dueDate && (
+            <span className="flex items-center gap-1 px-2 py-0.5 text-xs text-gray-600 bg-gray-100 rounded-full">
+              <Calendar className="w-3 h-3" />
+              {formatTaskDate(dueDate)}
+            </span>
+          )}
+        </div>
+
+        {/* Assignees */}
+        {assigneeNames && (
+          <div className="flex items-center gap-1 mt-2 text-xs text-gray-600">
+            <Users className="w-3 h-3" />
+            <span>{assigneeNames}</span>
+          </div>
+        )}
+
+        {/* View Task Link */}
+        <div className="mt-3 pt-3 border-t border-blue-200">
+          <button
+            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              // Navigate to task detail - dispatch custom event
+              const event = new CustomEvent('openTaskDetail', {
+                detail: { taskId: taskData.task_id || message.metadata?.task_id }
+              });
+              window.dispatchEvent(event);
+            }}
+          >
+            <ExternalLink className="w-4 h-4" />
+            View full task
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderAttachment = (attachment) => {
     const FileIcon = getFileIcon(attachment.type);
     
@@ -219,14 +332,24 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
         {showAvatar && (
           <div className="message-header">
             <span className="message-author">{message.user.name}</span>
+            {/* Task/Event indicator badge next to author name */}
+            {isTaskMessage && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded ml-2">
+                <CheckCircle className="w-3 h-3" />
+                Task
+              </span>
+            )}
             <span className="message-time">{formatTime(message.timestamp)}</span>
             {message.edited && (
               <span className="text-xs text-text-tertiary">(edited)</span>
             )}
           </div>
         )}
-        {/* Message Content with Markdown */}
-        {isEditing ? (
+        {/* Message Content - Task Card or Regular Message */}
+        {isTaskMessage ? (
+          // Render task card for task messages
+          renderTaskCard()
+        ) : isEditing ? (
           <div className="mt-2">
             <textarea
               value={editContent}
@@ -271,7 +394,7 @@ const Message = ({ message, showAvatar, onThreadClick, currentUser, workspaceId,
                 {message.content || ''}
               </ReactMarkdown>
             </div>
-            
+
             {/* YouTube Link Detection and Embed */}
             {message.content && getYouTubeId(message.content) && renderYouTubeEmbed(message.content)}
           </>

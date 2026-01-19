@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   X,
@@ -12,7 +12,9 @@ import {
   Circle,
   Users,
   Building2,
-  AlertCircle
+  AlertCircle,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { Dialog } from '../ui/Dialog';
 import { useAuth } from '../../contexts/AuthContext';
@@ -58,6 +60,12 @@ const TaskDetailsModal = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [assigneeCompletions, setAssigneeCompletions] = useState({});
+  const [replies, setReplies] = useState([]);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [showDiscussion, setShowDiscussion] = useState(false);
+  const repliesEndRef = useRef(null);
 
   // Parse individual completions from task
   useEffect(() => {
@@ -155,6 +163,72 @@ const TaskDetailsModal = ({
   // API calls
   const effectiveWorkspaceId = workspaceId || task?.workspace_id;
   const effectiveThreadId = threadId || task?.thread_id;
+
+  // Load replies when discussion is expanded
+  const loadReplies = async () => {
+    if (!task || !effectiveWorkspaceId || !effectiveThreadId) return;
+
+    try {
+      setLoadingReplies(true);
+      const response = await api.get(
+        `/workspaces/${effectiveWorkspaceId}/threads/${effectiveThreadId}/tasks/${task.id}/replies`
+      );
+      setReplies(response.data.replies || []);
+    } catch (err) {
+      console.error('Error loading replies:', err);
+    } finally {
+      setLoadingReplies(false);
+    }
+  };
+
+  const sendReply = async () => {
+    if (!replyContent.trim() || !task || !effectiveWorkspaceId || !effectiveThreadId) return;
+
+    try {
+      setSendingReply(true);
+      const response = await api.post(
+        `/workspaces/${effectiveWorkspaceId}/threads/${effectiveThreadId}/tasks/${task.id}/replies`,
+        { content: replyContent.trim() }
+      );
+
+      setReplies(prev => [...prev, response.data.reply]);
+      setReplyContent('');
+
+      setTimeout(() => {
+        repliesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (err) {
+      console.error('Error sending reply:', err);
+      setError('Failed to send reply');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const handleToggleDiscussion = () => {
+    setShowDiscussion(prev => {
+      if (!prev) loadReplies();
+      return !prev;
+    });
+  };
+
+  const formatRelativeTime = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return formatDate(dateStr);
+  };
+
+  const replyCount = task?.reply_count || replies.length;
 
   const handleMarkComplete = async () => {
     if (!permissions.canMarkDone || !effectiveWorkspaceId || !effectiveThreadId) return;
@@ -483,6 +557,89 @@ const TaskDetailsModal = ({
               )}
             </div>
           )}
+
+            {/* Discussion Section */}
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={handleToggleDiscussion}
+                className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
+                  showDiscussion ? 'bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className={`w-5 h-5 ${replyCount > 0 ? 'text-blue-600' : 'text-gray-500'}`} />
+                  <span className="text-sm font-medium text-gray-700">Discussion</span>
+                  {replyCount > 0 && (
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                      {replyCount}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-500">{showDiscussion ? 'Hide' : 'Show'}</span>
+              </button>
+
+              {showDiscussion && (
+                <div className="mt-3 space-y-3">
+                  {loadingReplies ? (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : replies.length === 0 ? (
+                    <div className="text-center py-4 text-sm text-gray-500">
+                      No comments yet. Be the first to comment!
+                    </div>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto space-y-3">
+                      {replies.map((reply, index) => (
+                        <div key={reply.id || index} className="flex gap-2">
+                          <div className="flex-shrink-0 w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-semibold text-blue-700">
+                              {(reply.sender_name || 'U')[0].toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-gray-800">
+                                {reply.sender_name || 'Unknown'}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {formatRelativeTime(reply.created_at)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700">{reply.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={repliesEndRef} />
+                    </div>
+                  )}
+
+                  {/* Reply input */}
+                  <div className="flex gap-2 pt-2">
+                    <input
+                      type="text"
+                      value={replyContent}
+                      onChange={(e) => setReplyContent(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendReply()}
+                      placeholder="Add a comment..."
+                      className="flex-1 px-3 py-1.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={sendingReply}
+                    />
+                    <button
+                      onClick={sendReply}
+                      disabled={sendingReply || !replyContent.trim()}
+                      className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {sendingReply ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
         </div>
 
         {/* Actions Footer */}
