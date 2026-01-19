@@ -805,6 +805,12 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
             <div className="message-input-wrapper cursor-text">
               <button
                 type="button"
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔥 CALENDAR BUTTON TOUCHED - COLLAPSED STATE');
+                  setShowTaskDialog(true);
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1009,6 +1015,13 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
               <button
                 type="button"
                 onMouseDown={() => { buttonClickedRef.current = true; }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  buttonClickedRef.current = true;
+                  console.log('🔥 CALENDAR BUTTON TOUCHED - EXPANDED STATE');
+                  setShowTaskDialog(true);
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1077,30 +1090,40 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
                 <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               
-              {/* Secondary buttons - visible on larger mobile screens */}
+              {/* Secondary buttons - now visible on all screens */}
               <button
                 type="button"
                 onMouseDown={() => { buttonClickedRef.current = true; }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  buttonClickedRef.current = true;
+                  handleFormatting();
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   handleFormatting();
                 }}
-                className="btn-icon flex-shrink-0 hidden sm:inline-flex"
+                className="btn-icon flex-shrink-0"
                 title="Text formatting"
               >
                 <Edit3 className="w-4 h-4" />
               </button>
-              
+
               <button
                 type="button"
                 onMouseDown={() => { buttonClickedRef.current = true; }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  buttonClickedRef.current = true;
+                  handleMention();
+                }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   handleMention();
                 }}
-                className="btn-icon flex-shrink-0 hidden sm:inline-flex"
+                className="btn-icon flex-shrink-0"
                 title="Mention someone"
               >
                 <AtSign className="w-4 h-4" />
