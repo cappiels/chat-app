@@ -146,21 +146,33 @@ class PushNotificationService {
     try {
       // For iOS, we need APNs token first
       if (Platform.isIOS) {
-        final apnsToken = await _messaging.getAPNSToken();
-        if (apnsToken == null) {
-          debugPrint('⚠️ APNs token not yet available');
-          // Wait and retry
-          await Future.delayed(const Duration(seconds: 2));
-          final retryApns = await _messaging.getAPNSToken();
-          if (retryApns == null) {
-            debugPrint('❌ APNs token still not available');
-            return null;
+        debugPrint('📱 iOS detected, checking APNs token...');
+        String? apnsToken;
+
+        // Retry up to 5 times with increasing delays
+        for (int i = 0; i < 5; i++) {
+          apnsToken = await _messaging.getAPNSToken();
+          if (apnsToken != null) {
+            debugPrint('✅ APNs token obtained on attempt ${i + 1}');
+            break;
           }
+          debugPrint('⚠️ APNs token not yet available (attempt ${i + 1}/5)');
+          await Future.delayed(Duration(seconds: 2 + i)); // 2, 3, 4, 5, 6 seconds
+        }
+
+        if (apnsToken == null) {
+          debugPrint('❌ APNs token not available after 5 attempts - push notifications will not work');
+          debugPrint('   Make sure push notifications are enabled in iOS Settings > Crew Chat > Notifications');
+          return null;
         }
       }
 
       _currentToken = await _messaging.getToken();
-      debugPrint('🔑 FCM Token: ${_currentToken?.substring(0, 20)}...');
+      if (_currentToken != null) {
+        debugPrint('🔑 FCM Token obtained: ${_currentToken!.substring(0, 20)}...');
+      } else {
+        debugPrint('❌ FCM token is null');
+      }
       return _currentToken;
 
     } catch (e) {
@@ -170,9 +182,13 @@ class PushNotificationService {
   }
 
   Future<void> _getAndRegisterToken() async {
+    debugPrint('🔄 Getting and registering FCM token...');
     final token = await getToken();
     if (token != null) {
+      debugPrint('📤 Registering token with backend...');
       await registerTokenWithBackend(token);
+    } else {
+      debugPrint('⚠️ No token to register - push notifications disabled');
     }
   }
 
