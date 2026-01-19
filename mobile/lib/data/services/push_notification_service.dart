@@ -221,30 +221,45 @@ class PushNotificationService {
     debugPrint('📤 PUSH SERVICE: Attempting to register token with backend...');
     debugPrint('📤 Token (first 30 chars): ${token.substring(0, token.length > 30 ? 30 : token.length)}...');
 
-    try {
-      final platform = Platform.isIOS ? 'ios' : (Platform.isAndroid ? 'android' : 'unknown');
-      debugPrint('📤 Platform: $platform');
+    // Wait a moment to ensure auth is fully ready
+    await Future.delayed(const Duration(seconds: 2));
+    debugPrint('📤 PUSH SERVICE: Waited 2 seconds for auth to stabilize');
 
-      final response = await _httpClient.post(
-        '/push/register',
-        data: {
-          'token': token,
-          'platform': platform,
-          'deviceInfo': {
-            'os': Platform.operatingSystem,
-            'osVersion': Platform.operatingSystemVersion,
+    // Retry up to 3 times with increasing delays
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final platform = Platform.isIOS ? 'ios' : (Platform.isAndroid ? 'android' : 'unknown');
+        debugPrint('📤 Platform: $platform (attempt $attempt/3)');
+
+        final response = await _httpClient.post(
+          '/api/push/register',
+          data: {
+            'token': token,
+            'platform': platform,
+            'deviceInfo': {
+              'os': Platform.operatingSystem,
+              'osVersion': Platform.operatingSystemVersion,
+            },
           },
-        },
-      );
+        );
 
-      debugPrint('✅✅ PUSH SERVICE: Device token registered successfully!');
-      debugPrint('✅✅ Response: ${response.data}');
+        debugPrint('✅✅ PUSH SERVICE: Device token registered successfully!');
+        debugPrint('✅✅ Response: ${response.data}');
+        return; // Success, exit the retry loop
 
-    } catch (e) {
-      debugPrint('❌❌ PUSH SERVICE: Failed to register token with backend!');
-      debugPrint('❌❌ Error: $e');
-      debugPrint('❌❌ Error type: ${e.runtimeType}');
+      } catch (e) {
+        debugPrint('❌❌ PUSH SERVICE: Failed to register token (attempt $attempt/3)');
+        debugPrint('❌❌ Error: $e');
+        debugPrint('❌❌ Error type: ${e.runtimeType}');
+
+        if (attempt < 3) {
+          final delay = attempt * 3; // 3s, 6s
+          debugPrint('⏳ Retrying in $delay seconds...');
+          await Future.delayed(Duration(seconds: delay));
+        }
+      }
     }
+    debugPrint('❌❌❌ PUSH SERVICE: All 3 registration attempts failed!');
   }
 
   Future<void> _handleTokenRefresh(String newToken) async {
@@ -253,7 +268,7 @@ class PushNotificationService {
     if (_currentToken != null && _currentToken != newToken) {
       try {
         await _httpClient.put(
-          '/push/refresh-token',
+          '/api/push/refresh-token',
           data: {
             'oldToken': _currentToken,
             'newToken': newToken,
@@ -277,7 +292,7 @@ class PushNotificationService {
 
     try {
       await _httpClient.delete(
-        '/push/unregister',
+        '/api/push/unregister',
         data: {'token': _currentToken},
       );
       debugPrint('✅ Device token unregistered');
@@ -398,7 +413,7 @@ class PushNotificationService {
   Future<void> clearBadge({String? workspaceId}) async {
     try {
       await _httpClient.post(
-        '/push/badge-count/clear',
+        '/api/push/badge-count/clear',
         data: workspaceId != null ? {'workspaceId': workspaceId} : {},
       );
 
@@ -416,7 +431,7 @@ class PushNotificationService {
 
   Future<int> getBadgeCount() async {
     try {
-      final response = await _httpClient.get('/push/badge-count');
+      final response = await _httpClient.get('/api/push/badge-count');
       return response.data['count'] ?? 0;
     } catch (e) {
       debugPrint('❌ Failed to get badge count: $e');
@@ -435,7 +450,7 @@ class PushNotificationService {
       if (threadId != null) queryParams['threadId'] = threadId;
 
       final response = await _httpClient.get(
-        '/push/preferences',
+        '/api/push/preferences',
         queryParameters: queryParams,
       );
       return response.data as Map<String, dynamic>;
@@ -448,7 +463,7 @@ class PushNotificationService {
 
   Future<bool> savePreferences(Map<String, dynamic> preferences) async {
     try {
-      await _httpClient.post('/push/preferences', data: preferences);
+      await _httpClient.post('/api/push/preferences', data: preferences);
       return true;
     } catch (e) {
       debugPrint('❌ Failed to save preferences: $e');
@@ -463,7 +478,7 @@ class PushNotificationService {
   Future<bool> muteWorkspace(String workspaceId, {String muteLevel = 'all', Duration? duration}) async {
     try {
       await _httpClient.post(
-        '/push/mute/workspace/$workspaceId',
+        '/api/push/mute/workspace/$workspaceId',
         data: {
           'muteLevel': muteLevel,
           if (duration != null) 'duration': duration.inMilliseconds,
@@ -478,7 +493,7 @@ class PushNotificationService {
 
   Future<bool> unmuteWorkspace(String workspaceId) async {
     try {
-      await _httpClient.delete('/push/mute/workspace/$workspaceId');
+      await _httpClient.delete('/api/push/mute/workspace/$workspaceId');
       return true;
     } catch (e) {
       debugPrint('❌ Failed to unmute workspace: $e');
@@ -489,7 +504,7 @@ class PushNotificationService {
   Future<bool> muteChannel(String threadId, {String muteLevel = 'all', Duration? duration}) async {
     try {
       await _httpClient.post(
-        '/push/mute/channel/$threadId',
+        '/api/push/mute/channel/$threadId',
         data: {
           'muteLevel': muteLevel,
           if (duration != null) 'duration': duration.inMilliseconds,
@@ -504,7 +519,7 @@ class PushNotificationService {
 
   Future<bool> unmuteChannel(String threadId) async {
     try {
-      await _httpClient.delete('/push/mute/channel/$threadId');
+      await _httpClient.delete('/api/push/mute/channel/$threadId');
       return true;
     } catch (e) {
       debugPrint('❌ Failed to unmute channel: $e');
@@ -524,7 +539,7 @@ class PushNotificationService {
   }) async {
     try {
       await _httpClient.post(
-        '/push/dnd',
+        '/api/push/dnd',
         data: {
           'enabled': true,
           if (startTime != null) 'startTime': startTime,
@@ -542,7 +557,7 @@ class PushNotificationService {
 
   Future<bool> disableDND() async {
     try {
-      await _httpClient.delete('/push/dnd');
+      await _httpClient.delete('/api/push/dnd');
       return true;
     } catch (e) {
       debugPrint('❌ Failed to disable DND: $e');
@@ -557,7 +572,7 @@ class PushNotificationService {
   Future<bool> sendTestNotification() async {
     try {
       final response = await _httpClient.post(
-        '/push/test',
+        '/api/push/test',
         data: {
           'title': 'Test Notification',
           'body': 'This is a test push notification from Crew Chat!',
