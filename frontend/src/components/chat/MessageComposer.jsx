@@ -229,6 +229,47 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
     }
   };
 
+  // Filter members based on mention query - MUST be defined before handleKeyDown
+  const filteredMembers = workspaceMembers.filter(m => {
+    const name = (m.display_name || '').toLowerCase();
+    const email = (m.email || '').toLowerCase();
+    return name.includes(mentionQuery) || email.includes(mentionQuery);
+  }).slice(0, 8); // Limit to 8 results
+
+  // Handle mention selection - MUST be defined before handleKeyDown
+  const handleMentionSelect = useCallback((member) => {
+    if (mentionStartIndex === null) return;
+
+    const cursorPos = editorRef.current?.selectionStart || message.length;
+    const beforeMention = message.slice(0, mentionStartIndex);
+    const afterCursor = message.slice(cursorPos);
+    const mentionText = `@${member.display_name} `;
+    const newMessage = `${beforeMention}${mentionText}${afterCursor}`;
+
+    setMessage(newMessage);
+    setSelectedMentions(prev => [
+      ...prev,
+      {
+        user_id: member.id,
+        display_name: member.display_name,
+        type: 'user'
+      }
+    ]);
+    setShowMentionDropdown(false);
+    setMentionQuery('');
+    setMentionStartIndex(null);
+    setSelectedMentionIndex(0);
+
+    // Focus and set cursor position after the mention
+    setTimeout(() => {
+      if (editorRef.current) {
+        const newCursorPos = beforeMention.length + mentionText.length;
+        editorRef.current.focus();
+        editorRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  }, [message, mentionStartIndex]);
+
   const handleKeyDown = useCallback((e) => {
     // Handle mention dropdown navigation
     if (showMentionDropdown && filteredMembers.length > 0) {
@@ -300,47 +341,6 @@ const MessageComposer = ({ channel, onSendMessage, placeholder, workspace, works
       stopTyping();
     }
   }, [startTyping, stopTyping]);
-
-  // Filter members based on mention query
-  const filteredMembers = workspaceMembers.filter(m => {
-    const name = (m.display_name || '').toLowerCase();
-    const email = (m.email || '').toLowerCase();
-    return name.includes(mentionQuery) || email.includes(mentionQuery);
-  }).slice(0, 8); // Limit to 8 results
-
-  // Handle mention selection
-  const handleMentionSelect = useCallback((member) => {
-    if (mentionStartIndex === null) return;
-
-    const cursorPos = editorRef.current?.selectionStart || message.length;
-    const beforeMention = message.slice(0, mentionStartIndex);
-    const afterCursor = message.slice(cursorPos);
-    const mentionText = `@${member.display_name} `;
-    const newMessage = `${beforeMention}${mentionText}${afterCursor}`;
-
-    setMessage(newMessage);
-    setSelectedMentions(prev => [
-      ...prev,
-      {
-        user_id: member.id,
-        display_name: member.display_name,
-        type: 'user'
-      }
-    ]);
-    setShowMentionDropdown(false);
-    setMentionQuery('');
-    setMentionStartIndex(null);
-    setSelectedMentionIndex(0);
-
-    // Focus and set cursor position after the mention
-    setTimeout(() => {
-      if (editorRef.current) {
-        const newCursorPos = beforeMention.length + mentionText.length;
-        editorRef.current.focus();
-        editorRef.current.setSelectionRange(newCursorPos, newCursorPos);
-      }
-    }, 0);
-  }, [message, mentionStartIndex]);
 
   const handleInputFocus = useCallback(() => {
     // Cancel any pending blur timeout to prevent conflicts
