@@ -1094,10 +1094,12 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
         id: task.workspaceId,
         name: '',
         description: null,
+        ownerId: '',
         createdAt: DateTime.now(),
         memberCount: 0,
         channelCount: 0,
         role: 'member',
+        settings: {},
       ),
     );
 
