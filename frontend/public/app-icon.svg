@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Main gradient - indigo to purple -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5"/>
+      <stop offset="50%" style="stop-color:#6366F1"/>
+      <stop offset="100%" style="stop-color:#8B5CF6"/>
+    </linearGradient>
+
+    <!-- Subtle inner glow -->
+    <linearGradient id="glowGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.12"/>
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0"/>
+    </linearGradient>
+
+    <!-- Shadow for front bubble - strongest -->
+    <filter id="shadowFront" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="-12" stdDeviation="16" flood-color="#1E1B4B" flood-opacity="0.4"/>
+    </filter>
+
+    <!-- Shadow for bubble 2 -->
+    <filter id="shadow2" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="-10" stdDeviation="14" flood-color="#1E1B4B" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- Shadow for bubble 3 -->
+    <filter id="shadow3" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="-8" stdDeviation="12" flood-color="#1E1B4B" flood-opacity="0.3"/>
+    </filter>
+
+    <!-- Shadow for back bubble - lightest -->
+    <filter id="shadowBack" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="-4" stdDeviation="8" flood-color="#1E1B4B" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="url(#bgGradient)"/>
+
+  <!-- Subtle top highlight -->
+  <rect x="0" y="0" width="1024" height="512" rx="224" ry="224" fill="url(#glowGradient)"/>
+
+  <!-- Bubble 4 - Furthest back: 20% opacity, 10% right, 80% size -->
+  <g filter="url(#shadowBack)" opacity="0.2" transform="translate(564, 270) scale(0.8) translate(-512, -420)">
+    <path d="M 280 280
+             Q 280 200, 360 200
+             L 664 200
+             Q 744 200, 744 280
+             L 744 480
+             Q 744 560, 664 560
+             L 520 560
+             L 440 660
+             L 470 560
+             L 360 560
+             Q 280 560, 280 480
+             Z"
+          fill="#FFFFFF"/>
+  </g>
+
+  <!-- Bubble 3: 40% opacity, 10% left, 90% size -->
+  <g filter="url(#shadow3)" opacity="0.4" transform="translate(460, 350) scale(0.9) translate(-512, -420)">
+    <path d="M 280 280
+             Q 280 200, 360 200
+             L 664 200
+             Q 744 200, 744 280
+             L 744 480
+             Q 744 560, 664 560
+             L 520 560
+             L 440 660
+             L 470 560
+             L 360 560
+             Q 280 560, 280 480
+             Z"
+          fill="#FFFFFF"/>
+  </g>
+
+  <!-- Bubble 2: 70% opacity, 20% left, 105% size -->
+  <g filter="url(#shadow2)" opacity="0.7" transform="translate(410, 450) scale(1.05) translate(-512, -420)">
+    <path d="M 280 280
+             Q 280 200, 360 200
+             L 664 200
+             Q 744 200, 744 280
+             L 744 480
+             Q 744 560, 664 560
+             L 520 560
+             L 440 660
+             L 470 560
+             L 360 560
+             Q 280 560, 280 480
+             Z"
+          fill="#FFFFFF"/>
+  </g>
+
+  <!-- Bubble 1 - Front: 100% opacity, centered, 120% size, shifted down 20% -->
+  <g filter="url(#shadowFront)" opacity="1.0" transform="translate(512, 550) scale(1.2) translate(-512, -420)">
+    <path d="M 280 280
+             Q 280 200, 360 200
+             L 664 200
+             Q 744 200, 744 280
+             L 744 480
+             Q 744 560, 664 560
+             L 520 560
+             L 440 660
+             L 470 560
+             L 360 560
+             Q 280 560, 280 480
+             Z"
+          fill="#FFFFFF"/>
+  </g>
+
+  <!-- Typing indicator dots in front bubble -->
+  <circle cx="410" cy="510" r="30" fill="url(#bgGradient)"/>
+  <circle cx="512" cy="510" r="30" fill="url(#bgGradient)"/>
+  <circle cx="614" cy="510" r="30" fill="url(#bgGradient)"/>
+</svg>
