@@ -15,6 +15,7 @@ import '../calendar/channel_calendar_screen.dart';
 import '../calendar/channel_weekly_calendar_screen.dart';
 import '../timeline/channel_timeline_screen.dart';
 import '../threads/thread_list_screen.dart';
+import '../tasks/task_detail_screen.dart';
 
 class WorkspaceSelectionScreen extends ConsumerStatefulWidget {
   final VoidCallback? onSignOut;
@@ -1080,29 +1081,62 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
     return taskWidget;
   }
 
-  // ==================== TASK DETAIL SHEET ====================
-  void _showTaskDetails(ChannelTask task) {
+  // ==================== TASK DETAIL SCREEN ====================
+  void _showTaskDetails(ChannelTask task) async {
     // Track last used channel for quick add
     _lastUsedWorkspaceId = task.workspaceId;
     _lastUsedThreadId = task.threadId;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    // Find the workspace for this task
+    final workspace = _workspaces.firstWhere(
+      (w) => w.id == task.workspaceId,
+      orElse: () => Workspace(
+        id: task.workspaceId,
+        name: '',
+        description: null,
+        createdAt: DateTime.now(),
+        memberCount: 0,
+        channelCount: 0,
+        role: 'member',
       ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => _buildTaskDetailsSheet(
-          task,
-          scrollController,
+    );
+
+    // Convert ChannelTask to Map with all computed fields for TaskDetailScreen
+    final taskMap = {
+      ...task.toJson(),
+      'user_can_edit': task.userCanEdit,
+      'user_is_assignee': task.userIsAssignee,
+      'user_completed': task.userCompleted,
+      'is_complete': task.isComplete,
+      'channel_name': task.channelName,
+      'created_by_name': task.createdByName,
+      'progress_info': task.progressInfo != null
+          ? '${task.progressInfo!['completed'] ?? 0}/${task.progressInfo!['total'] ?? 0} done'
+          : null,
+      'total_assignees': task.totalAssignees,
+      'assignee_names': task.assigneeDetails?.map((a) => a.displayName).join(', '),
+    };
+
+    // Navigate to full TaskDetailScreen
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TaskDetailScreen(
+          task: taskMap,
+          workspace: {
+            'id': workspace.id,
+            'name': workspace.name,
+            'role': workspace.role,
+            'user_role': workspace.role,
+          },
         ),
       ),
     );
+
+    // Reload tasks if the task was modified
+    if (result == true) {
+      _loadMyTasks();
+    }
   }
 
   Widget _buildTaskDetailsSheet(ChannelTask task, ScrollController scrollController) {
