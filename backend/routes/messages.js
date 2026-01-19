@@ -18,6 +18,9 @@ const pool = new Pool({
 // Import email notification service
 const emailNotificationService = require('../services/emailNotificationService');
 
+// Import push notification service
+const pushNotificationService = require('../services/pushNotificationService');
+
 // Socket server instance - will be set by the main app
 let socketServer = null;
 
@@ -374,6 +377,13 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
 
     // Process mentions
     if (mentions && mentions.length > 0) {
+      // Get thread info for notifications
+      const threadInfoResult = await client.query(
+        'SELECT name FROM threads WHERE id = $1',
+        [threadId]
+      );
+      const threadName = threadInfoResult.rows[0]?.name || 'channel';
+
       for (const mention of mentions) {
         // Verify mentioned user is in workspace
         const mentionedUserQuery = `
@@ -435,6 +445,23 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
           } catch (emailError) {
             console.error('Failed to queue email notification for mention:', emailError);
             // Don't fail the request if email notification fails
+          }
+
+          // Queue push notification for mention
+          try {
+            await pushNotificationService.notifyMention(
+              mention.user_id,
+              parseInt(workspaceId),
+              parseInt(threadId),
+              message.id,
+              req.user.display_name,
+              threadName,
+              content.substring(0, 100)
+            );
+            console.log(`📱 Push notification queued for mention to user ${mention.user_id}`);
+          } catch (pushError) {
+            console.error('Failed to queue push notification for mention:', pushError);
+            // Don't fail the request if push notification fails
           }
         }
       }

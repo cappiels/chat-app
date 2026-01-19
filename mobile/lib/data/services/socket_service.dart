@@ -30,6 +30,7 @@ class SocketService extends ChangeNotifier {
   final StreamController<TypingUpdate> _typingUpdateController = StreamController.broadcast();
   final StreamController<PresenceUpdate> _presenceUpdateController = StreamController.broadcast();
   final StreamController<SocketConnectionState> _connectionStateController = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> _notificationController = StreamController.broadcast();
 
   // Getters
   SocketConnectionState get connectionState => _connectionState;
@@ -45,6 +46,7 @@ class SocketService extends ChangeNotifier {
   Stream<TypingUpdate> get typingUpdateStream => _typingUpdateController.stream;
   Stream<PresenceUpdate> get presenceUpdateStream => _presenceUpdateController.stream;
   Stream<SocketConnectionState> get connectionStateStream => _connectionStateController.stream;
+  Stream<Map<String, dynamic>> get notificationStream => _notificationController.stream;
 
   /// Initialize and connect to Socket.IO server
   Future<bool> connect({String? serverUrl}) async {
@@ -590,7 +592,22 @@ class SocketService extends ChangeNotifier {
       debugPrint('   Is Member: ${data['isMember']}');
       debugPrint('   🔔 Now listening for new_message events on this thread');
     });
-    
+
+    // Mention notification events
+    _socket!.on('mention_notification', (data) {
+      debugPrint('📢 Mention notification received: $data');
+      if (data != null) {
+        _notificationController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('notification_update', (data) {
+      debugPrint('🔔 Notification update received: $data');
+      if (data != null) {
+        _notificationController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
     // Add a generic listener to catch ALL events for debugging
     _socket!.onAny((event, data) {
       if (event != 'user_typing') {  // Filter out typing spam
@@ -615,6 +632,7 @@ class SocketService extends ChangeNotifier {
     _typingUpdateController.close();
     _presenceUpdateController.close();
     _connectionStateController.close();
+    _notificationController.close();
     super.dispose();
   }
 }
