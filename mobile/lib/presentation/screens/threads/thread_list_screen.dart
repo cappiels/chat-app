@@ -32,6 +32,11 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   int _selectedBottomNavIndex = 0;
   Thread? _selectedThread;
   int _previousNavIndex = 0;
+
+  // Today view state
+  List<Map<String, dynamic>> _myTasks = [];
+  bool _tasksLoading = false;
+  String _taskFilter = 'all'; // 'all', 'assigned', 'created', 'completed'
   
   @override
   void initState() {
@@ -101,6 +106,47 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _loadMyTasks() async {
+    if (_tasksLoading) return;
+
+    setState(() => _tasksLoading = true);
+
+    try {
+      final response = await _httpClient.get(
+        '/api/tasks/all',
+        queryParameters: {'my_tasks': 'true', 'limit': '100'},
+      );
+
+      final tasksData = response.data['tasks'] as List? ?? [];
+      setState(() {
+        _myTasks = tasksData.cast<Map<String, dynamic>>();
+        _tasksLoading = false;
+      });
+      print('✅ Loaded ${_myTasks.length} tasks for Today view');
+    } catch (e) {
+      print('❌ Error loading tasks: $e');
+      setState(() {
+        _myTasks = [];
+        _tasksLoading = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _getFilteredTasks() {
+    return _myTasks.where((task) {
+      final isCompleted = task['status'] == 'completed' || task['user_completed'] == true;
+
+      if (_taskFilter == 'assigned' && task['user_is_assignee'] != true) return false;
+      if (_taskFilter == 'created' && task['created_by'] != null) {
+        // Would need user ID comparison here
+      }
+      if (_taskFilter == 'completed') return isCompleted;
+
+      // For 'all' and other filters, exclude completed tasks
+      return !isCompleted;
+    }).toList();
   }
 
   // REMOVED: No more demo threads - load from API only
@@ -282,17 +328,313 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
   }
 
   Widget _buildBody() {
-    if (_selectedBottomNavIndex == 0) {
-      return _buildThreadList();
-    } else if (_selectedBottomNavIndex == 1) {
-      return _buildCalendarView();
-    } else if (_selectedBottomNavIndex == 2) {
-      return _buildTimelineView();
-    } else if (_selectedBottomNavIndex == 3) {
-      return _buildKnowledgePlaceholder();
-    } else {
-      return _buildWeeklyCalendarPlaceholder();
+    switch (_selectedBottomNavIndex) {
+      case 0:
+        return _buildTodayView();
+      case 1:
+        return _buildThreadList();
+      case 2:
+        return _buildCalendarView();
+      case 3:
+        return _buildTimelineView();
+      case 4:
+        return _buildWeeklyCalendarPlaceholder();
+      default:
+        return _buildThreadList();
     }
+  }
+
+  Widget _buildTodayView() {
+    // Load tasks on first view
+    if (_myTasks.isEmpty && !_tasksLoading) {
+      _loadMyTasks();
+    }
+
+    final now = DateTime.now();
+    final dateStr = '${_getMonthName(now.month)} ${now.day}';
+    final dayStr = _getDayName(now.weekday);
+
+    return RefreshIndicator(
+      onRefresh: _loadMyTasks,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Text(
+              'Today',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade900,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$dateStr · $dayStr',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Filter chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip('All Tasks', 'all'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Assigned to Me', 'assigned'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Created by Me', 'created'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Completed', 'completed', isGreen: true),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Divider
+            Container(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 16),
+
+            // Tasks
+            if (_tasksLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_getFilteredTasks().isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No Tasks Found',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tasks assigned to you will appear here',
+                        style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ..._getFilteredTasks().map((task) => _buildTaskItem(task)),
+
+            // Back to workspaces button
+            const SizedBox(height: 24),
+            Center(
+              child: TextButton.icon(
+                onPressed: widget.onBack,
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Back to Workspaces'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String filter, {bool isGreen = false}) {
+    final isSelected = _taskFilter == filter;
+    return GestureDetector(
+      onTap: () => setState(() => _taskFilter = filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isGreen ? Colors.green.shade600 : Colors.blue.shade600)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.grey.shade600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskItem(Map<String, dynamic> task) {
+    final isCompleted = task['status'] == 'completed' || task['user_completed'] == true;
+    final title = task['title'] ?? 'Untitled';
+    final workspaceName = task['workspace_name'] ?? '';
+    final channelName = task['channel_name'] ?? '';
+    final dueDate = task['due_date'] ?? task['end_date'];
+    final priority = task['priority'] ?? 'medium';
+
+    Color priorityColor;
+    switch (priority) {
+      case 'high':
+        priorityColor = Colors.red.shade500;
+        break;
+      case 'medium':
+        priorityColor = Colors.yellow.shade700;
+        break;
+      case 'low':
+        priorityColor = Colors.green.shade500;
+        break;
+      default:
+        priorityColor = Colors.grey.shade400;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Checkbox
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isCompleted ? Colors.green.shade500 : priorityColor,
+                width: 2,
+              ),
+              color: isCompleted ? Colors.green.shade500 : Colors.transparent,
+            ),
+            child: isCompleted
+                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 12),
+
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: isCompleted ? Colors.grey.shade400 : Colors.grey.shade900,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.chat_bubble_outline, size: 12, color: Colors.grey.shade500),
+                    const SizedBox(width: 4),
+                    Text(
+                      workspaceName,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '#$channelName',
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Due date
+          if (dueDate != null && !isCompleted)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _isOverdue(dueDate) ? Colors.red.shade50 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 12,
+                    color: _isOverdue(dueDate) ? Colors.red.shade700 : Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatTaskDate(dueDate),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _isOverdue(dueDate) ? Colors.red.shade700 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool _isOverdue(String? dateStr) {
+    if (dateStr == null) return false;
+    try {
+      final date = DateTime.parse(dateStr);
+      return date.isBefore(DateTime.now());
+    } catch (e) {
+      return false;
+    }
+  }
+
+  String _formatTaskDate(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final tomorrow = today.add(const Duration(days: 1));
+      final taskDate = DateTime(date.year, date.month, date.day);
+
+      if (taskDate == today) return 'Today';
+      if (taskDate == tomorrow) return 'Tomorrow';
+      return '${_getMonthName(date.month).substring(0, 3)} ${date.day}';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+    return months[month - 1];
+  }
+
+  String _getDayName(int weekday) {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[weekday - 1];
   }
 
   Widget _buildThreadList() {
@@ -902,6 +1244,11 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
       unselectedFontSize: 11,
       items: const [
         BottomNavigationBarItem(
+          icon: Icon(Icons.today_outlined),
+          activeIcon: Icon(Icons.today),
+          label: 'Today',
+        ),
+        BottomNavigationBarItem(
           icon: Icon(Icons.chat_bubble_outline),
           activeIcon: Icon(Icons.chat_bubble),
           label: 'Chat',
@@ -915,11 +1262,6 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
           icon: Icon(Icons.timeline_outlined),
           activeIcon: Icon(Icons.timeline),
           label: 'Timeline',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.library_books_outlined),
-          activeIcon: Icon(Icons.library_books),
-          label: 'Knowledge',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.view_week_outlined),

@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { 
-  Menu, 
-  Search, 
-  Bell, 
-  UserPlus, 
-  ChevronDown, 
-  Briefcase, 
-  Settings, 
-  Volume2, 
+import {
+  Menu,
+  Search,
+  Bell,
+  UserPlus,
+  ChevronDown,
+  Briefcase,
+  Settings,
+  Volume2,
   User,
-  HelpCircle
+  HelpCircle,
+  CalendarDays
 } from 'lucide-react';
 import { workspaceAPI, notificationAPI } from '../../utils/api';
 import WorkspaceSettingsDialog from '../WorkspaceSettingsDialog';
@@ -220,12 +221,12 @@ const Header = ({ workspace, user, onMenuClick, onSignOut, onInvite, onWorkspace
                     }}
                     className="dropdown-item w-full"
                   >
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Briefcase className="w-4 h-4 text-purple-600" />
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <CalendarDays className="w-4 h-4 text-blue-600" />
                     </div>
                     <div className="text-left">
-                      <div className="font-medium">All Workspaces</div>
-                      <div className="text-xs text-text-tertiary">Browse and create</div>
+                      <div className="font-medium">Today</div>
+                      <div className="text-xs text-text-tertiary">Tasks & workspaces</div>
                     </div>
                   </button>
                 </div>
