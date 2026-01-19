@@ -31,8 +31,15 @@ import UserNotifications
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
+    // Debug: Print the raw APNs token
+    let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+    print("✅✅✅ APNs Token received! Token: \(tokenString)")
+    print("✅✅✅ APNs Token length: \(deviceToken.count) bytes")
+
     // Pass device token to Firebase
     Messaging.messaging().apnsToken = deviceToken
+    print("✅✅✅ APNs token passed to Firebase Messaging")
+
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
@@ -40,7 +47,9 @@ import UserNotifications
     _ application: UIApplication,
     didFailToRegisterForRemoteNotificationsWithError error: Error
   ) {
-    print("Failed to register for remote notifications: \(error.localizedDescription)")
+    print("❌❌❌ FAILED to register for remote notifications!")
+    print("❌❌❌ Error: \(error.localizedDescription)")
+    print("❌❌❌ Full error: \(error)")
   }
 
   // MARK: - Handle Notification Reception
