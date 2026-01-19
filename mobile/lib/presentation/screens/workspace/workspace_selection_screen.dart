@@ -534,8 +534,12 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
         orElse: () => _workspaces.isNotEmpty ? _workspaces.first : Workspace(
           id: '',
           name: '',
-          createdAt: DateTime.now(),
+          ownerId: '',
+          role: 'member',
           memberCount: 0,
+          channelCount: 0,
+          createdAt: DateTime.now(),
+          settings: {},
         ),
       );
 
