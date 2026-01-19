@@ -5,13 +5,14 @@ import TagsInput from '../ui/TagsInput';
 import { auth } from '../../firebase';
 import { workspaceAPI } from '../../utils/api';
 
-const QuickTaskDialog = ({ 
-  isOpen, 
-  onClose, 
-  channel, 
+const QuickTaskDialog = ({
+  isOpen,
+  onClose,
+  channel,
   workspaceId,
   currentUser,
-  onTaskCreated 
+  onTaskCreated,
+  workspaces // Optional: for workspace/channel selection when no workspaceId provided
 }) => {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
@@ -23,7 +24,7 @@ const QuickTaskDialog = ({
   const [priority, setPriority] = useState('medium');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // 🚀 NEW: Assignment functionality
   const [assignees, setAssignees] = useState([]);
   const [assignedTeams, setAssignedTeams] = useState([]);
@@ -33,26 +34,72 @@ const QuickTaskDialog = ({
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [showAssignmentSection, setShowAssignmentSection] = useState(true);
 
-  console.log('QuickTaskDialog render:', { isOpen, channel, workspaceId, currentUser });
+  // 🚀 NEW: Workspace/channel selection for Today screen
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(workspaceId || '');
+  const [selectedChannelId, setSelectedChannelId] = useState(channel?.id || '');
+  const [availableChannels, setAvailableChannels] = useState([]);
+  const [loadingChannels, setLoadingChannels] = useState(false);
+
+  // Effective workspace and channel (from props or selection)
+  const effectiveWorkspaceId = workspaceId || selectedWorkspaceId;
+  const effectiveChannel = channel || availableChannels.find(c => c.id === selectedChannelId);
+
+  console.log('QuickTaskDialog render:', { isOpen, channel, workspaceId, currentUser, workspaces });
+
+  // Load channels when workspace is selected (for Today screen mode)
+  useEffect(() => {
+    if (isOpen && !workspaceId && selectedWorkspaceId) {
+      loadChannelsForWorkspace(selectedWorkspaceId);
+    }
+  }, [isOpen, workspaceId, selectedWorkspaceId]);
+
+  // Reset selection when dialog opens without workspaceId
+  useEffect(() => {
+    if (isOpen && !workspaceId && workspaces?.length > 0) {
+      // Auto-select first workspace if none selected
+      if (!selectedWorkspaceId) {
+        setSelectedWorkspaceId(workspaces[0].id);
+      }
+    }
+  }, [isOpen, workspaceId, workspaces]);
+
+  const loadChannelsForWorkspace = async (wsId) => {
+    setLoadingChannels(true);
+    try {
+      const response = await workspaceAPI.getWorkspace(wsId);
+      const channels = response.data.workspace.channels || [];
+      setAvailableChannels(channels);
+      // Auto-select first channel
+      if (channels.length > 0 && !selectedChannelId) {
+        setSelectedChannelId(channels[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading channels:', error);
+      setAvailableChannels([]);
+    } finally {
+      setLoadingChannels(false);
+    }
+  };
 
   // 🚀 NEW: Load workspace members and teams when dialog opens
   useEffect(() => {
-    if (isOpen && workspaceId) {
+    if (isOpen && effectiveWorkspaceId) {
       loadWorkspaceData();
     }
-  }, [isOpen, workspaceId]);
+  }, [isOpen, effectiveWorkspaceId]);
 
   const loadWorkspaceData = async () => {
+    if (!effectiveWorkspaceId) return;
     setLoadingMembers(true);
     try {
       // Load workspace members
-      const workspaceResponse = await workspaceAPI.getWorkspace(workspaceId);
+      const workspaceResponse = await workspaceAPI.getWorkspace(effectiveWorkspaceId);
       const members = workspaceResponse.data.workspace.members || [];
       setWorkspaceMembers(members);
 
       // Load workspace teams
       try {
-        const teamsResponse = await workspaceAPI.getTeams(workspaceId);
+        const teamsResponse = await workspaceAPI.getTeams(effectiveWorkspaceId);
         setWorkspaceTeams(teamsResponse.data.teams || []);
       } catch (teamError) {
         console.warn('Teams not available:', teamError);
@@ -96,8 +143,8 @@ const QuickTaskDialog = ({
       return;
     }
 
-    if (!workspaceId || !channel?.id) {
-      setError('Missing workspace or channel information');
+    if (!effectiveWorkspaceId || !effectiveChannel?.id) {
+      setError('Please select a workspace and channel');
       return;
     }
 
@@ -178,7 +225,7 @@ const QuickTaskDialog = ({
 
       console.log('Creating task with data:', taskData, 'Auth token available:', !!token);
 
-      const response = await fetch(`/api/workspaces/${workspaceId}/threads/${channel.id}/tasks`, {
+      const response = await fetch(`/api/workspaces/${effectiveWorkspaceId}/threads/${effectiveChannel.id}/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -249,7 +296,7 @@ const QuickTaskDialog = ({
         <div className="flex items-center gap-3 mb-6 pt-4 px-6">
           <Calendar className="w-6 h-6 text-blue-600" />
           <h2 className="text-xl font-semibold text-gray-900">
-            Add Task to #{channel?.name || 'channel'}
+            {workspaceId ? `Add Task to #${channel?.name || 'channel'}` : 'Create New Task'}
           </h2>
         </div>
 
@@ -258,6 +305,47 @@ const QuickTaskDialog = ({
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
               {error}
+            </div>
+          )}
+
+          {/* Workspace/Channel Selection (when no workspaceId prop) */}
+          {!workspaceId && workspaces && workspaces.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Workspace
+                </label>
+                <select
+                  value={selectedWorkspaceId}
+                  onChange={(e) => {
+                    setSelectedWorkspaceId(e.target.value);
+                    setSelectedChannelId('');
+                    setAvailableChannels([]);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                >
+                  <option value="">Select workspace</option>
+                  {workspaces.map(ws => (
+                    <option key={ws.id} value={ws.id}>{ws.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Channel
+                </label>
+                <select
+                  value={selectedChannelId}
+                  onChange={(e) => setSelectedChannelId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                  disabled={!selectedWorkspaceId || loadingChannels}
+                >
+                  <option value="">{loadingChannels ? 'Loading...' : 'Select channel'}</option>
+                  {availableChannels.map(ch => (
+                    <option key={ch.id} value={ch.id}>#{ch.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 

@@ -30,6 +30,7 @@ import WorkspaceSettingsDialog from './WorkspaceSettingsDialog';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import SubscriptionGate from './subscription/SubscriptionGate';
 import { auth } from '../firebase';
+import QuickTaskDialog from './tasks/QuickTaskDialog';
 
 // Hook for responsive detection
 const useIsMobile = () => {
@@ -153,6 +154,7 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const [myTasks, setMyTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState('all');
+  const [showQuickTaskDialog, setShowQuickTaskDialog] = useState(false);
 
   useEffect(() => { loadWorkspaces(); loadMyTasks(); }, []);
 
@@ -186,6 +188,9 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
   const getFilteredTasks = () => myTasks.filter(task => {
     if (roleFilter === 'assigned' && !task.user_is_assignee) return false;
     if (roleFilter === 'created' && task.created_by !== user?.id) return false;
+    // Show completed tasks only when "completed" filter is active
+    if (roleFilter === 'completed') return task.status === 'completed' || task.user_completed;
+    // For other filters, exclude completed tasks
     return task.status !== 'completed' && !task.user_completed;
   });
 
@@ -329,8 +334,8 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
                 <p className="text-sm text-gray-500">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {new Date().toLocaleDateString('en-US', { weekday: 'long' })}</p>
               </div>
               <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                {[{ key: 'all', label: 'All Tasks' }, { key: 'assigned', label: 'Assigned to Me' }, { key: 'created', label: 'Created by Me' }].map(({ key, label }) => (
-                  <button key={key} onClick={() => setRoleFilter(key)} className={`px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap transition-colors ${roleFilter === key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{label}</button>
+                {[{ key: 'all', label: 'All Tasks' }, { key: 'assigned', label: 'Assigned to Me' }, { key: 'created', label: 'Created by Me' }, { key: 'completed', label: 'Completed' }].map(({ key, label }) => (
+                  <button key={key} onClick={() => setRoleFilter(key)} className={`px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap transition-colors ${roleFilter === key ? (key === 'completed' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{label}</button>
                 ))}
               </div>
               <div className="h-px bg-gray-200 mb-4" />
@@ -432,9 +437,14 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
         </div>
       )}
 
-      {/* FAB for Today view (mobile only) */}
-      {isMobile && activeTab === 'today' && (
-        <button className="fixed bottom-20 right-4 w-14 h-14 bg-red-500 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-red-600 transition-colors"><Plus className="w-6 h-6" /></button>
+      {/* FAB for Today view */}
+      {activeTab === 'today' && (
+        <button
+          onClick={() => setShowQuickTaskDialog(true)}
+          className={`fixed ${isMobile ? 'bottom-20 right-4' : 'bottom-6 right-6'} w-14 h-14 bg-red-500 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-red-600 transition-colors z-40`}
+        >
+          <Plus className="w-6 h-6" />
+        </button>
       )}
 
       <CalendarViewSelector isOpen={showCalendarSelector} onClose={() => setShowCalendarSelector(false)} onSelectView={handleCalendarViewSelect} />
@@ -456,6 +466,19 @@ const MainScreen = ({ user, onSignOut, onSelectWorkspace }) => {
       {showSubscriptionGate && (<SubscriptionGate action="Create workspace" title="Upgrade to Create Workspaces" description="Creating workspaces requires a paid subscription." showRedeemPass={true} onClose={() => setShowSubscriptionGate(false)} />)}
 
       <WorkspaceSettingsDialog workspace={selectedWorkspaceForSettings} user={user} isOpen={showSettingsDialog} onClose={() => { setShowSettingsDialog(false); setSelectedWorkspaceForSettings(null); }} onWorkspaceDeleted={(id) => { setWorkspaces(workspaces.filter(w => w.id !== id)); setShowSettingsDialog(false); }} onMemberRemoved={() => {}} />
+
+      {/* Quick Task Dialog for Today screen */}
+      <QuickTaskDialog
+        isOpen={showQuickTaskDialog}
+        onClose={() => setShowQuickTaskDialog(false)}
+        workspaces={workspaces}
+        currentUser={user}
+        onTaskCreated={() => {
+          setShowQuickTaskDialog(false);
+          loadMyTasks();
+          toast.success('Task created!');
+        }}
+      />
     </div>
   );
 };
