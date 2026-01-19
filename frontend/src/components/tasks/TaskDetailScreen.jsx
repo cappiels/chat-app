@@ -259,8 +259,8 @@ const TaskDetailScreen = ({ onSelectWorkspace }) => {
   // Use API-provided user_can_edit flag which includes creator and assignee checks
   const canEdit = useMemo(() => {
     if (!task || !user) return false;
-    // Prefer API's user_can_edit, fallback to creator check
-    return task.user_can_edit || task.created_by === user.uid || task.user_is_creator;
+    // Prefer API's user_can_edit, fallback to creator/assignee check
+    return task.user_can_edit || task.user_is_assignee || task.created_by === user.id || task.user_is_creator;
   }, [task, user]);
 
   const getPriorityRing = (priority) => {
