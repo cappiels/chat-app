@@ -139,7 +139,7 @@ class MessageBubble extends StatelessWidget {
           : null,
       content: message.content,
       sourceType: _isTaskMessage ? 'task' : 'message',
-      sourceId: _isTaskMessage ? message.metadata?['task_id'] : message.id,
+      sourceId: _isTaskMessage ? (message.metadata?['task_id'] as String?) : message.id,
       metadata: {
         'sender_name': message.senderName,
         'sender_id': message.senderId,
