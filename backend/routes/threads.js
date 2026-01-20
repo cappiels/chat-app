@@ -412,9 +412,106 @@ router.get('/:threadId', authenticateUser, requireWorkspaceMembership, async (re
 
   } catch (error) {
     console.error('Get thread details error:', error);
-    res.status(500).json({ 
-      error: 'Server Error', 
-      message: 'Unable to retrieve thread details' 
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Unable to retrieve thread details'
+    });
+  }
+});
+
+/**
+ * PUT /api/workspaces/:workspaceId/threads/:threadId
+ * Update thread/channel details (name, description)
+ */
+router.put('/:threadId', authenticateUser, requireWorkspaceMembership, async (req, res) => {
+  try {
+    const { workspaceId, threadId } = req.params;
+    const { name, description } = req.body;
+    const userId = req.user.id;
+
+    // Get thread and check permissions
+    const threadResult = await pool.query(
+      'SELECT * FROM threads WHERE id = $1 AND workspace_id = $2',
+      [threadId, workspaceId]
+    );
+
+    if (threadResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Thread not found'
+      });
+    }
+
+    const thread = threadResult.rows[0];
+
+    // Check if user has permission (admin or thread creator)
+    const isAdmin = req.userWorkspaceRole === 'admin';
+    const isCreator = thread.created_by === userId;
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only admins or the channel creator can edit this channel'
+      });
+    }
+
+    // Build update query
+    const updates = [];
+    const values = [];
+    let paramCount = 0;
+
+    if (name !== undefined) {
+      // Validate and sanitize channel name
+      const channelName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
+      if (channelName.length < 1 || channelName.length > 255) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: 'Channel name must be between 1 and 255 characters'
+        });
+      }
+      paramCount++;
+      updates.push(`name = $${paramCount}`);
+      values.push(channelName);
+    }
+
+    if (description !== undefined) {
+      paramCount++;
+      updates.push(`description = $${paramCount}`);
+      values.push(description);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'No fields to update'
+      });
+    }
+
+    paramCount++;
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    const updateQuery = `
+      UPDATE threads
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCount} AND workspace_id = $${paramCount + 1}
+      RETURNING *;
+    `;
+    values.push(threadId, workspaceId);
+
+    const result = await pool.query(updateQuery, values);
+
+    console.log(`📝 Thread ${threadId} updated by ${userId}`);
+
+    res.json({
+      message: 'Channel updated successfully',
+      thread: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Update thread error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Unable to update channel'
     });
   }
 });

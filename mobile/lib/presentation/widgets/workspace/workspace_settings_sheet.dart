@@ -17,7 +17,7 @@ class WorkspaceSettingsSheet extends StatefulWidget {
 
 class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
   final HttpClient _httpClient = HttpClient();
-  int _selectedTab = 0; // 0 = invite, 1 = members
+  int _selectedTab = 0; // 0 = invite, 1 = members, 2 = channels
 
   // Invite tab state
   final _emailController = TextEditingController();
@@ -31,6 +31,10 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
   List<Map<String, dynamic>> _pendingInvites = [];
   bool _loadingMembers = true;
 
+  // Channels tab state
+  List<Map<String, dynamic>> _channels = [];
+  bool _loadingChannels = true;
+
   bool get _isAdmin =>
       widget.workspace['role'] == 'admin' ||
       widget.workspace['user_role'] == 'admin';
@@ -39,12 +43,186 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
   void initState() {
     super.initState();
     _loadMembers();
+    _loadChannels();
   }
 
   @override
   void dispose() {
     _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadChannels() async {
+    setState(() => _loadingChannels = true);
+
+    try {
+      final workspaceId = widget.workspace['id'];
+      final response = await _httpClient.get('/api/workspaces/$workspaceId/threads');
+
+      setState(() {
+        _channels = List<Map<String, dynamic>>.from(response.data['threads'] ?? []);
+        _loadingChannels = false;
+      });
+    } catch (e) {
+      print('Error loading channels: $e');
+      setState(() => _loadingChannels = false);
+    }
+  }
+
+  Future<void> _createChannel(String name, String? description) async {
+    try {
+      final workspaceId = widget.workspace['id'];
+      await _httpClient.post(
+        '/api/workspaces/$workspaceId/threads',
+        data: {
+          'name': name.toLowerCase().replaceAll(' ', '-'),
+          'type': 'channel',
+          'description': description,
+        },
+      );
+      _loadChannels();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Channel #$name created')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create channel: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _editChannel(String channelId, String name, String? description) async {
+    try {
+      final workspaceId = widget.workspace['id'];
+      await _httpClient.put(
+        '/api/workspaces/$workspaceId/threads/$channelId',
+        data: {
+          'name': name.toLowerCase().replaceAll(' ', '-'),
+          'description': description,
+        },
+      );
+      _loadChannels();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Channel updated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update channel: $e')),
+        );
+      }
+    }
+  }
+
+  void _showCreateChannelDialog() {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create Channel'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Channel Name',
+                hintText: 'e.g. general, marketing, dev',
+                prefixText: '# ',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(
+                labelText: 'Description (optional)',
+                hintText: 'What is this channel about?',
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.trim().isNotEmpty) {
+                Navigator.pop(context);
+                _createChannel(
+                  nameController.text.trim(),
+                  descController.text.trim().isEmpty ? null : descController.text.trim(),
+                );
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditChannelDialog(Map<String, dynamic> channel) {
+    final nameController = TextEditingController(text: channel['name'] ?? '');
+    final descController = TextEditingController(text: channel['description'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Channel'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Channel Name',
+                prefixText: '# ',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(
+                labelText: 'Description (optional)',
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.trim().isNotEmpty) {
+                Navigator.pop(context);
+                _editChannel(
+                  channel['id'],
+                  nameController.text.trim(),
+                  descController.text.trim().isEmpty ? null : descController.text.trim(),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadMembers() async {
@@ -153,27 +331,33 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 0;
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 150),
+      padding: EdgeInsets.only(bottom: keyboardHeight),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * (isKeyboardVisible ? 0.95 : 0.85),
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
 
           // Header
           Padding(
@@ -234,18 +418,25 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
               children: [
                 _buildTab(0, Icons.person_add, 'Invite'),
                 _buildTab(1, Icons.people, 'Members'),
+                _buildTab(2, Icons.tag, 'Channels'),
               ],
             ),
           ),
 
           // Tab content
           Flexible(
-            child: _selectedTab == 0 ? _buildInviteTab() : _buildMembersTab(),
+            child: _selectedTab == 0
+                ? _buildInviteTab()
+                : _selectedTab == 1
+                    ? _buildMembersTab()
+                    : _buildChannelsTab(),
           ),
 
-          // Safe area padding
-          SizedBox(height: MediaQuery.of(context).padding.bottom),
-        ],
+          // Safe area padding (only when keyboard not visible)
+          if (!isKeyboardVisible)
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
       ),
     );
   }
@@ -639,6 +830,147 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildChannelsTab() {
+    if (_loadingChannels) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Create channel button (admin only)
+        if (_isAdmin)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _showCreateChannelDialog,
+                icon: const Icon(Icons.add),
+                label: const Text('Create Channel'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Channels list
+        Expanded(
+          child: _channels.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.tag,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No channels yet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      if (_isAdmin) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Create your first channel above',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _channels.length,
+                  itemBuilder: (context, index) {
+                    final channel = _channels[index];
+                    final name = channel['name'] ?? 'unknown';
+                    final description = channel['description'];
+                    final memberCount = channel['member_count'] ?? 0;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: ListTile(
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.tag,
+                            color: Colors.blue.shade600,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          '#$name',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: description != null && description.isNotEmpty
+                            ? Text(
+                                description,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              )
+                            : Text(
+                                '$memberCount member${memberCount != 1 ? 's' : ''}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                        trailing: _isAdmin
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.edit_outlined,
+                                  color: Colors.grey.shade600,
+                                  size: 20,
+                                ),
+                                onPressed: () => _showEditChannelDialog(channel),
+                                tooltip: 'Edit channel',
+                              )
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
