@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/task.dart';
 import '../../../data/services/task_service.dart';
+import '../../../data/services/http_client.dart';
 
 /// Dialog for editing an existing task
 class EditTaskDialog extends StatefulWidget {
@@ -23,6 +24,7 @@ class EditTaskDialog extends StatefulWidget {
 class _EditTaskDialogState extends State<EditTaskDialog> {
   final _formKey = GlobalKey<FormState>();
   final _taskService = TaskService();
+  final _httpClient = HttpClient();
 
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
@@ -39,6 +41,11 @@ class _EditTaskDialogState extends State<EditTaskDialog> {
   bool _isLoading = false;
   String? _error;
 
+  // Assignee editing
+  List<Map<String, dynamic>> _workspaceMembers = [];
+  List<String> _selectedAssigneeIds = [];
+  bool _loadingMembers = true;
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +57,9 @@ class _EditTaskDialogState extends State<EditTaskDialog> {
     _status = widget.task.status;
     _priority = widget.task.priority;
     _isAllDay = widget.task.isAllDay;
+
+    // Initialize selected assignees from task data
+    _selectedAssigneeIds = List<String>.from(widget.task.assignees);
 
     // Parse times
     if (widget.task.startTime != null) {
@@ -64,6 +74,113 @@ class _EditTaskDialogState extends State<EditTaskDialog> {
         _endTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
       }
     }
+
+    _loadWorkspaceMembers();
+  }
+
+  Future<void> _loadWorkspaceMembers() async {
+    try {
+      final response = await _httpClient.get('/api/workspaces/${widget.workspaceId}/members');
+
+      if (response.data != null && response.data['members'] != null) {
+        setState(() {
+          _workspaceMembers = List<Map<String, dynamic>>.from(response.data['members']);
+          _loadingMembers = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading workspace members: $e');
+      setState(() => _loadingMembers = false);
+    }
+  }
+
+  void _toggleAssignee(String userId) {
+    setState(() {
+      if (_selectedAssigneeIds.contains(userId)) {
+        _selectedAssigneeIds.remove(userId);
+      } else {
+        _selectedAssigneeIds.add(userId);
+      }
+    });
+  }
+
+  Widget _buildAssigneeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Assignees',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: _loadingMembers
+              ? const Center(
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : _workspaceMembers.isEmpty
+                  ? Text(
+                      'No members found',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    )
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _workspaceMembers.map((member) {
+                        final userId = member['user_id'] ?? member['id'] ?? '';
+                        final displayName = member['display_name'] ?? member['name'] ?? 'Unknown';
+                        final isSelected = _selectedAssigneeIds.contains(userId);
+
+                        return FilterChip(
+                          label: Text(displayName),
+                          selected: isSelected,
+                          onSelected: (_) => _toggleAssignee(userId),
+                          selectedColor: Colors.blue.shade100,
+                          checkmarkColor: Colors.blue.shade700,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade800,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                          avatar: CircleAvatar(
+                            backgroundColor: isSelected ? Colors.blue.shade200 : Colors.grey.shade300,
+                            child: Text(
+                              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSelected ? Colors.blue.shade700 : Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+        ),
+        if (_selectedAssigneeIds.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              '${_selectedAssigneeIds.length} assignee${_selectedAssigneeIds.length != 1 ? 's' : ''} selected',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue.shade600,
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -148,6 +265,7 @@ class _EditTaskDialogState extends State<EditTaskDialog> {
         endTime: _endTime != null
             ? '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}'
             : null,
+        assignees: _selectedAssigneeIds,
       );
 
       widget.onTaskUpdated?.call();
@@ -395,6 +513,10 @@ class _EditTaskDialogState extends State<EditTaskDialog> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+
+                      // Assignees
+                      _buildAssigneeSelector(),
 
                       // Error
                       if (_error != null) ...[

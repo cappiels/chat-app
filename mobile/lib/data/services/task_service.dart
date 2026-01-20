@@ -223,6 +223,7 @@ class TaskService {
     String? endDate,
     String? dueDate,
     String? assignedTo,
+    List<String>? assignees,
     String? status,
     String? priority,
     List<String>? tags,
@@ -249,6 +250,7 @@ class TaskService {
       if (endDate != null) data['end_date'] = endDate;
       if (dueDate != null) data['due_date'] = dueDate;
       if (assignedTo != null) data['assigned_to'] = assignedTo;
+      if (assignees != null) data['assignees'] = assignees;
       if (status != null) data['status'] = status;
       if (priority != null) data['priority'] = priority;
       if (tags != null) data['tags'] = tags;
