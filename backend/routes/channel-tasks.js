@@ -1393,14 +1393,14 @@ router.post('/:taskId/replies', async (req, res) => {
 
     // Get sender details
     const userResult = await pool.query(
-      'SELECT display_name, photo_url FROM users WHERE id = $1',
+      'SELECT display_name, profile_picture_url FROM users WHERE id = $1',
       [userId]
     );
 
     const reply = {
       ...replyResult.rows[0],
       sender_name: userResult.rows[0]?.display_name || 'Unknown',
-      sender_avatar: userResult.rows[0]?.photo_url
+      sender_avatar: userResult.rows[0]?.profile_picture_url
     };
 
     // Send push notification to task creator if different from replier
