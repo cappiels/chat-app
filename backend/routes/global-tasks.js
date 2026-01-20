@@ -180,6 +180,37 @@ router.get('/all', async (req, res) => {
 
     const result = await pool.query(query, params);
 
+    // Fetch assignee details for all tasks
+    const allAssigneeIds = new Set();
+    result.rows.forEach(task => {
+      const assignees = task.assignees || [];
+      assignees.forEach(id => allAssigneeIds.add(id));
+    });
+
+    let assigneeDetailsMap = {};
+    if (allAssigneeIds.size > 0) {
+      const assigneeResult = await pool.query(
+        'SELECT id, display_name, email FROM users WHERE id = ANY($1)',
+        [Array.from(allAssigneeIds)]
+      );
+      assigneeResult.rows.forEach(user => {
+        assigneeDetailsMap[user.id] = {
+          id: user.id,
+          display_name: user.display_name,
+          email: user.email
+        };
+      });
+    }
+
+    // Add assignee_details to each task
+    result.rows.forEach(task => {
+      const assignees = task.assignees || [];
+      task.assignee_details = assignees
+        .map(id => assigneeDetailsMap[id])
+        .filter(Boolean);
+      task.total_assignees = task.assignee_details.length;
+    });
+
     // Get total count (without pagination)
     let countQuery = `
       SELECT COUNT(*) as total

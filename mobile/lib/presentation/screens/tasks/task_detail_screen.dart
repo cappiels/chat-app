@@ -70,6 +70,45 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     return isCreator || isAdmin;
   }
 
+  bool get _canMarkDoneForOthers => _canEdit;
+
+  bool get _hasMultipleAssignees {
+    final assigneeDetails = _task['assignee_details'] as List?;
+    return (_task['requires_individual_response'] == true) &&
+           (assigneeDetails?.length ?? 0) > 1;
+  }
+
+  Future<void> _toggleCompleteForUser(String userId, String userName, bool isCurrentlyCompleted) async {
+    setState(() => _loading = true);
+
+    try {
+      final workspaceId = _task['workspace_id'];
+      final threadId = _task['thread_id'];
+      final taskId = _task['id'];
+      final endpoint = '/api/workspaces/$workspaceId/threads/$threadId/tasks/$taskId/complete';
+
+      if (isCurrentlyCompleted) {
+        await _httpClient.delete('$endpoint?target_user_id=$userId');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Marked incomplete for $userName')),
+        );
+      } else {
+        await _httpClient.post(endpoint, data: {'target_user_id': userId});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Marked complete for $userName')),
+        );
+      }
+
+      Navigator.of(context).pop(true); // Return true to indicate change
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update: $e')),
+      );
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
   Color _getPriorityColor(String? priority) {
     switch (priority) {
       case 'high':
@@ -545,8 +584,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        // Assignees
-                        if (assigneeNames != null) ...[
+                        // Assignees section with completion status
+                        if (_task['assignee_details'] != null && (_task['assignee_details'] as List).isNotEmpty) ...[
+                          _buildAssigneeSection(),
+                          const SizedBox(height: 16),
+                        ] else if (assigneeNames != null) ...[
+                          // Fallback to simple display if no detailed info
                           _buildMetadataRow(
                             icon: Icons.people_outline,
                             label: 'Assigned to',
@@ -555,8 +598,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        // Progress for group tasks
-                        if (progressInfo != null && totalAssignees > 1) ...[
+                        // Progress for group tasks (when no detailed assignee info)
+                        if (progressInfo != null && totalAssignees > 1 && _task['assignee_details'] == null) ...[
                           _buildMetadataRow(
                             icon: Icons.person_outline,
                             label: 'Progress',
@@ -1085,6 +1128,144 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAssigneeSection() {
+    final assigneeDetails = _task['assignee_details'] as List? ?? [];
+    final completions = _task['individual_completions'] as Map<String, dynamic>? ?? {};
+    final requiresIndividual = _task['requires_individual_response'] == true;
+
+    // Count completions
+    final completedCount = completions.length;
+    final totalCount = assigneeDetails.length;
+
+    return Container(
+      padding: const EdgeInsets.only(top: 16),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.grey.shade200),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with progress
+          Row(
+            children: [
+              Icon(Icons.people_outline, size: 20, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                'Assignees',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const Spacer(),
+              if (requiresIndividual && totalCount > 1)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: completedCount == totalCount
+                        ? Colors.green.shade100
+                        : Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$completedCount/$totalCount done',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: completedCount == totalCount
+                          ? Colors.green.shade700
+                          : Colors.blue.shade700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Assignee list
+          ...assigneeDetails.map((assignee) {
+            final assigneeMap = assignee as Map<String, dynamic>;
+            final assigneeId = assigneeMap['id'] as String? ?? '';
+            final displayName = assigneeMap['display_name'] as String? ?? 'Unknown';
+            final isCompleted = completions.containsKey(assigneeId);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: isCompleted ? Colors.green.shade50 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isCompleted ? Colors.green.shade200 : Colors.grey.shade300,
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: isCompleted ? Colors.green.shade100 : Colors.grey.shade300,
+                    child: Text(
+                      displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isCompleted ? Colors.green.shade700 : Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Name and status
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: isCompleted ? Colors.green.shade700 : Colors.grey.shade800,
+                          ),
+                        ),
+                        if (isCompleted)
+                          Text(
+                            'Completed',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Toggle button for admin/creator
+                  if (_canMarkDoneForOthers && _hasMultipleAssignees)
+                    IconButton(
+                      icon: Icon(
+                        isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+                        color: isCompleted ? Colors.green : Colors.grey,
+                      ),
+                      onPressed: _loading
+                          ? null
+                          : () => _toggleCompleteForUser(assigneeId, displayName, isCompleted),
+                      tooltip: isCompleted ? 'Mark incomplete' : 'Mark complete',
+                    )
+                  else if (isCompleted)
+                    Icon(Icons.check_circle, color: Colors.green.shade400, size: 20),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
     );
   }
 }

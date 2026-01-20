@@ -1117,6 +1117,11 @@ class _WorkspaceSelectionScreenState extends ConsumerState<WorkspaceSelectionScr
           : null,
       'total_assignees': task.totalAssignees,
       'assignee_names': task.assigneeDetails?.map((a) => a.displayName).join(', '),
+      'assignee_details': task.assigneeDetails?.map((a) => a.toJson()).toList(),
+      'individual_completions': task.individualCompletions?.map(
+        (key, value) => MapEntry(key, value.toIso8601String()),
+      ),
+      'requires_individual_response': task.requiresIndividualResponse,
     };
 
     // Navigate to full TaskDetailScreen
