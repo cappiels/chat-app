@@ -109,8 +109,10 @@ class _WorkspaceChannelSwitcherState extends State<WorkspaceChannelSwitcher> {
               final thread = Thread(
                 id: channel['id'],
                 name: channel['name'] ?? '',
+                type: channel['type'] ?? 'channel',
                 workspaceId: workspace['id'],
                 createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
               );
               widget.onWorkspaceChannelSelect!(ws, thread);
             } else if (widget.onWorkspaceSwitch != null) {
@@ -121,8 +123,10 @@ class _WorkspaceChannelSwitcherState extends State<WorkspaceChannelSwitcher> {
             final thread = Thread(
               id: channel['id'],
               name: channel['name'] ?? '',
+              type: channel['type'] ?? 'channel',
               workspaceId: widget.currentWorkspace['id'],
               createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
             );
             widget.onChannelSelect(thread);
           }
