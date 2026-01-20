@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../data/models/message.dart';
 import '../../../data/models/attachment.dart';
 import '../../../data/models/workspace.dart';
@@ -7,7 +8,9 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'image_viewer.dart';
 import 'delete_message_dialog.dart';
+import 'rich_text_content.dart';
 import '../../screens/tasks/task_detail_screen.dart';
+import '../knowledge/save_to_kb_sheet.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
@@ -127,6 +130,26 @@ class MessageBubble extends StatelessWidget {
     }
   }
 
+  void _handleSaveToKB(BuildContext context) {
+    SaveToKBSheet.show(
+      context,
+      workspaceId: workspaceId,
+      title: _isTaskMessage
+          ? (message.metadata?['title'] ?? message.content)
+          : null,
+      content: message.content,
+      sourceType: _isTaskMessage ? 'task' : 'message',
+      sourceId: _isTaskMessage ? message.metadata?['task_id'] : message.id,
+      metadata: {
+        'sender_name': message.senderName,
+        'sender_id': message.senderId,
+        'created_at': message.createdAt.toIso8601String(),
+        'thread_id': threadId,
+        if (message.metadata != null) ...message.metadata!,
+      },
+    );
+  }
+
   void _showMessageOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -173,10 +196,30 @@ class MessageBubble extends StatelessWidget {
               title: const Text('Copy'),
               onTap: () {
                 Navigator.pop(context);
-                // Handle copy action
+                Clipboard.setData(ClipboardData(text: message.content));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Message copied to clipboard'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
               },
             ),
-            
+
+            // Save to Knowledge Base
+            if (!message.isDeleted)
+              ListTile(
+                leading: Icon(Icons.menu_book_rounded, color: Colors.indigo.shade600),
+                title: Text(
+                  'Save to Knowledge Base',
+                  style: TextStyle(color: Colors.indigo.shade600),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleSaveToKB(context);
+                },
+              ),
+
             if (_canDelete)
               ListTile(
                 leading: Icon(Icons.delete, color: Colors.red.shade600),
@@ -301,20 +344,28 @@ class MessageBubble extends StatelessWidget {
                                 _buildReplyPreview(message.parentMessage!),
 
                               // Message content
-                              Text(
-                                message.isDeleted
-                                    ? '[Message deleted]'
-                                    : message.content,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: isOwnMessage
-                                      ? Colors.white
-                                      : Colors.grey.shade900,
-                                  fontStyle: message.isDeleted
-                                      ? FontStyle.italic
-                                      : FontStyle.normal,
+                              if (message.isDeleted)
+                                Text(
+                                  '[Message deleted]',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: isOwnMessage
+                                        ? Colors.white.withOpacity(0.8)
+                                        : Colors.grey.shade600,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                )
+                              else
+                                FormattedTextContent(
+                                  content: message.content,
+                                  isOwnMessage: isOwnMessage,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: isOwnMessage
+                                        ? Colors.white
+                                        : Colors.grey.shade900,
+                                  ),
                                 ),
-                              ),
 
                               // Attachments
                               if (message.hasAttachments) ...[

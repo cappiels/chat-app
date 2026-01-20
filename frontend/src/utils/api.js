@@ -143,16 +143,16 @@ export const knowledgeAPI = {
   // Knowledge scopes
   getScopes: (workspaceId) => api.get(`/knowledge/workspaces/${workspaceId}/scopes`),
   createScope: (workspaceId, data) => api.post(`/knowledge/workspaces/${workspaceId}/scopes`, data),
-  
+
   // User permissions
   getUserPermissions: (workspaceId, userId) => api.get(`/knowledge/workspaces/${workspaceId}/permissions/${userId}`),
-  
+
   // AI suggestions
   generateAISuggestions: (workspaceId, data) => api.post(`/knowledge/workspaces/${workspaceId}/ai-suggestions`, data),
-  
+
   // Personal bookmarks
   getOrCreatePersonalBookmarks: (workspaceId, userId) => api.post(`/knowledge/workspaces/${workspaceId}/personal-bookmarks`, { userId }),
-  
+
   // Multi-location support - Knowledge items in scopes
   getScopeItems: (workspaceId, scopeId, params = {}) => api.get(`/knowledge/workspaces/${workspaceId}/scopes/${scopeId}/items`, { params }),
   createKnowledgeItem: (workspaceId, data) => {
@@ -165,17 +165,50 @@ export const knowledgeAPI = {
   },
   updateKnowledgeItem: (workspaceId, scopeId, id, data) => api.put(`/knowledge/workspaces/${workspaceId}/scopes/${scopeId}/items/${id}`, data),
   deleteKnowledgeItem: (workspaceId, scopeId, id) => api.delete(`/knowledge/workspaces/${workspaceId}/scopes/${scopeId}/items/${id}`),
-  
+
   // Collections
   getCollections: (workspaceId, scopeId) => api.get(`/knowledge/workspaces/${workspaceId}/scopes/${scopeId}/collections`),
-  
+
   // Categories and tags - simplified for now
   getCategories: (workspaceId) => api.get(`/knowledge/workspaces/${workspaceId}/categories`),
   getTags: (workspaceId) => api.get(`/knowledge/workspaces/${workspaceId}/tags`),
-  
+
   // Analytics
   getAnalytics: (workspaceId, params = {}) => api.get(`/knowledge/workspaces/${workspaceId}/analytics`, { params }),
   recordAnalytics: (itemId, data) => api.post(`/knowledge/items/${itemId}/analytics`, data),
+
+  // ===========================================
+  // DISCUSSION BOARD ENDPOINTS
+  // ===========================================
+
+  // Topics
+  getTopics: (workspaceId, params = {}) => api.get(`/knowledge/workspaces/${workspaceId}/topics`, { params }),
+  getTopic: (workspaceId, topicId) => api.get(`/knowledge/workspaces/${workspaceId}/topics/${topicId}`),
+  lockTopic: (workspaceId, topicId, locked) => api.post(`/knowledge/workspaces/${workspaceId}/topics/${topicId}/lock`, { locked }),
+  pinTopic: (workspaceId, topicId, pinned) => api.post(`/knowledge/workspaces/${workspaceId}/topics/${topicId}/pin`, { pinned }),
+  deleteTopic: (workspaceId, topicId) => api.delete(`/knowledge/workspaces/${workspaceId}/topics/${topicId}`),
+
+  // Topic voting
+  voteOnTopic: (workspaceId, topicId, voteType) => api.post(`/knowledge/workspaces/${workspaceId}/topics/${topicId}/vote`, { vote_type: voteType }),
+  removeTopicVote: (workspaceId, topicId) => api.delete(`/knowledge/workspaces/${workspaceId}/topics/${topicId}/vote`),
+
+  // Comments
+  getComments: (workspaceId, topicId) => api.get(`/knowledge/workspaces/${workspaceId}/topics/${topicId}/comments`),
+  addComment: (workspaceId, topicId, content, parentCommentId = null) =>
+    api.post(`/knowledge/workspaces/${workspaceId}/topics/${topicId}/comments`, { content, parent_comment_id: parentCommentId }),
+  editComment: (workspaceId, commentId, content) => api.put(`/knowledge/workspaces/${workspaceId}/comments/${commentId}`, { content }),
+  deleteComment: (workspaceId, commentId) => api.delete(`/knowledge/workspaces/${workspaceId}/comments/${commentId}`),
+
+  // Comment voting
+  voteOnComment: (workspaceId, commentId, voteType) => api.post(`/knowledge/workspaces/${workspaceId}/comments/${commentId}/vote`, { vote_type: voteType }),
+  removeCommentVote: (workspaceId, commentId) => api.delete(`/knowledge/workspaces/${workspaceId}/comments/${commentId}/vote`),
+
+  // Moderation
+  getModerationPermissions: (workspaceId) => api.get(`/knowledge/workspaces/${workspaceId}/moderation/permissions`),
+  assignModerator: (workspaceId, categoryId, userId, adminLevel = 'moderator') =>
+    api.post(`/knowledge/workspaces/${workspaceId}/categories/${categoryId}/moderators`, { user_id: userId, admin_level: adminLevel }),
+  removeModerator: (workspaceId, categoryId, userId) =>
+    api.delete(`/knowledge/workspaces/${workspaceId}/categories/${categoryId}/moderators/${userId}`),
 };
 
 export const notificationAPI = {

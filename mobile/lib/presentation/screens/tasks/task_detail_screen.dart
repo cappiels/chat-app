@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/http_client.dart';
 import '../../../data/models/thread.dart';
 import '../chat/chat_screen.dart';
+import '../../widgets/knowledge/save_to_kb_sheet.dart';
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> task;
@@ -391,6 +392,40 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
   }
 
+  void _saveToKB() {
+    final title = _task['title'] as String?;
+    final description = _task['description'] as String? ?? '';
+    final priority = _task['priority'] as String?;
+    final status = _task['status'] as String?;
+    final dueDate = _task['due_date'] ?? _task['end_date'];
+    final assigneeNames = _task['assignee_names'] ?? _task['assigned_to_name'];
+
+    // Build content from task details
+    final contentParts = <String>[];
+    if (title != null) contentParts.add('**Task:** $title');
+    if (description.isNotEmpty) contentParts.add('\n$description');
+    if (priority != null) contentParts.add('\n**Priority:** $priority');
+    if (status != null) contentParts.add('**Status:** $status');
+    if (dueDate != null) contentParts.add('**Due:** ${_formatDate(dueDate)}');
+    if (assigneeNames != null) contentParts.add('**Assigned to:** $assigneeNames');
+
+    SaveToKBSheet.show(
+      context,
+      workspaceId: _task['workspace_id'] as String,
+      title: title,
+      content: contentParts.join('\n'),
+      sourceType: 'task',
+      sourceId: _task['id'] as String?,
+      metadata: {
+        'task_id': _task['id'],
+        'priority': priority,
+        'status': status,
+        'due_date': dueDate,
+        'assignee_names': assigneeNames,
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = _task['title'] ?? 'Untitled';
@@ -417,6 +452,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         foregroundColor: Colors.grey.shade900,
         elevation: 0,
         actions: [
+          // Save to Knowledge Base
+          IconButton(
+            icon: Icon(Icons.menu_book_rounded, color: Colors.indigo.shade600),
+            onPressed: _loading ? null : _saveToKB,
+            tooltip: 'Save to Knowledge Base',
+          ),
           if (_canEdit) ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined),

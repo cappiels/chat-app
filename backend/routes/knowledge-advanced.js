@@ -662,8 +662,871 @@ router.get('/workspaces/:workspaceId/tags', async (req, res) => {
   }
 });
 
+// ===========================================
+// DISCUSSION BOARD ENDPOINTS
+// ===========================================
+
+// Helper function to check if user can moderate
+const checkModerationPermission = async (pool, workspaceId, userId, categoryId = null) => {
+  // Check workspace admin status
+  const adminQuery = `
+    SELECT role FROM workspace_members
+    WHERE workspace_id = $1 AND user_id = $2
+  `;
+  const adminResult = await pool.query(adminQuery, [workspaceId, userId]);
+
+  if (adminResult.rows.length > 0 && adminResult.rows[0].role === 'admin') {
+    return { canModerate: true, isWorkspaceAdmin: true };
+  }
+
+  // Check category moderator status
+  if (categoryId) {
+    const modQuery = `
+      SELECT admin_level FROM knowledge_category_admins
+      WHERE category_id = $1 AND user_id = $2
+    `;
+    const modResult = await pool.query(modQuery, [categoryId, userId]);
+
+    if (modResult.rows.length > 0) {
+      return {
+        canModerate: true,
+        isWorkspaceAdmin: false,
+        isCategoryModerator: true,
+        adminLevel: modResult.rows[0].admin_level
+      };
+    }
+  }
+
+  return { canModerate: false, isWorkspaceAdmin: false, isCategoryModerator: false };
+};
+
+// GET /workspaces/:wid/topics - List topics with filtering
+router.get('/workspaces/:workspaceId/topics', async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const userId = req.user?.id;
+    const {
+      category,
+      pinned,
+      search,
+      sort_by = 'last_activity_at',
+      sort_order = 'DESC',
+      limit = 50,
+      offset = 0
+    } = req.query;
+
+    let query = `
+      SELECT
+        ki.*,
+        kc.name as category_name,
+        kc.color as category_color,
+        kc.icon as category_icon,
+        u.display_name as creator_name,
+        u.avatar_url as creator_avatar,
+        kiv.vote_type as user_vote,
+        CASE
+          WHEN wm.role = 'admin' THEN true
+          WHEN kca.id IS NOT NULL THEN true
+          ELSE false
+        END as user_can_moderate
+      FROM knowledge_items ki
+      LEFT JOIN knowledge_categories kc ON ki.category_id = kc.id
+      LEFT JOIN users u ON ki.created_by = u.id
+      LEFT JOIN knowledge_item_votes kiv ON ki.id = kiv.knowledge_item_id AND kiv.user_id = $1
+      LEFT JOIN workspace_members wm ON ki.workspace_id = wm.workspace_id AND wm.user_id = $1
+      LEFT JOIN knowledge_category_admins kca ON ki.category_id = kca.category_id AND kca.user_id = $1
+      WHERE ki.workspace_id = $2 AND ki.is_archived = false AND ki.approval_status = 'approved'
+    `;
+
+    const params = [userId, workspaceId];
+    let paramIndex = 3;
+
+    // Filter by category
+    if (category && category !== 'all') {
+      query += ` AND kc.id = $${paramIndex}`;
+      params.push(category);
+      paramIndex++;
+    }
+
+    // Filter by pinned
+    if (pinned === 'true') {
+      query += ' AND ki.is_pinned = true';
+    }
+
+    // Search in title/content
+    if (search) {
+      query += ` AND (ki.title ILIKE $${paramIndex} OR ki.content ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Sorting: pinned items always first, then by sort criteria
+    const validSortFields = ['last_activity_at', 'created_at', 'upvotes_count', 'comment_count', 'views_count'];
+    const sortField = validSortFields.includes(sort_by) ? sort_by : 'last_activity_at';
+    const sortDirection = sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    query += ` ORDER BY ki.is_pinned DESC, ki.${sortField} ${sortDirection}`;
+
+    // Pagination
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(parseInt(limit), parseInt(offset));
+
+    const result = await pool.query(query, params);
+
+    // Get total count
+    let countQuery = `
+      SELECT COUNT(*) FROM knowledge_items ki
+      LEFT JOIN knowledge_categories kc ON ki.category_id = kc.id
+      WHERE ki.workspace_id = $1 AND ki.is_archived = false AND ki.approval_status = 'approved'
+    `;
+    const countParams = [workspaceId];
+    let countParamIndex = 2;
+
+    if (category && category !== 'all') {
+      countQuery += ` AND kc.id = $${countParamIndex}`;
+      countParams.push(category);
+      countParamIndex++;
+    }
+    if (pinned === 'true') {
+      countQuery += ' AND ki.is_pinned = true';
+    }
+    if (search) {
+      countQuery += ` AND (ki.title ILIKE $${countParamIndex} OR ki.content ILIKE $${countParamIndex})`;
+      countParams.push(`%${search}%`);
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    res.json({
+      topics: result.rows,
+      total: totalCount,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Error fetching topics:', error);
+    res.status(500).json({ error: 'Failed to fetch topics' });
+  }
+});
+
+// POST /workspaces/:wid/topics - Create a new topic (Save to KB)
+router.post('/workspaces/:workspaceId/topics', async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const userId = req.user?.id;
+    const {
+      title,
+      content,
+      category_id,
+      source_type,   // 'message', 'task', 'calendar'
+      source_id,
+      metadata
+    } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content are required' });
+    }
+
+    // Create the topic
+    const insertQuery = `
+      INSERT INTO knowledge_items (
+        workspace_id,
+        title,
+        content,
+        content_type,
+        category_id,
+        created_by,
+        source_type,
+        source_id,
+        metadata,
+        approval_status,
+        last_activity_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'approved', NOW())
+      RETURNING *
+    `;
+
+    const result = await pool.query(insertQuery, [
+      workspaceId,
+      title,
+      content,
+      'text',
+      category_id || null,
+      userId,
+      source_type || null,
+      source_id || null,
+      metadata ? JSON.stringify(metadata) : null
+    ]);
+
+    const topic = result.rows[0];
+
+    // Fetch additional details for the response
+    const detailQuery = `
+      SELECT
+        ki.*,
+        kc.name as category_name,
+        kc.color as category_color,
+        u.display_name as creator_name,
+        u.avatar_url as creator_avatar
+      FROM knowledge_items ki
+      LEFT JOIN knowledge_categories kc ON ki.category_id = kc.id
+      LEFT JOIN users u ON ki.created_by = u.id
+      WHERE ki.id = $1
+    `;
+
+    const detailResult = await pool.query(detailQuery, [topic.id]);
+
+    res.status(201).json({
+      topic: detailResult.rows[0],
+      message: 'Topic created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating topic:', error);
+    res.status(500).json({ error: 'Failed to create topic' });
+  }
+});
+
+// GET /workspaces/:wid/topics/:id - Get single topic with details
+router.get('/workspaces/:workspaceId/topics/:topicId', async (req, res) => {
+  try {
+    const { workspaceId, topicId } = req.params;
+    const userId = req.user?.id;
+
+    const query = `
+      SELECT
+        ki.*,
+        kc.name as category_name,
+        kc.color as category_color,
+        kc.icon as category_icon,
+        u.display_name as creator_name,
+        u.avatar_url as creator_avatar,
+        kiv.vote_type as user_vote,
+        CASE
+          WHEN wm.role = 'admin' THEN true
+          WHEN kca.id IS NOT NULL THEN true
+          ELSE false
+        END as user_can_moderate,
+        CASE WHEN ki.created_by = $1 THEN true ELSE false END as is_owner
+      FROM knowledge_items ki
+      LEFT JOIN knowledge_categories kc ON ki.category_id = kc.id
+      LEFT JOIN users u ON ki.created_by = u.id
+      LEFT JOIN knowledge_item_votes kiv ON ki.id = kiv.knowledge_item_id AND kiv.user_id = $1
+      LEFT JOIN workspace_members wm ON ki.workspace_id = wm.workspace_id AND wm.user_id = $1
+      LEFT JOIN knowledge_category_admins kca ON ki.category_id = kca.category_id AND kca.user_id = $1
+      WHERE ki.id = $2 AND ki.workspace_id = $3
+    `;
+
+    const result = await pool.query(query, [userId, topicId, workspaceId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    // Record view
+    await pool.query(
+      `INSERT INTO knowledge_analytics (knowledge_item_id, user_id, action_type) VALUES ($1, $2, 'view')`,
+      [topicId, userId]
+    );
+
+    res.json({ topic: result.rows[0] });
+  } catch (error) {
+    console.error('Error fetching topic:', error);
+    res.status(500).json({ error: 'Failed to fetch topic' });
+  }
+});
+
+// POST /workspaces/:wid/topics/:id/lock - Lock/unlock topic
+router.post('/workspaces/:workspaceId/topics/:topicId/lock', async (req, res) => {
+  try {
+    const { workspaceId, topicId } = req.params;
+    const { locked } = req.body;
+    const userId = req.user?.id;
+
+    // Get topic to check category
+    const topicQuery = 'SELECT category_id FROM knowledge_items WHERE id = $1 AND workspace_id = $2';
+    const topicResult = await pool.query(topicQuery, [topicId, workspaceId]);
+
+    if (topicResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    const categoryId = topicResult.rows[0].category_id;
+    const permissions = await checkModerationPermission(pool, workspaceId, userId, categoryId);
+
+    if (!permissions.canModerate) {
+      return res.status(403).json({ error: 'You do not have permission to lock/unlock this topic' });
+    }
+
+    const updateQuery = `
+      UPDATE knowledge_items
+      SET is_locked = $1, locked_by = $2, locked_at = $3, updated_at = NOW()
+      WHERE id = $4 AND workspace_id = $5
+      RETURNING *
+    `;
+
+    const result = await pool.query(updateQuery, [
+      locked,
+      locked ? userId : null,
+      locked ? new Date() : null,
+      topicId,
+      workspaceId
+    ]);
+
+    res.json({ topic: result.rows[0], message: locked ? 'Topic locked' : 'Topic unlocked' });
+  } catch (error) {
+    console.error('Error locking/unlocking topic:', error);
+    res.status(500).json({ error: 'Failed to lock/unlock topic' });
+  }
+});
+
+// POST /workspaces/:wid/topics/:id/pin - Pin/unpin topic
+router.post('/workspaces/:workspaceId/topics/:topicId/pin', async (req, res) => {
+  try {
+    const { workspaceId, topicId } = req.params;
+    const { pinned } = req.body;
+    const userId = req.user?.id;
+
+    // Get topic to check category
+    const topicQuery = 'SELECT category_id FROM knowledge_items WHERE id = $1 AND workspace_id = $2';
+    const topicResult = await pool.query(topicQuery, [topicId, workspaceId]);
+
+    if (topicResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    const categoryId = topicResult.rows[0].category_id;
+    const permissions = await checkModerationPermission(pool, workspaceId, userId, categoryId);
+
+    if (!permissions.canModerate) {
+      return res.status(403).json({ error: 'You do not have permission to pin/unpin this topic' });
+    }
+
+    const updateQuery = `
+      UPDATE knowledge_items
+      SET is_pinned = $1, pinned_by = $2, pinned_at = $3, updated_at = NOW()
+      WHERE id = $4 AND workspace_id = $5
+      RETURNING *
+    `;
+
+    const result = await pool.query(updateQuery, [
+      pinned,
+      pinned ? userId : null,
+      pinned ? new Date() : null,
+      topicId,
+      workspaceId
+    ]);
+
+    res.json({ topic: result.rows[0], message: pinned ? 'Topic pinned' : 'Topic unpinned' });
+  } catch (error) {
+    console.error('Error pinning/unpinning topic:', error);
+    res.status(500).json({ error: 'Failed to pin/unpin topic' });
+  }
+});
+
+// DELETE /workspaces/:wid/topics/:id - Delete topic
+router.delete('/workspaces/:workspaceId/topics/:topicId', async (req, res) => {
+  try {
+    const { workspaceId, topicId } = req.params;
+    const userId = req.user?.id;
+
+    // Get topic to check ownership and category
+    const topicQuery = 'SELECT category_id, created_by FROM knowledge_items WHERE id = $1 AND workspace_id = $2';
+    const topicResult = await pool.query(topicQuery, [topicId, workspaceId]);
+
+    if (topicResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    const topic = topicResult.rows[0];
+    const isOwner = topic.created_by === userId;
+    const permissions = await checkModerationPermission(pool, workspaceId, userId, topic.category_id);
+
+    if (!isOwner && !permissions.canModerate) {
+      return res.status(403).json({ error: 'You do not have permission to delete this topic' });
+    }
+
+    // Soft delete (archive) the topic
+    await pool.query(
+      'UPDATE knowledge_items SET is_archived = true, updated_at = NOW() WHERE id = $1',
+      [topicId]
+    );
+
+    res.json({ message: 'Topic deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting topic:', error);
+    res.status(500).json({ error: 'Failed to delete topic' });
+  }
+});
+
+// POST /workspaces/:wid/topics/:id/vote - Vote on topic
+router.post('/workspaces/:workspaceId/topics/:topicId/vote', async (req, res) => {
+  try {
+    const { workspaceId, topicId } = req.params;
+    const { vote_type } = req.body; // 'upvote' or 'downvote'
+    const userId = req.user?.id;
+
+    if (!['upvote', 'downvote'].includes(vote_type)) {
+      return res.status(400).json({ error: 'Invalid vote type' });
+    }
+
+    // Verify topic exists
+    const topicQuery = 'SELECT id FROM knowledge_items WHERE id = $1 AND workspace_id = $2';
+    const topicResult = await pool.query(topicQuery, [topicId, workspaceId]);
+
+    if (topicResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    // Upsert vote (insert or update)
+    const upsertQuery = `
+      INSERT INTO knowledge_item_votes (knowledge_item_id, user_id, vote_type)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (knowledge_item_id, user_id)
+      DO UPDATE SET vote_type = $3, created_at = NOW()
+      RETURNING *
+    `;
+
+    await pool.query(upsertQuery, [topicId, userId, vote_type]);
+
+    // Get updated counts
+    const countsQuery = `
+      SELECT upvotes_count, downvotes_count FROM knowledge_items WHERE id = $1
+    `;
+    const countsResult = await pool.query(countsQuery, [topicId]);
+
+    res.json({
+      message: 'Vote recorded',
+      vote_type,
+      upvotes_count: countsResult.rows[0].upvotes_count,
+      downvotes_count: countsResult.rows[0].downvotes_count
+    });
+  } catch (error) {
+    console.error('Error voting on topic:', error);
+    res.status(500).json({ error: 'Failed to record vote' });
+  }
+});
+
+// DELETE /workspaces/:wid/topics/:id/vote - Remove vote from topic
+router.delete('/workspaces/:workspaceId/topics/:topicId/vote', async (req, res) => {
+  try {
+    const { workspaceId, topicId } = req.params;
+    const userId = req.user?.id;
+
+    // Remove vote
+    await pool.query(
+      'DELETE FROM knowledge_item_votes WHERE knowledge_item_id = $1 AND user_id = $2',
+      [topicId, userId]
+    );
+
+    // Get updated counts
+    const countsQuery = `
+      SELECT upvotes_count, downvotes_count FROM knowledge_items WHERE id = $1
+    `;
+    const countsResult = await pool.query(countsQuery, [topicId]);
+
+    res.json({
+      message: 'Vote removed',
+      upvotes_count: countsResult.rows[0]?.upvotes_count || 0,
+      downvotes_count: countsResult.rows[0]?.downvotes_count || 0
+    });
+  } catch (error) {
+    console.error('Error removing vote:', error);
+    res.status(500).json({ error: 'Failed to remove vote' });
+  }
+});
+
+// ===========================================
+// COMMENT ENDPOINTS
+// ===========================================
+
+// GET /workspaces/:wid/topics/:id/comments - Get comments for topic
+router.get('/workspaces/:workspaceId/topics/:topicId/comments', async (req, res) => {
+  try {
+    const { workspaceId, topicId } = req.params;
+    const userId = req.user?.id;
+
+    // Verify topic exists and belongs to workspace
+    const topicQuery = 'SELECT id FROM knowledge_items WHERE id = $1 AND workspace_id = $2';
+    const topicResult = await pool.query(topicQuery, [topicId, workspaceId]);
+
+    if (topicResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    // Get all comments with user info and vote status
+    const query = `
+      SELECT
+        kc.*,
+        u.display_name as user_name,
+        u.avatar_url as user_avatar,
+        kcv.vote_type as user_vote,
+        CASE WHEN kc.user_id = $1 THEN true ELSE false END as is_owner
+      FROM knowledge_comments kc
+      LEFT JOIN users u ON kc.user_id = u.id
+      LEFT JOIN knowledge_comment_votes kcv ON kc.id = kcv.comment_id AND kcv.user_id = $1
+      WHERE kc.knowledge_item_id = $2
+      ORDER BY kc.created_at ASC
+    `;
+
+    const result = await pool.query(query, [userId, topicId]);
+
+    // Build threaded structure
+    const commentMap = {};
+    const rootComments = [];
+
+    result.rows.forEach(comment => {
+      comment.replies = [];
+      commentMap[comment.id] = comment;
+    });
+
+    result.rows.forEach(comment => {
+      if (comment.parent_comment_id && commentMap[comment.parent_comment_id]) {
+        commentMap[comment.parent_comment_id].replies.push(comment);
+      } else {
+        rootComments.push(comment);
+      }
+    });
+
+    res.json({ comments: rootComments, total: result.rows.length });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({ error: 'Failed to fetch comments' });
+  }
+});
+
+// POST /workspaces/:wid/topics/:id/comments - Add comment to topic
+router.post('/workspaces/:workspaceId/topics/:topicId/comments', async (req, res) => {
+  try {
+    const { workspaceId, topicId } = req.params;
+    const { content, parent_comment_id } = req.body;
+    const userId = req.user?.id;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+
+    // Verify topic exists and is not locked
+    const topicQuery = 'SELECT id, is_locked FROM knowledge_items WHERE id = $1 AND workspace_id = $2';
+    const topicResult = await pool.query(topicQuery, [topicId, workspaceId]);
+
+    if (topicResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    if (topicResult.rows[0].is_locked) {
+      return res.status(403).json({ error: 'This topic is locked. Comments are not allowed.' });
+    }
+
+    // Insert comment
+    const insertQuery = `
+      INSERT INTO knowledge_comments (knowledge_item_id, user_id, parent_comment_id, content)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `;
+
+    const result = await pool.query(insertQuery, [
+      topicId,
+      userId,
+      parent_comment_id || null,
+      content.trim()
+    ]);
+
+    // Get user info for response
+    const userQuery = 'SELECT display_name, avatar_url FROM users WHERE id = $1';
+    const userResult = await pool.query(userQuery, [userId]);
+
+    const comment = {
+      ...result.rows[0],
+      user_name: userResult.rows[0]?.display_name,
+      user_avatar: userResult.rows[0]?.avatar_url,
+      is_owner: true,
+      user_vote: null,
+      replies: []
+    };
+
+    res.status(201).json({ comment, message: 'Comment added successfully' });
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    res.status(500).json({ error: 'Failed to add comment' });
+  }
+});
+
+// PUT /workspaces/:wid/comments/:id - Edit comment
+router.put('/workspaces/:workspaceId/comments/:commentId', async (req, res) => {
+  try {
+    const { workspaceId, commentId } = req.params;
+    const { content } = req.body;
+    const userId = req.user?.id;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+
+    // Verify comment exists and user owns it
+    const commentQuery = `
+      SELECT kc.* FROM knowledge_comments kc
+      JOIN knowledge_items ki ON kc.knowledge_item_id = ki.id
+      WHERE kc.id = $1 AND ki.workspace_id = $2
+    `;
+    const commentResult = await pool.query(commentQuery, [commentId, workspaceId]);
+
+    if (commentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    if (commentResult.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: 'You can only edit your own comments' });
+    }
+
+    // Update comment
+    const updateQuery = `
+      UPDATE knowledge_comments
+      SET content = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+    `;
+
+    const result = await pool.query(updateQuery, [content.trim(), commentId]);
+
+    res.json({ comment: result.rows[0], message: 'Comment updated successfully' });
+  } catch (error) {
+    console.error('Error updating comment:', error);
+    res.status(500).json({ error: 'Failed to update comment' });
+  }
+});
+
+// DELETE /workspaces/:wid/comments/:id - Delete comment
+router.delete('/workspaces/:workspaceId/comments/:commentId', async (req, res) => {
+  try {
+    const { workspaceId, commentId } = req.params;
+    const userId = req.user?.id;
+
+    // Get comment with topic info
+    const commentQuery = `
+      SELECT kc.*, ki.category_id, ki.workspace_id
+      FROM knowledge_comments kc
+      JOIN knowledge_items ki ON kc.knowledge_item_id = ki.id
+      WHERE kc.id = $1 AND ki.workspace_id = $2
+    `;
+    const commentResult = await pool.query(commentQuery, [commentId, workspaceId]);
+
+    if (commentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    const comment = commentResult.rows[0];
+    const isOwner = comment.user_id === userId;
+    const permissions = await checkModerationPermission(pool, workspaceId, userId, comment.category_id);
+
+    if (!isOwner && !permissions.canModerate) {
+      return res.status(403).json({ error: 'You do not have permission to delete this comment' });
+    }
+
+    // Delete comment (cascades to child comments)
+    await pool.query('DELETE FROM knowledge_comments WHERE id = $1', [commentId]);
+
+    res.json({ message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ error: 'Failed to delete comment' });
+  }
+});
+
+// POST /workspaces/:wid/comments/:id/vote - Vote on comment
+router.post('/workspaces/:workspaceId/comments/:commentId/vote', async (req, res) => {
+  try {
+    const { workspaceId, commentId } = req.params;
+    const { vote_type } = req.body;
+    const userId = req.user?.id;
+
+    if (!['upvote', 'downvote'].includes(vote_type)) {
+      return res.status(400).json({ error: 'Invalid vote type' });
+    }
+
+    // Verify comment exists
+    const commentQuery = `
+      SELECT kc.id FROM knowledge_comments kc
+      JOIN knowledge_items ki ON kc.knowledge_item_id = ki.id
+      WHERE kc.id = $1 AND ki.workspace_id = $2
+    `;
+    const commentResult = await pool.query(commentQuery, [commentId, workspaceId]);
+
+    if (commentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    // Upsert vote
+    const upsertQuery = `
+      INSERT INTO knowledge_comment_votes (comment_id, user_id, vote_type)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (comment_id, user_id)
+      DO UPDATE SET vote_type = $3, created_at = NOW()
+    `;
+
+    await pool.query(upsertQuery, [commentId, userId, vote_type]);
+
+    // Get updated counts
+    const countsQuery = `
+      SELECT upvotes_count, downvotes_count FROM knowledge_comments WHERE id = $1
+    `;
+    const countsResult = await pool.query(countsQuery, [commentId]);
+
+    res.json({
+      message: 'Vote recorded',
+      vote_type,
+      upvotes_count: countsResult.rows[0].upvotes_count,
+      downvotes_count: countsResult.rows[0].downvotes_count
+    });
+  } catch (error) {
+    console.error('Error voting on comment:', error);
+    res.status(500).json({ error: 'Failed to record vote' });
+  }
+});
+
+// DELETE /workspaces/:wid/comments/:id/vote - Remove vote from comment
+router.delete('/workspaces/:workspaceId/comments/:commentId/vote', async (req, res) => {
+  try {
+    const { workspaceId, commentId } = req.params;
+    const userId = req.user?.id;
+
+    await pool.query(
+      'DELETE FROM knowledge_comment_votes WHERE comment_id = $1 AND user_id = $2',
+      [commentId, userId]
+    );
+
+    // Get updated counts
+    const countsQuery = `
+      SELECT upvotes_count, downvotes_count FROM knowledge_comments WHERE id = $1
+    `;
+    const countsResult = await pool.query(countsQuery, [commentId]);
+
+    res.json({
+      message: 'Vote removed',
+      upvotes_count: countsResult.rows[0]?.upvotes_count || 0,
+      downvotes_count: countsResult.rows[0]?.downvotes_count || 0
+    });
+  } catch (error) {
+    console.error('Error removing vote:', error);
+    res.status(500).json({ error: 'Failed to remove vote' });
+  }
+});
+
+// ===========================================
+// MODERATION ENDPOINTS
+// ===========================================
+
+// GET /workspaces/:wid/moderation/permissions - Get user's moderation permissions
+router.get('/workspaces/:workspaceId/moderation/permissions', async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const userId = req.user?.id;
+
+    // Check workspace admin
+    const adminQuery = `
+      SELECT role FROM workspace_members
+      WHERE workspace_id = $1 AND user_id = $2
+    `;
+    const adminResult = await pool.query(adminQuery, [workspaceId, userId]);
+    const isWorkspaceAdmin = adminResult.rows.length > 0 && adminResult.rows[0].role === 'admin';
+
+    // Get category moderator assignments
+    const modQuery = `
+      SELECT kca.*, kc.name as category_name, kc.color as category_color
+      FROM knowledge_category_admins kca
+      JOIN knowledge_categories kc ON kca.category_id = kc.id
+      WHERE kca.user_id = $1 AND kc.workspace_id = $2
+    `;
+    const modResult = await pool.query(modQuery, [userId, workspaceId]);
+
+    res.json({
+      is_workspace_admin: isWorkspaceAdmin,
+      can_moderate_all: isWorkspaceAdmin,
+      category_moderations: modResult.rows
+    });
+  } catch (error) {
+    console.error('Error fetching moderation permissions:', error);
+    res.status(500).json({ error: 'Failed to fetch moderation permissions' });
+  }
+});
+
+// POST /workspaces/:wid/categories/:id/moderators - Assign category moderator
+router.post('/workspaces/:workspaceId/categories/:categoryId/moderators', async (req, res) => {
+  try {
+    const { workspaceId, categoryId } = req.params;
+    const { user_id, admin_level = 'moderator' } = req.body;
+    const appointedBy = req.user?.id;
+
+    // Verify workspace admin
+    const adminQuery = `
+      SELECT role FROM workspace_members
+      WHERE workspace_id = $1 AND user_id = $2
+    `;
+    const adminResult = await pool.query(adminQuery, [workspaceId, appointedBy]);
+
+    if (adminResult.rows.length === 0 || adminResult.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Only workspace admins can assign moderators' });
+    }
+
+    // Verify category exists
+    const categoryQuery = 'SELECT id FROM knowledge_categories WHERE id = $1 AND workspace_id = $2';
+    const categoryResult = await pool.query(categoryQuery, [categoryId, workspaceId]);
+
+    if (categoryResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    // Insert or update moderator
+    const upsertQuery = `
+      INSERT INTO knowledge_category_admins (category_id, user_id, admin_level, appointed_by)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (category_id, user_id)
+      DO UPDATE SET admin_level = $3, appointed_by = $4, appointed_at = NOW()
+      RETURNING *
+    `;
+
+    const result = await pool.query(upsertQuery, [categoryId, user_id, admin_level, appointedBy]);
+
+    res.status(201).json({ moderator: result.rows[0], message: 'Moderator assigned successfully' });
+  } catch (error) {
+    console.error('Error assigning moderator:', error);
+    res.status(500).json({ error: 'Failed to assign moderator' });
+  }
+});
+
+// DELETE /workspaces/:wid/categories/:id/moderators/:uid - Remove moderator
+router.delete('/workspaces/:workspaceId/categories/:categoryId/moderators/:userId', async (req, res) => {
+  try {
+    const { workspaceId, categoryId, userId: targetUserId } = req.params;
+    const requestingUserId = req.user?.id;
+
+    // Verify workspace admin
+    const adminQuery = `
+      SELECT role FROM workspace_members
+      WHERE workspace_id = $1 AND user_id = $2
+    `;
+    const adminResult = await pool.query(adminQuery, [workspaceId, requestingUserId]);
+
+    if (adminResult.rows.length === 0 || adminResult.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Only workspace admins can remove moderators' });
+    }
+
+    await pool.query(
+      'DELETE FROM knowledge_category_admins WHERE category_id = $1 AND user_id = $2',
+      [categoryId, targetUserId]
+    );
+
+    res.json({ message: 'Moderator removed successfully' });
+  } catch (error) {
+    console.error('Error removing moderator:', error);
+    res.status(500).json({ error: 'Failed to remove moderator' });
+  }
+});
+
+// ===========================================
+// EXISTING ANALYTICS ENDPOINT
+// ===========================================
+
 // Get knowledge analytics dashboard
-router.get('/workspaces/:workspaceId/analytics', checkKnowledgePermission('read'), async (req, res) => {
   try {
     const { workspaceId } = req.params;
     const { timeframe = '30d' } = req.query;
