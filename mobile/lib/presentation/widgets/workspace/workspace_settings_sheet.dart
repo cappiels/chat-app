@@ -17,7 +17,7 @@ class WorkspaceSettingsSheet extends StatefulWidget {
 
 class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
   final HttpClient _httpClient = HttpClient();
-  int _selectedTab = 0; // 0 = invite, 1 = members, 2 = channels
+  int _selectedTab = 0; // 0 = invite, 1 = members, 2 = channels, 3 = groups
 
   // Invite tab state
   final _emailController = TextEditingController();
@@ -35,6 +35,10 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
   List<Map<String, dynamic>> _channels = [];
   bool _loadingChannels = true;
 
+  // Groups tab state
+  List<Map<String, dynamic>> _groups = [];
+  bool _loadingGroups = true;
+
   bool get _isAdmin =>
       widget.workspace['role'] == 'admin' ||
       widget.workspace['user_role'] == 'admin';
@@ -44,6 +48,7 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
     super.initState();
     _loadMembers();
     _loadChannels();
+    _loadGroups();
   }
 
   @override
@@ -60,13 +65,303 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
       final response = await _httpClient.get('/api/workspaces/$workspaceId/threads');
 
       setState(() {
-        _channels = List<Map<String, dynamic>>.from(response.data['threads'] ?? []);
+        // Filter only channels
+        _channels = List<Map<String, dynamic>>.from(response.data['threads'] ?? [])
+            .where((t) => t['type'] == 'channel')
+            .toList();
         _loadingChannels = false;
       });
     } catch (e) {
       print('Error loading channels: $e');
       setState(() => _loadingChannels = false);
     }
+  }
+
+  Future<void> _loadGroups() async {
+    setState(() => _loadingGroups = true);
+
+    try {
+      final workspaceId = widget.workspace['id'];
+      final response = await _httpClient.get('/api/workspaces/$workspaceId/threads');
+
+      setState(() {
+        // Filter only direct messages (groups)
+        _groups = List<Map<String, dynamic>>.from(response.data['threads'] ?? [])
+            .where((t) => t['type'] == 'direct_message')
+            .toList();
+        _loadingGroups = false;
+      });
+    } catch (e) {
+      print('Error loading groups: $e');
+      setState(() => _loadingGroups = false);
+    }
+  }
+
+  Future<void> _createGroup(List<String> memberIds, String? name) async {
+    try {
+      final workspaceId = widget.workspace['id'];
+      await _httpClient.post(
+        '/api/workspaces/$workspaceId/threads',
+        data: {
+          'type': 'direct_message',
+          'members': memberIds,
+          'name': name,
+        },
+      );
+      _loadGroups();
+      if (mounted) {
+        Navigator.pop(context); // Close the create dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group created')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create group: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateGroupMembers(String groupId, List<String> memberIds) async {
+    try {
+      final workspaceId = widget.workspace['id'];
+      await _httpClient.put(
+        '/api/workspaces/$workspaceId/threads/$groupId/members',
+        data: {
+          'members': memberIds,
+        },
+      );
+      _loadGroups();
+      if (mounted) {
+        Navigator.pop(context); // Close the edit dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group updated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update group: $e')),
+        );
+      }
+    }
+  }
+
+  void _showCreateGroupDialog() {
+    final selectedMembers = <String>{};
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create Group'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select members for this group:',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _members.length,
+                    itemBuilder: (context, index) {
+                      final member = _members[index];
+                      final memberId = member['id']?.toString() ?? member['user_id']?.toString() ?? '';
+                      final isCurrentUser = member['is_current_user'] == true;
+                      final displayName = member['display_name'] ?? 'Unknown';
+                      final isSelected = selectedMembers.contains(memberId);
+
+                      if (isCurrentUser) return const SizedBox.shrink();
+
+                      return CheckboxListTile(
+                        value: isSelected,
+                        onChanged: (checked) {
+                          setDialogState(() {
+                            if (checked == true) {
+                              selectedMembers.add(memberId);
+                            } else {
+                              selectedMembers.remove(memberId);
+                            }
+                          });
+                        },
+                        title: Text(displayName),
+                        subtitle: Text(
+                          member['email'] ?? '',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                        secondary: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.blue.shade100,
+                          child: Text(
+                            displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ),
+                        controlAffinity: ListTileControlAffinity.trailing,
+                        dense: true,
+                      );
+                    },
+                  ),
+                ),
+                if (selectedMembers.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      '${selectedMembers.length} member${selectedMembers.length != 1 ? 's' : ''} selected',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: selectedMembers.isEmpty
+                  ? null
+                  : () {
+                      Navigator.pop(context);
+                      _createGroup(selectedMembers.toList(), null);
+                    },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditGroupDialog(Map<String, dynamic> group) {
+    // Get current group member IDs from the thread members
+    final currentMemberIds = <String>{};
+    // The API response includes member details, extract IDs
+    // For now we'll reload the group details
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final selectedMembers = <String>{...currentMemberIds};
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text('Edit Group'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select members for this group:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 300),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _members.length,
+                      itemBuilder: (context, index) {
+                        final member = _members[index];
+                        final memberId = member['id']?.toString() ?? member['user_id']?.toString() ?? '';
+                        final isCurrentUser = member['is_current_user'] == true;
+                        final displayName = member['display_name'] ?? 'Unknown';
+                        final isSelected = selectedMembers.contains(memberId);
+
+                        if (isCurrentUser) return const SizedBox.shrink();
+
+                        return CheckboxListTile(
+                          value: isSelected,
+                          onChanged: (checked) {
+                            setDialogState(() {
+                              if (checked == true) {
+                                selectedMembers.add(memberId);
+                              } else {
+                                selectedMembers.remove(memberId);
+                              }
+                            });
+                          },
+                          title: Text(displayName),
+                          subtitle: Text(
+                            member['email'] ?? '',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          ),
+                          secondary: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: Colors.blue.shade100,
+                            child: Text(
+                              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                          controlAffinity: ListTileControlAffinity.trailing,
+                          dense: true,
+                        );
+                      },
+                    ),
+                  ),
+                  if (selectedMembers.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        '${selectedMembers.length} member${selectedMembers.length != 1 ? 's' : ''} selected',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: selectedMembers.isEmpty
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        _updateGroupMembers(group['id'].toString(), selectedMembers.toList());
+                      },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _createChannel(String name, String? description) async {
@@ -419,6 +714,7 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
                 _buildTab(0, Icons.person_add, 'Invite'),
                 _buildTab(1, Icons.people, 'Members'),
                 _buildTab(2, Icons.tag, 'Channels'),
+                _buildTab(3, Icons.group, 'Groups'),
               ],
             ),
           ),
@@ -429,7 +725,9 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
                 ? _buildInviteTab()
                 : _selectedTab == 1
                     ? _buildMembersTab()
-                    : _buildChannelsTab(),
+                    : _selectedTab == 2
+                        ? _buildChannelsTab()
+                        : _buildGroupsTab(),
           ),
 
           // Safe area padding (only when keyboard not visible)
@@ -965,6 +1263,137 @@ class _WorkspaceSettingsSheetState extends State<WorkspaceSettingsSheet> {
                                 tooltip: 'Edit channel',
                               )
                             : null,
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupsTab() {
+    if (_loadingGroups) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Create group button
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _showCreateGroupDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Create Group'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Groups list
+        Expanded(
+          child: _groups.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.group,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No group chats yet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Create a group to chat with multiple people',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _groups.length,
+                  itemBuilder: (context, index) {
+                    final group = _groups[index];
+                    final memberCount = group['member_count'] ?? 0;
+                    // Generate a name from members or use custom name
+                    final lastMessage = group['last_message'];
+                    final lastMessagePreview = lastMessage != null
+                        ? '${lastMessage['sender_name']}: ${lastMessage['content']}'
+                        : '$memberCount member${memberCount != 1 ? 's' : ''}';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: ListTile(
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.group,
+                            color: Colors.purple.shade600,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          group['name'] ?? 'Group Chat',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          lastMessagePreview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.edit_outlined,
+                            color: Colors.grey.shade600,
+                            size: 20,
+                          ),
+                          onPressed: () => _showEditGroupDialog(group),
+                          tooltip: 'Edit group members',
+                        ),
                       ),
                     );
                   },

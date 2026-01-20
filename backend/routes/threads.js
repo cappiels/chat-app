@@ -159,28 +159,30 @@ router.post('/', authenticateUser, requireWorkspaceMembership, async (req, res) 
     }
 
     if (type === 'direct_message') {
-      if (members.length !== 1) {
-        return res.status(400).json({ 
-          error: 'Validation Error', 
-          message: 'Direct messages must have exactly one other member' 
+      if (members.length < 1) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: 'Direct messages must have at least one other member'
         });
       }
 
-      // Check if DM already exists between these users
-      const existingDM = await client.query(`
-        SELECT t.id FROM threads t
-        JOIN thread_members tm1 ON t.id = tm1.thread_id AND tm1.user_id = $1
-        JOIN thread_members tm2 ON t.id = tm2.thread_id AND tm2.user_id = $2
-        WHERE t.workspace_id = $3 AND t.type = 'direct_message'
-        AND (SELECT COUNT(*) FROM thread_members WHERE thread_id = t.id) = 2;
-      `, [userId, members[0], workspaceId]);
+      // For 1:1 DMs, check if one already exists
+      if (members.length === 1) {
+        const existingDM = await client.query(`
+          SELECT t.id FROM threads t
+          JOIN thread_members tm1 ON t.id = tm1.thread_id AND tm1.user_id = $1
+          JOIN thread_members tm2 ON t.id = tm2.thread_id AND tm2.user_id = $2
+          WHERE t.workspace_id = $3 AND t.type = 'direct_message'
+          AND (SELECT COUNT(*) FROM thread_members WHERE thread_id = t.id) = 2;
+        `, [userId, members[0], workspaceId]);
 
-      if (existingDM.rows.length > 0) {
-        return res.status(409).json({ 
-          error: 'DM Exists', 
-          message: 'Direct message already exists between these users',
-          thread_id: existingDM.rows[0].id
-        });
+        if (existingDM.rows.length > 0) {
+          return res.status(409).json({
+            error: 'DM Exists',
+            message: 'Direct message already exists between these users',
+            thread_id: existingDM.rows[0].id
+          });
+        }
       }
     }
 
@@ -513,6 +515,131 @@ router.put('/:threadId', authenticateUser, requireWorkspaceMembership, async (re
       error: 'Server Error',
       message: 'Unable to update channel'
     });
+  }
+});
+
+/**
+ * PUT /api/workspaces/:workspaceId/threads/:threadId/members
+ * Update group DM members (add/remove)
+ */
+router.put('/:threadId/members', authenticateUser, requireWorkspaceMembership, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { workspaceId, threadId } = req.params;
+    const { members } = req.body; // Array of user IDs that should be in the group
+    const userId = req.user.id;
+
+    // Get thread and verify it's a DM
+    const threadResult = await client.query(
+      'SELECT * FROM threads WHERE id = $1 AND workspace_id = $2',
+      [threadId, workspaceId]
+    );
+
+    if (threadResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Thread not found'
+      });
+    }
+
+    const thread = threadResult.rows[0];
+
+    if (thread.type !== 'direct_message') {
+      return res.status(400).json({
+        error: 'Invalid Operation',
+        message: 'Member management is only for group DMs. Use channel invite for channels.'
+      });
+    }
+
+    // Check if user is a member of this DM
+    const memberCheck = await client.query(
+      'SELECT user_id FROM thread_members WHERE thread_id = $1 AND user_id = $2',
+      [threadId, userId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You must be a member of this group to manage members'
+      });
+    }
+
+    if (!members || !Array.isArray(members) || members.length < 1) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Members array must have at least 1 member'
+      });
+    }
+
+    // Ensure the current user stays in the group
+    const memberSet = new Set(members.map(m => String(m)));
+    memberSet.add(String(userId));
+
+    await client.query('BEGIN');
+
+    // Get current members
+    const currentMembersResult = await client.query(
+      'SELECT user_id FROM thread_members WHERE thread_id = $1',
+      [threadId]
+    );
+    const currentMembers = new Set(currentMembersResult.rows.map(r => String(r.user_id)));
+
+    // Find members to add and remove
+    const toAdd = [...memberSet].filter(m => !currentMembers.has(m));
+    const toRemove = [...currentMembers].filter(m => !memberSet.has(m));
+
+    // Add new members (verify they're in the workspace)
+    for (const memberId of toAdd) {
+      const workspaceMemberCheck = await client.query(
+        'SELECT user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+        [workspaceId, memberId]
+      );
+
+      if (workspaceMemberCheck.rows.length > 0) {
+        await client.query(
+          'INSERT INTO thread_members (thread_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [threadId, memberId]
+        );
+      }
+    }
+
+    // Remove members
+    for (const memberId of toRemove) {
+      await client.query(
+        'DELETE FROM thread_members WHERE thread_id = $1 AND user_id = $2',
+        [threadId, memberId]
+      );
+    }
+
+    // Update thread name if it's a group (optional: auto-generate name from members)
+    const finalMembersResult = await client.query(`
+      SELECT u.id, u.display_name
+      FROM thread_members tm
+      JOIN users u ON tm.user_id = u.id
+      WHERE tm.thread_id = $1
+    `, [threadId]);
+
+    await client.query('COMMIT');
+
+    console.log(`👥 Group DM ${threadId} members updated by ${userId}`);
+
+    res.json({
+      message: 'Group members updated successfully',
+      members: finalMembersResult.rows,
+      added: toAdd.length,
+      removed: toRemove.length
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Update group members error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Unable to update group members'
+    });
+  } finally {
+    client.release();
   }
 });
 
