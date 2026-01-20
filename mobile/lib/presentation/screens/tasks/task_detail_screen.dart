@@ -1298,6 +1298,11 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
   DateTime? _dueDate;
   bool _saving = false;
 
+  // Assignee editing
+  List<Map<String, dynamic>> _workspaceMembers = [];
+  List<String> _selectedAssigneeIds = [];
+  bool _loadingMembers = true;
+
   @override
   void initState() {
     super.initState();
@@ -1311,6 +1316,31 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
       try {
         _dueDate = DateTime.parse(dueDateStr);
       } catch (_) {}
+    }
+
+    // Initialize selected assignees from task data
+    final assignees = widget.task['assignees'] as List?;
+    if (assignees != null) {
+      _selectedAssigneeIds = assignees.map((e) => e.toString()).toList();
+    }
+
+    _loadWorkspaceMembers();
+  }
+
+  Future<void> _loadWorkspaceMembers() async {
+    try {
+      final workspaceId = widget.workspace['id'];
+      final response = await _httpClient.get('/api/workspaces/$workspaceId/members');
+
+      if (response.data != null && response.data['members'] != null) {
+        setState(() {
+          _workspaceMembers = List<Map<String, dynamic>>.from(response.data['members']);
+          _loadingMembers = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading workspace members: $e');
+      setState(() => _loadingMembers = false);
     }
   }
 
@@ -1334,6 +1364,95 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
     }
   }
 
+  void _toggleAssignee(String userId) {
+    setState(() {
+      if (_selectedAssigneeIds.contains(userId)) {
+        _selectedAssigneeIds.remove(userId);
+      } else {
+        _selectedAssigneeIds.add(userId);
+      }
+    });
+  }
+
+  Widget _buildAssigneeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Assignees',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: _loadingMembers
+              ? const Center(
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : _workspaceMembers.isEmpty
+                  ? Text(
+                      'No members found',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    )
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _workspaceMembers.map((member) {
+                        final userId = member['user_id'] ?? member['id'] ?? '';
+                        final displayName = member['display_name'] ?? member['name'] ?? 'Unknown';
+                        final isSelected = _selectedAssigneeIds.contains(userId);
+
+                        return FilterChip(
+                          label: Text(displayName),
+                          selected: isSelected,
+                          onSelected: (_) => _toggleAssignee(userId),
+                          selectedColor: Colors.blue.shade100,
+                          checkmarkColor: Colors.blue.shade700,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade800,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                          avatar: CircleAvatar(
+                            backgroundColor: isSelected ? Colors.blue.shade200 : Colors.grey.shade300,
+                            child: Text(
+                              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSelected ? Colors.blue.shade700 : Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+        ),
+        if (_selectedAssigneeIds.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              '${_selectedAssigneeIds.length} assignee${_selectedAssigneeIds.length != 1 ? 's' : ''} selected',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue.shade600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Future<void> _saveTask() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -1352,6 +1471,7 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
           'status': _status,
           'priority': _priority,
           'due_date': _dueDate?.toIso8601String(),
+          'assignees': _selectedAssigneeIds,
         },
       );
 
@@ -1362,6 +1482,19 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
       updatedTask['status'] = _status;
       updatedTask['priority'] = _priority;
       updatedTask['due_date'] = _dueDate?.toIso8601String();
+      updatedTask['assignees'] = _selectedAssigneeIds;
+
+      // Update assignee_details based on selected assignees
+      final updatedAssigneeDetails = _workspaceMembers
+          .where((m) => _selectedAssigneeIds.contains(m['user_id'] ?? m['id']))
+          .map((m) => {
+            'id': m['user_id'] ?? m['id'],
+            'display_name': m['display_name'] ?? m['name'] ?? 'Unknown',
+            'email': m['email'] ?? '',
+          })
+          .toList();
+      updatedTask['assignee_details'] = updatedAssigneeDetails;
+      updatedTask['total_assignees'] = updatedAssigneeDetails.length;
 
       widget.onSaved(updatedTask);
 
@@ -1525,6 +1658,10 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // Assignees section
+                _buildAssigneeSelector(),
                 const SizedBox(height: 24),
 
                 // Save button

@@ -634,13 +634,14 @@ router.put('/:taskId', async (req, res) => {
   try {
     const { threadId, taskId } = req.params;
     const userId = req.user.id; // Fixed: use req.user.id
-    const { 
-      title, 
-      description, 
-      start_date, 
-      end_date, 
+    const {
+      title,
+      description,
+      start_date,
+      end_date,
       due_date,
       assigned_to,
+      assignees,
       status,
       priority,
       tags,
@@ -710,6 +711,13 @@ router.put('/:taskId', async (req, res) => {
     addUpdate('google_calendar_event_id', google_calendar_event_id);
     addUpdate('completed_at', completed_at);
     addUpdate('updated_at', new Date());
+
+    // Handle assignees array (JSONB)
+    if (assignees !== undefined) {
+      paramCount++;
+      updates.push(`assignees = $${paramCount}::jsonb`);
+      values.push(JSON.stringify(assignees));
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
