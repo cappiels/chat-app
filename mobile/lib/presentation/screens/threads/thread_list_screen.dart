@@ -11,6 +11,7 @@ import '../timeline/channel_timeline_screen.dart';
 import '../calendar/channel_weekly_calendar_screen.dart';
 import '../tasks/task_detail_screen.dart';
 import '../../widgets/workspace/workspace_channel_switcher.dart';
+import '../../widgets/workspace/workspace_settings_sheet.dart';
 
 class ThreadListScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> workspace;
@@ -349,6 +350,13 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
         backgroundColor: Colors.blue.shade600,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add),
+            tooltip: 'Invite & Members',
+            onPressed: () => showWorkspaceSettingsSheet(context, widget.workspace),
+          ),
+        ],
       ),
       body: _buildBody(),
       bottomNavigationBar: _buildBottomNavigation(),
