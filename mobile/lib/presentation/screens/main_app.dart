@@ -356,6 +356,24 @@ class _MainAppState extends ConsumerState<MainApp> {
               _selectedWorkspace = null;
             });
           },
+          onWorkspaceChannelSelect: (workspace, thread) {
+            // Switch to the new workspace and let the thread list handle the channel
+            setState(() {
+              _selectedWorkspace = {
+                'id': workspace.id,
+                'name': workspace.name,
+                'description': workspace.description,
+                'owner_id': workspace.ownerId,
+                'role': workspace.role,
+                'user_role': workspace.role,
+                'member_count': workspace.memberCount,
+                'channel_count': workspace.channelCount,
+                'settings': workspace.settings,
+                'initialChannelId': thread.id,
+                'initialChannelName': thread.name,
+              };
+            });
+          },
         );
       },
     );

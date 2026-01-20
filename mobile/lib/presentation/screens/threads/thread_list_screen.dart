@@ -15,11 +15,13 @@ import '../../widgets/workspace/workspace_channel_switcher.dart';
 class ThreadListScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> workspace;
   final VoidCallback onBack;
-  
+  final Function(Workspace, Thread)? onWorkspaceChannelSelect;
+
   const ThreadListScreen({
     super.key,
     required this.workspace,
     required this.onBack,
+    this.onWorkspaceChannelSelect,
   });
 
   @override
@@ -341,6 +343,7 @@ class _ThreadListScreenState extends ConsumerState<ThreadListScreen> {
             });
             _saveContext(channel);
           },
+          onWorkspaceChannelSelect: widget.onWorkspaceChannelSelect,
           onWorkspaceSwitch: widget.onBack,
         ),
         backgroundColor: Colors.blue.shade600,
